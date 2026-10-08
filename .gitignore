@@ -1,0 +1,57 @@
+# Flutter/Dart/Pub related
+**/doc/api/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub/
+build/
+# Web-related
+web/
+# Android-related
+**/android/**/gradle-wrapper.jar
+**/android/**/gradle-wrapper.properties
+**/android/**/local.properties
+**/android/**/.*/**.lock
+**/android/build/
+**/android/app/**
+# iOS-related
+**/ios/**/.symlinks
+**/ios/**/profile
+**/ios/**/Pods
+**/ios/**/.symlinks
+**/ios/Flutter/Flutter.podspec
+**/ios/Flutter/Generated.xcconfig
+# Dart VM
+.dart_tool/
+.packages
+.dart_sdk/
+.snapshots/
+# Flutter specific
+flutter/
+# Misc
+*.log
+*.lock
+.DS_Store
+# Firebase
+firebase.json
+# Dart dev
+pubspec.lock
+.pub/
+# Android Studio
+.idea/
+*.iml
+# VS Code
+.vscode/
+# Dart language server
+.dart_tool/
+# Packages
+.packages
+# Build
+build/
+# Dart Frog
+.dart_frog/
+# Dart Frog build
+.dart_frog/
+# Web
+web/

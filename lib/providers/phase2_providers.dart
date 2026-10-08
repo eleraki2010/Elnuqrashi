@@ -1,0 +1,82 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../data/models/customer.dart';
+import '../data/models/purchase_invoice.dart';
+import '../data/models/supplier.dart';
+import '../data/repositories/purchase_repository.dart';
+import '../data/repositories/report_repository.dart';
+import '../data/repositories/supplier_repository.dart';
+import 'app_providers.dart';
+
+// Repositories
+
+final supplierRepositoryProvider = Provider<SupplierRepository>((ref) {
+  return SupplierRepository();
+});
+
+final purchaseRepositoryProvider = Provider<PurchaseRepository>((ref) {
+  return PurchaseRepository();
+});
+
+final reportRepositoryProvider = Provider<ReportRepository>((ref) {
+  return ReportRepository();
+});
+
+// Customer Search Query Notifier
+class CustomerSearchNotifier extends Notifier<String> {
+  @override
+  String build() => '';
+
+  void setQuery(String query) => state = query;
+  void clear() => state = '';
+}
+
+final customerSearchProvider =
+    NotifierProvider<CustomerSearchNotifier, String>(CustomerSearchNotifier.new);
+
+// Customers List Provider
+final customersListProvider = FutureProvider<List<Customer>>((ref) async {
+  final repo = ref.watch(customerRepositoryProvider);
+  final query = ref.watch(customerSearchProvider);
+  if (query.isEmpty) {
+    return await repo.getAllCustomers();
+  } else {
+    return await repo.searchCustomers(query);
+  }
+});
+
+// Supplier Search Query Notifier
+class SupplierSearchNotifier extends Notifier<String> {
+  @override
+  String build() => '';
+
+  void setQuery(String query) => state = query;
+  void clear() => state = '';
+}
+
+final supplierSearchProvider =
+    NotifierProvider<SupplierSearchNotifier, String>(SupplierSearchNotifier.new);
+
+// Suppliers List Provider
+final suppliersListProvider = FutureProvider<List<Supplier>>((ref) async {
+  final repo = ref.watch(supplierRepositoryProvider);
+  final query = ref.watch(supplierSearchProvider);
+  if (query.isEmpty) {
+    return await repo.getAllSuppliers();
+  } else {
+    return await repo.searchSuppliers(query);
+  }
+});
+
+// Overdue Customers Provider (عملاء تجاوزوا موعد سداد مديونيتهم)
+// يُعاد تحميله مع قائمة العملاء ليعكس أي تحصيل أو موعد جديد.
+final overdueCustomersProvider = FutureProvider<List<Customer>>((ref) async {
+  ref.watch(customersListProvider);
+  final repo = ref.watch(customerRepositoryProvider);
+  return repo.getOverdueCustomers();
+});
+
+// Purchases List Provider
+final purchasesListProvider = FutureProvider<List<PurchaseInvoice>>((ref) async {
+  final repo = ref.watch(purchaseRepositoryProvider);
+  return await repo.getAllPurchaseInvoices();
+});

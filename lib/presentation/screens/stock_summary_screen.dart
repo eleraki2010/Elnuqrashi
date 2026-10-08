@@ -1,0 +1,524 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../core/constants/app_constants.dart';
+import '../../data/repositories/product_repository.dart';
+import '../../providers/app_providers.dart';
+import '../widgets/max_width_container.dart';
+
+/// شاشة خدمة المخزن: كشف حيّ بالبضاعة الحالية (الاسم، العدد، القيمة)
+/// بعد خصم المبيعات. القيمة تُحسب بطريقتين: سعر الشراء (التكلفة)
+/// وسعر البيع (القيمة المتوقعة)، مع الربح المتوقع.
+class StockSummaryScreen extends ConsumerStatefulWidget {
+  const StockSummaryScreen({super.key});
+
+  @override
+  ConsumerState<StockSummaryScreen> createState() =>
+      _StockSummaryScreenState();
+}
+
+class _StockSummaryScreenState extends ConsumerState<StockSummaryScreen> {
+  String _searchQuery = '';
+  StockSort _sort = StockSort.valueDesc;
+
+  @override
+  Widget build(BuildContext context) {
+    final summaryAsync = ref.watch(stockSummaryProvider);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('خدمة المخزن'),
+        backgroundColor: AppColors.PRIMARY_BLUE,
+        centerTitle: true,
+      ),
+      body: MaxWidthContainer(
+        child: Padding(
+          padding: const EdgeInsets.all(AppLayout.SPACING_UNIT * 3),
+          child: summaryAsync.when(
+          data: (summary) {
+            final items = _applySearchAndSort(summary);
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'كشف خدمة المخزن',
+                      style: TextStyle(
+                        fontSize: AppTypography.HEADING_2,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.PRIMARY_BLUE_DARK,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'تفاصيل حديثة وحيّة للبضاعة الحالية بعد خصم المبيعات — العدد والقيمة لكل صنف',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppColors.TEXT_SECONDARY,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // Summary cards
+                Row(
+                  children: [
+                    Expanded(
+                      child: _SummaryCard(
+                        title: 'أصناف المخزن',
+                        value: '${summary.productsCount}',
+                        subtitle:
+                            'نافد: ${summary.outOfStockCount} • قطع: ${summary.totalQuantity}',
+                        icon: Icons.inventory_2,
+                        color: AppColors.PRIMARY_BLUE,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _SummaryCard(
+                        title: 'قيمة البضاعة (شراء)',
+                        value:
+                            '${summary.totalCostValue.toStringAsFixed(0)} ${AppStrings.CURRENCY}',
+                        subtitle: 'أموال المحل في المخزون',
+                        icon: Icons.account_balance_wallet,
+                        color: AppColors.WARNING_AMBER,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _SummaryCard(
+                        title: 'القيمة المتوقعة (بيع)',
+                        value:
+                            '${summary.totalSaleValue.toStringAsFixed(0)} ${AppStrings.CURRENCY}',
+                        subtitle:
+                            'ربح متوقع: ${summary.expectedProfit.toStringAsFixed(0)}',
+                        icon: Icons.trending_up,
+                        color: AppColors.SUCCESS_GREEN,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // Search + sort
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        onChanged: (val) =>
+                            setState(() => _searchQuery = val.trim()),
+                        decoration: InputDecoration(
+                          hintText: 'بحث باسم الصنف أو الباركود...',
+                          prefixIcon: const Icon(Icons.search),
+                          suffixIcon: _searchQuery.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear),
+                                  onPressed: () =>
+                                      setState(() => _searchQuery = ''),
+                                )
+                              : null,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    DropdownButton<StockSort>(
+                      value: _sort,
+                      underline: const SizedBox(),
+                      items: const [
+                        DropdownMenuItem(
+                          value: StockSort.valueDesc,
+                          child: Text('الأعلى قيمة'),
+                        ),
+                        DropdownMenuItem(
+                          value: StockSort.valueAsc,
+                          child: Text('الأقل قيمة'),
+                        ),
+                        DropdownMenuItem(
+                          value: StockSort.qtyDesc,
+                          child: Text('الأكثر عدداً'),
+                        ),
+                        DropdownMenuItem(
+                          value: StockSort.nameAsc,
+                          child: Text('الاسم'),
+                        ),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) setState(() => _sort = val);
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton.filledTonal(
+                      tooltip: 'تحديث',
+                      icon: const Icon(Icons.refresh),
+                      onPressed: () => ref.invalidate(stockSummaryProvider),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Table header
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.PRIMARY_BLUE.withValues(alpha: 0.08),
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(AppLayout.BORDER_RADIUS),
+                    ),
+                  ),
+                  child: const Row(
+                    children: [
+                      Expanded(
+                        flex: 4,
+                        child: Text(
+                          'البضاعة',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.PRIMARY_BLUE_DARK,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        flex: 2,
+                        child: Text(
+                          'العدد',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.PRIMARY_BLUE_DARK,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        flex: 3,
+                        child: Text(
+                          'القيمة (شراء)',
+                          textAlign: TextAlign.end,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.PRIMARY_BLUE_DARK,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        flex: 3,
+                        child: Text(
+                          'القيمة (بيع)',
+                          textAlign: TextAlign.end,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.PRIMARY_BLUE_DARK,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Items list
+                Expanded(
+                  child: items.isEmpty
+                      ? _buildEmptyState(summary)
+                      : Container(
+                          decoration: BoxDecoration(
+                            color: AppColors.NEUTRAL_SURFACE,
+                            borderRadius: const BorderRadius.vertical(
+                              bottom: Radius.circular(AppLayout.BORDER_RADIUS),
+                            ),
+                            border: Border.all(color: const Color(0xFFE5E7EB)),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: const BorderRadius.vertical(
+                              bottom:
+                                  Radius.circular(AppLayout.BORDER_RADIUS),
+                            ),
+                            child: ListView.separated(
+                              itemCount: items.length,
+                              separatorBuilder: (_, _) =>
+                                  const Divider(height: 1, thickness: 0.8),
+                              itemBuilder: (context, index) {
+                                final item = items[index];
+                                final isOut = item.quantity <= 0;
+                                return ListTile(
+                                  contentPadding:
+                                      const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 6,
+                                  ),
+                                  title: Text(
+                                    item.name,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  subtitle: Padding(
+                                    padding: const EdgeInsets.only(top: 2),
+                                    child: Text(
+                                      item.barcode != null &&
+                                              item.barcode!.isNotEmpty
+                                          ? '${item.barcode}'
+                                          : '—',
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        color: AppColors.TEXT_SECONDARY,
+                                      ),
+                                    ),
+                                  ),
+                                  trailing: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      // العدد
+                                      Container(
+                                        width: 64,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 6,
+                                          vertical: 4,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: isOut
+                                              ? AppColors.DANGER_RED
+                                                  .withValues(alpha: 0.12)
+                                              : AppColors.SUCCESS_GREEN
+                                                  .withValues(alpha: 0.12),
+                                          borderRadius:
+                                              BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          '${item.quantity} ${item.unit}',
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                            color: isOut
+                                                ? AppColors.DANGER_RED
+                                                : AppColors.SUCCESS_GREEN,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      // القيمة شراء
+                                      SizedBox(
+                                        width: 92,
+                                        child: Text(
+                                          item.stockValue.toStringAsFixed(0),
+                                          textAlign: TextAlign.end,
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppColors.WARNING_AMBER,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      // القيمة بيع
+                                      SizedBox(
+                                        width: 92,
+                                        child: Text(
+                                          item.expectedSaleValue.toStringAsFixed(0),
+                                          textAlign: TextAlign.end,
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppColors.PRIMARY_BLUE,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                ),
+                const SizedBox(height: 12),
+
+                // Grand total row
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.PRIMARY_BLUE.withValues(alpha: 0.08),
+                    borderRadius:
+                        BorderRadius.circular(AppLayout.BORDER_RADIUS),
+                    border: Border.all(
+                      color: AppColors.PRIMARY_BLUE.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'الإجمالي',
+                        style: TextStyle(
+                          fontSize: AppTypography.HEADING_3,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.PRIMARY_BLUE_DARK,
+                        ),
+                      ),
+                      Text(
+                        '${summary.totalCostValue.toStringAsFixed(0)} ${AppStrings.CURRENCY}',
+                        style: const TextStyle(
+                          fontSize: AppTypography.HEADING_3,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.WARNING_AMBER,
+                        ),
+                      ),
+                      Text(
+                        '${summary.totalSaleValue.toStringAsFixed(0)} ${AppStrings.CURRENCY}',
+                        style: const TextStyle(
+                          fontSize: AppTypography.HEADING_3,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.PRIMARY_BLUE,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          },
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (err, _) => Center(child: Text('خطأ: $err')),
+        ),
+        ),
+      ),
+    );
+  }
+
+  List<StockSummaryItem> _applySearchAndSort(StockSummary summary) {
+    var items = summary.items.where((i) {
+      if (_searchQuery.isEmpty) return true;
+      final q = _searchQuery.toLowerCase();
+      return i.name.toLowerCase().contains(q) ||
+          (i.barcode ?? '').toLowerCase().contains(q);
+    }).toList();
+
+    switch (_sort) {
+      case StockSort.valueDesc:
+        items.sort((a, b) => b.stockValue.compareTo(a.stockValue));
+      case StockSort.valueAsc:
+        items.sort((a, b) => a.stockValue.compareTo(b.stockValue));
+      case StockSort.qtyDesc:
+        items.sort((a, b) => b.quantity.compareTo(a.quantity));
+      case StockSort.nameAsc:
+        items.sort((a, b) => a.name.compareTo(b.name));
+    }
+    return items;
+  }
+
+  Widget _buildEmptyState(StockSummary summary) {
+    final isEmpty = summary.productsCount == 0;
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            isEmpty ? Icons.inventory_2_outlined : Icons.search_off,
+            size: 64,
+            color: AppColors.TEXT_SECONDARY.withValues(alpha: 0.4),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            isEmpty ? 'لا توجد بضاعة في المخزن' : 'لا توجد أصناف مطابقة',
+            style: const TextStyle(
+              fontSize: AppTypography.HEADING_3,
+              color: AppColors.TEXT_SECONDARY,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            isEmpty
+                ? 'أضف منتجات أو سجّل فاتورة شراء لتظهر البضاعة هنا'
+                : 'جرّب كلمة بحث أخرى أو امسح الفلتر',
+            style: const TextStyle(color: AppColors.TEXT_SECONDARY),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+enum StockSort { valueDesc, valueAsc, qtyDesc, nameAsc }
+
+class _SummaryCard extends StatelessWidget {
+  final String title;
+  final String value;
+  final String subtitle;
+  final IconData icon;
+  final Color color;
+
+  const _SummaryCard({
+    required this.title,
+    required this.value,
+    required this.subtitle,
+    required this.icon,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppLayout.SPACING_UNIT * 2),
+      decoration: BoxDecoration(
+        color: AppColors.NEUTRAL_SURFACE,
+        borderRadius: BorderRadius.circular(AppLayout.BORDER_RADIUS),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Flexible(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.TEXT_SECONDARY,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 2,
+                ),
+              ),
+              Icon(icon, color: color, size: 20),
+            ],
+          ),
+          const SizedBox(height: 8),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerRight,
+            child: Text(
+              value,
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            style: const TextStyle(
+              fontSize: 11,
+              color: AppColors.TEXT_SECONDARY,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+}
