@@ -48,6 +48,8 @@ class SaleInvoice {
         return 'نقدي';
       case 'wallet':
         return 'محفظة إلكترونية';
+      case 'split':
+        return 'دفع مشترك (نقدي + محفظة)';
       case 'credit':
         return 'آجل (على الحساب)';
       default:

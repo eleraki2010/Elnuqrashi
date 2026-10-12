@@ -80,15 +80,18 @@ class StatCard extends StatelessWidget {
                   ],
                 ),
                 SizedBox(height: 12 * scale),
-                Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: AppTypography.HEADING_1 * scale,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.TEXT_PRIMARY,
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    value,
+                    style: TextStyle(
+                      fontSize: AppTypography.HEADING_1 * scale,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.TEXT_PRIMARY,
+                    ),
+                    maxLines: 1,
                   ),
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
                 ),
                 if (subtitle != null) ...[
                   SizedBox(height: 4 * scale),

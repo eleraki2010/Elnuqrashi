@@ -104,17 +104,25 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> with SingleTicker
       padding: const EdgeInsets.symmetric(vertical: 16),
       children: [
         // Metric Cards Grid
-        GridView.count(
-          crossAxisCount:
-              ResponsiveUtils.statGridColumns(contentWidth),
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisSpacing: 16 * scale,
-          mainAxisSpacing: 16 * scale,
-          childAspectRatio: 1.6,
-          children: [
-            StatCard(
-              title: 'صافي المبيعات',
+        () {
+          final statCols = ResponsiveUtils.statGridColumns(contentWidth);
+          final statSpacing = 16.0 * scale;
+          final statCardWidth =
+              (contentWidth - 32 - (statCols - 1) * statSpacing) / statCols;
+          final statCardHeight =
+              134.0 * ResponsiveUtils.scaleForWidth(statCardWidth);
+          final statRatio = (statCardWidth / statCardHeight).clamp(1.2, 2.3);
+
+          return GridView.count(
+            crossAxisCount: statCols,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisSpacing: statSpacing,
+            mainAxisSpacing: statSpacing,
+            childAspectRatio: statRatio,
+            children: [
+              StatCard(
+                title: 'صافي المبيعات',
               value: AppStrings.money(report.netSales),
               subtitle:
                   'الإجمالي ${report.totalSales.toStringAsFixed(0)} − المرتجعات ${report.totalReturns.toStringAsFixed(0)}',
@@ -159,8 +167,55 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> with SingleTicker
               icon: Icons.undo,
               iconColor: AppColors.WARNING_AMBER,
             ),
+            StatCard(
+              title: 'ضريبة القيمة المضافة',
+              value: AppStrings.money(report.totalTax),
+              subtitle: 'وعاء: ${AppStrings.money(report.salesBeforeTax)}',
+              icon: Icons.account_balance,
+              iconColor: Colors.deepPurple,
+            ),
           ],
-        ),
+        )(),
+        if (report.totalTax > 0) ...[
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(AppLayout.SPACING_UNIT * 2),
+            decoration: BoxDecoration(
+              color: Colors.deepPurple.shade50,
+              borderRadius: BorderRadius.circular(AppLayout.BORDER_RADIUS),
+              border: Border.all(color: Colors.deepPurple.shade200),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.account_balance_outlined, color: Colors.deepPurple.shade700, size: 28),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'إقرار ضريبة القيمة المضافة (14% VAT)',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14 * scale,
+                          color: Colors.deepPurple.shade900,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'إجمالي ضريبة المبيعات المحصلة خلال هذه الفترة: ${AppStrings.money(report.totalTax)} — مستحقة التوريد لمصلحة الضرائب على وعاء مبيعات قدره ${AppStrings.money(report.salesBeforeTax)}.',
+                        style: TextStyle(
+                          fontSize: 12.5 * scale,
+                          color: Colors.deepPurple.shade800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
         const SizedBox(height: 28),
 
         // Top Selling Products Table

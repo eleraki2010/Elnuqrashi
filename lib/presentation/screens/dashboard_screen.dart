@@ -64,8 +64,8 @@ class DashboardScreen extends ConsumerWidget {
                   crossAxisSpacing: statSpacing,
                   mainAxisSpacing: statSpacing,
                   childAspectRatio: (statCardWidth / statTargetHeight).clamp(
-                    0.6,
-                    1.9,
+                    0.8,
+                    2.2,
                   ),
                   children: [
                     StatCard(

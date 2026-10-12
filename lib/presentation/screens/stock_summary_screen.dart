@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants/app_constants.dart';
+import '../../data/models/product.dart';
 import '../../data/repositories/product_repository.dart';
 import '../../providers/app_providers.dart';
+import '../../providers/auth_provider.dart';
 import '../widgets/max_width_container.dart';
 
 /// شاشة خدمة المخزن: كشف حيّ بالبضاعة الحالية (الاسم، العدد، القيمة)
@@ -30,6 +32,20 @@ class _StockSummaryScreenState extends ConsumerState<StockSummaryScreen> {
         title: const Text('خدمة المخزن'),
         backgroundColor: AppColors.PRIMARY_BLUE,
         centerTitle: true,
+        actions: [
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: AppColors.DANGER_RED,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            ),
+            icon: const Icon(Icons.broken_image_outlined, size: 18),
+            label: const Text('تسجيل تالف / كسر', style: TextStyle(fontWeight: FontWeight.bold)),
+            onPressed: () => _showRecordDamageDialog(context),
+          ),
+          const SizedBox(width: 12),
+        ],
       ),
       body: MaxWidthContainer(
         child: Padding(
@@ -442,6 +458,229 @@ class _StockSummaryScreenState extends ConsumerState<StockSummaryScreen> {
             style: const TextStyle(color: AppColors.TEXT_SECONDARY),
           ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _showRecordDamageDialog(BuildContext context) async {
+    final products = ref.read(productListProvider).value ?? [];
+    if (products.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('لا توجد أصناف مسجلة بالمخزن')),
+      );
+      return;
+    }
+
+    Product? selectedProduct = products.firstWhere(
+      (p) => p.quantity > 0,
+      orElse: () => products.first,
+    );
+    int quantity = 1;
+    final reasonController = TextEditingController(text: 'تالف وكسر مخزني');
+    final qtyController = TextEditingController(text: '1');
+    bool recordAsExpense = true;
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final maxStock = selectedProduct?.quantity ?? 0;
+          final totalLoss = (selectedProduct?.purchasePrice ?? 0.0) * quantity;
+
+          return AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.broken_image_outlined, color: AppColors.DANGER_RED),
+                SizedBox(width: 8),
+                Text('تسجيل كسر وتوالف مخزون'),
+              ],
+            ),
+            content: SizedBox(
+              width: 440,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('اختر الصنف:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    const SizedBox(height: 6),
+                    DropdownButtonFormField<Product>(
+                      isExpanded: true,
+                      initialValue: selectedProduct,
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      ),
+                      items: products.map((p) {
+                        return DropdownMenuItem<Product>(
+                          value: p,
+                          child: Text(
+                            '${p.name} (المتاح: ${p.quantity} ${p.unit}) - شراء: ${p.purchasePrice} ج.م',
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: p.quantity <= 0 ? Colors.grey : Colors.black87,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (p) {
+                        if (p != null) {
+                          setDialogState(() {
+                            selectedProduct = p;
+                            quantity = 1;
+                            qtyController.text = '1';
+                          });
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 14),
+                    const Text('الكمية التالفة:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.remove_circle_outline),
+                          onPressed: quantity > 1
+                              ? () {
+                                  setDialogState(() {
+                                    quantity--;
+                                    qtyController.text = '$quantity';
+                                  });
+                                }
+                              : null,
+                        ),
+                        Expanded(
+                          child: TextField(
+                            controller: qtyController,
+                            keyboardType: TextInputType.number,
+                            textAlign: TextAlign.center,
+                            decoration: InputDecoration(
+                              border: const OutlineInputBorder(),
+                              contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                              helperText: 'أقصى كمية متاحة: $maxStock',
+                            ),
+                            onChanged: (val) {
+                              final q = int.tryParse(val) ?? 1;
+                              setDialogState(() {
+                                quantity = q.clamp(1, maxStock > 0 ? maxStock : 1);
+                              });
+                            },
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.add_circle_outline),
+                          onPressed: quantity < maxStock
+                              ? () {
+                                  setDialogState(() {
+                                    quantity++;
+                                    qtyController.text = '$quantity';
+                                  });
+                                }
+                              : null,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    const Text('سبب الكسر أو التلف:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: reasonController,
+                      decoration: const InputDecoration(
+                        hintText: 'مثال: كسر أثناء النقل، انتهاء صلاحية...',
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    CheckboxListTile(
+                      contentPadding: EdgeInsets.zero,
+                      value: recordAsExpense,
+                      title: const Text('تسجيل الخسارة كمصروف تشغيلي (توالف مخزون)'),
+                      subtitle: const Text('لتخفيض صافي الأرباح تلقائياً في قائمة الدخل'),
+                      onChanged: (v) => setDialogState(() => recordAsExpense = v ?? true),
+                    ),
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.DANGER_RED.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppColors.DANGER_RED.withValues(alpha: 0.2)),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('إجمالي الخسارة المحسوبة:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          Text(
+                            AppStrings.money(totalLoss),
+                            style: const TextStyle(fontWeight: FontWeight.w900, color: AppColors.DANGER_RED, fontSize: 14),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('إلغاء'),
+              ),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.DANGER_RED,
+                  foregroundColor: Colors.white,
+                ),
+                icon: const Icon(Icons.check),
+                label: const Text('تأكيد وإسقاط التالف'),
+                onPressed: (selectedProduct == null || maxStock <= 0)
+                    ? null
+                    : () async {
+                        try {
+                          await ref.read(productRepositoryProvider).recordStockDamage(
+                                productId: selectedProduct!.id,
+                                quantity: quantity,
+                                reason: reasonController.text.trim().isEmpty
+                                    ? 'تالف وكسر مخزني'
+                                    : reasonController.text.trim(),
+                                recordAsExpense: recordAsExpense,
+                                userId: ref.read(authProvider).user?.id,
+                              );
+                          ref.invalidate(productListProvider);
+                          ref.invalidate(stockSummaryProvider);
+                          ref.invalidate(expensesListProvider);
+                          ref.invalidate(shopBalanceProvider);
+
+                          if (ctx.mounted) {
+                            Navigator.of(ctx).pop();
+                          }
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                backgroundColor: AppColors.SUCCESS_GREEN,
+                                content: Text(
+                                  '✓ تم إسقاط $quantity قطعة من "${selectedProduct!.name}" بنجاح (${AppStrings.money(totalLoss)})',
+                                ),
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (ctx.mounted) {
+                            ScaffoldMessenger.of(ctx).showSnackBar(
+                              SnackBar(
+                                backgroundColor: AppColors.DANGER_RED,
+                                content: Text('خطأ: $e'),
+                              ),
+                            );
+                          }
+                        }
+                      },
+              ),
+            ],
+          );
+        },
       ),
     );
   }

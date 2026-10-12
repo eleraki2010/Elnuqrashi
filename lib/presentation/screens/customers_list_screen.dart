@@ -213,27 +213,30 @@ class CustomersListScreen extends ConsumerWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'إدارة العملاء وحسابات الديون',
-                      style: TextStyle(
-                        fontSize: AppTypography.HEADING_2 * scale,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.PRIMARY_BLUE_DARK,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'إدارة العملاء وحسابات الديون',
+                        style: TextStyle(
+                          fontSize: AppTypography.HEADING_2 * scale,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.PRIMARY_BLUE_DARK,
+                        ),
                       ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'مرتّبون تنازلياً حسب المديونية — كشف الحساب يجمع الفواتير والمرتجعات والدفعات برصيد جارٍ',
-                      style: TextStyle(
-                        fontSize: 13 * scale,
-                        color: AppColors.TEXT_SECONDARY,
+                      const SizedBox(height: 4),
+                      Text(
+                        'مرتّبون تنازلياً حسب المديونية — كشف الحساب يجمع الفواتير والمرتجعات والدفعات برصيد جارٍ',
+                        style: TextStyle(
+                          fontSize: 13 * scale,
+                          color: AppColors.TEXT_SECONDARY,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
+                const SizedBox(width: 12),
                 ElevatedButton.icon(
                   onPressed: () => _showAddEditCustomerDialog(context, ref),
                   icon: const Icon(Icons.person_add),
@@ -348,7 +351,10 @@ class CustomersListScreen extends ConsumerWidget {
                              ),
                             subtitle: Padding(
                               padding: const EdgeInsets.only(top: 4),
-                              child: Row(
+                              child: Wrap(
+                                spacing: 12,
+                                runSpacing: 4,
+                                crossAxisAlignment: WrapCrossAlignment.center,
                                 children: [
                                     if (c.phone != null &&
                                         c.phone!.isNotEmpty) ...[

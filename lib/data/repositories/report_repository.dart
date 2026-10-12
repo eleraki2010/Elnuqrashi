@@ -1,4 +1,4 @@
-﻿import '../../core/database/app_database.dart';
+import '../../core/database/app_database.dart';
 
 class TopProductItem {
   final String productName;
@@ -22,6 +22,8 @@ class PeriodReportSummary {
   final double totalReturnProfit;
   final double totalReturns;
   final double totalExpenses;
+  final double totalTax;
+  final double salesBeforeTax;
   final List<TopProductItem> topSellingProducts;
 
   /// ربح المبيعات الصافي = أرباح الفواتير المكتملة − ربح الأصناف المرتجعة.
@@ -42,6 +44,8 @@ class PeriodReportSummary {
     this.totalReturnProfit = 0.0,
     this.totalReturns = 0.0,
     this.totalExpenses = 0.0,
+    this.totalTax = 0.0,
+    this.salesBeforeTax = 0.0,
     required this.topSellingProducts,
   });
 }
@@ -52,17 +56,21 @@ class ReportRepository {
     final startStr = DateTime(start.year, start.month, start.day).toIso8601String();
     final endStr = DateTime(end.year, end.month, end.day, 23, 59, 59).toIso8601String();
 
-    // 1. Sales Summary
+    // 1. Sales Summary & VAT
     final salesRes = await db.rawQuery('''
       SELECT 
         COUNT(*) as invoice_count,
-        COALESCE(SUM(total), 0.0) as total_sales
+        COALESCE(SUM(total), 0.0) as total_sales,
+        COALESCE(SUM(tax), 0.0) as total_tax,
+        COALESCE(SUM(subtotal), 0.0) as sales_before_tax
       FROM sale_invoices
       WHERE status = 'completed'
         AND created_at >= ? AND created_at <= ?
     ''', [startStr, endStr]);
 
     final totalSales = (salesRes.first['total_sales'] as num?)?.toDouble() ?? 0.0;
+    final totalTax = (salesRes.first['total_tax'] as num?)?.toDouble() ?? 0.0;
+    final salesBeforeTax = (salesRes.first['sales_before_tax'] as num?)?.toDouble() ?? 0.0;
     final invoiceCount = (salesRes.first['invoice_count'] as num?)?.toInt() ?? 0;
 
     // 2. Purchases Summary
@@ -86,7 +94,17 @@ class ReportRepository {
         AND si.created_at >= ? AND si.created_at <= ?
     ''', [startStr, endStr]);
 
-    final totalGrossProfit = (profitRes.first['total_profit'] as num?)?.toDouble() ?? 0.0;
+    final discountsRes = await db.rawQuery('''
+      SELECT COALESCE(SUM(discount), 0.0) as total_discounts
+      FROM sale_invoices
+      WHERE status = 'completed'
+        AND created_at >= ? AND created_at <= ?
+    ''', [startStr, endStr]);
+
+    final totalDiscounts =
+        (discountsRes.first['total_discounts'] as num?)?.toDouble() ?? 0.0;
+    final totalGrossProfit =
+        ((profitRes.first['total_profit'] as num?)?.toDouble() ?? 0.0) - totalDiscounts;
 
     // 3.5. Returns Summary (المرتجعات تقلل صافي المبيعات والأرباح)
     final returnsRes = await db.rawQuery(
@@ -185,6 +203,8 @@ class ReportRepository {
       totalReturnProfit: totalReturnProfit,
       totalReturns: totalReturns,
       totalExpenses: totalExpenses,
+      totalTax: totalTax,
+      salesBeforeTax: salesBeforeTax,
       topSellingProducts: topProducts,
     );
   }

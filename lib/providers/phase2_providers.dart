@@ -3,6 +3,7 @@ import '../data/models/customer.dart';
 import '../data/models/purchase_invoice.dart';
 import '../data/models/supplier.dart';
 import '../data/repositories/purchase_repository.dart';
+import '../data/repositories/purchase_return_repository.dart';
 import '../data/repositories/report_repository.dart';
 import '../data/repositories/supplier_repository.dart';
 import 'app_providers.dart';
@@ -15,6 +16,11 @@ final supplierRepositoryProvider = Provider<SupplierRepository>((ref) {
 
 final purchaseRepositoryProvider = Provider<PurchaseRepository>((ref) {
   return PurchaseRepository();
+});
+
+final purchaseReturnRepositoryProvider =
+    Provider<PurchaseReturnRepository>((ref) {
+  return PurchaseReturnRepository();
 });
 
 final reportRepositoryProvider = Provider<ReportRepository>((ref) {

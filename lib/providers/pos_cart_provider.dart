@@ -25,7 +25,9 @@ class CartState {
   final double discount;
   final double tax;
   final double paidAmount;
-  final String paymentMethod; // cash, wallet, credit
+  final double splitCashAmount;
+  final double splitWalletAmount;
+  final String paymentMethod; // cash, wallet, split, credit
   final String? customerId;
 
   CartState({
@@ -33,13 +35,21 @@ class CartState {
     this.discount = 0.0,
     this.tax = 0.0,
     this.paidAmount = 0.0,
+    this.splitCashAmount = 0.0,
+    this.splitWalletAmount = 0.0,
     this.paymentMethod = 'cash',
     this.customerId,
   });
 
   double get subtotal => items.fold(0.0, (sum, item) => sum + item.lineTotal);
   double get total => (subtotal - discount + tax).clamp(0.0, double.infinity);
-  double get changeDue => paidAmount - total;
+  double get changeDue {
+    if (paymentMethod == 'split') {
+      final totalPaid = splitCashAmount + splitWalletAmount;
+      return totalPaid - total;
+    }
+    return paidAmount - total;
+  }
   bool get isChangePositive => changeDue >= 0;
   double get remainingOnCustomer => changeDue < 0 ? (-changeDue) : 0.0;
   int get totalItemsCount => items.fold(0, (sum, item) => sum + item.quantity);
@@ -49,6 +59,8 @@ class CartState {
     double? discount,
     double? tax,
     double? paidAmount,
+    double? splitCashAmount,
+    double? splitWalletAmount,
     String? paymentMethod,
     String? customerId,
   }) {
@@ -57,6 +69,8 @@ class CartState {
       discount: discount ?? this.discount,
       tax: tax ?? this.tax,
       paidAmount: paidAmount ?? this.paidAmount,
+      splitCashAmount: splitCashAmount ?? this.splitCashAmount,
+      splitWalletAmount: splitWalletAmount ?? this.splitWalletAmount,
       paymentMethod: paymentMethod ?? this.paymentMethod,
       customerId: customerId ?? this.customerId,
     );
@@ -151,6 +165,13 @@ class CartNotifier extends Notifier<CartState> {
     state = state.copyWith(paymentMethod: method);
   }
 
+  void setSplitAmounts({required double cash, required double wallet}) {
+    state = state.copyWith(
+      splitCashAmount: cash,
+      splitWalletAmount: wallet,
+    );
+  }
+
   void setCustomerId(String? customerId) {
     state = state.copyWith(customerId: customerId);
   }
@@ -166,7 +187,10 @@ class CartNotifier extends Notifier<CartState> {
       invoiceNumber: invoiceNumber,
       status: 'completed',
     );
-    await ref.read(saleRepositoryProvider).createSaleInvoice(invoice);
+    await ref.read(saleRepositoryProvider).createSaleInvoice(
+      invoice: invoice,
+      items: invoice.items,
+    );
     _latestSaleInvoice = invoice;
   }
 
@@ -194,6 +218,17 @@ class CartNotifier extends Notifier<CartState> {
       );
     }).toList();
 
+    double actualPaid;
+    if (state.paymentMethod == 'split') {
+      final totalSplit = state.splitCashAmount + state.splitWalletAmount;
+      actualPaid = totalSplit > 0 ? totalSplit : state.total;
+    } else if ((state.paymentMethod == 'cash' || state.paymentMethod == 'wallet') && state.paidAmount <= 0.0) {
+      actualPaid = state.total;
+    } else {
+      actualPaid = state.paidAmount;
+    }
+    final double actualChange = actualPaid - state.total;
+
     return SaleInvoice(
       id: invoiceId,
       invoiceNumber: invoiceNumber,
@@ -204,8 +239,8 @@ class CartNotifier extends Notifier<CartState> {
       discount: state.discount,
       tax: state.tax,
       total: state.total,
-      paidAmount: state.paidAmount,
-      changeDue: state.changeDue,
+      paidAmount: actualPaid,
+      changeDue: actualChange,
       paymentMethod: state.paymentMethod,
       status: status,
       createdAt: now,

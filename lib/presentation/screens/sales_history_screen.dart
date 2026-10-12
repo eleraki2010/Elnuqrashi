@@ -345,7 +345,10 @@ class SalesHistoryScreen extends ConsumerWidget {
                                   color: statusColor,
                                 ),
                               ),
-                              title: Row(
+                              title: Wrap(
+                                spacing: 8,
+                                runSpacing: 4,
+                                crossAxisAlignment: WrapCrossAlignment.center,
                                 children: [
                                   Text(
                                     inv.invoiceNumber,
@@ -354,7 +357,6 @@ class SalesHistoryScreen extends ConsumerWidget {
                                       fontSize: 15 * scale,
                                     ),
                                   ),
-                                  const SizedBox(width: 8),
                                   Container(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 8,
@@ -379,7 +381,9 @@ class SalesHistoryScreen extends ConsumerWidget {
                               ),
                               subtitle: Padding(
                                 padding: const EdgeInsets.only(top: 4),
-                                child: Row(
+                                child: Wrap(
+                                  spacing: 12,
+                                  runSpacing: 2,
                                   children: [
                                     Text(
                                       dateFormat.format(inv.createdAt),
@@ -388,7 +392,6 @@ class SalesHistoryScreen extends ConsumerWidget {
                                         color: AppColors.TEXT_SECONDARY,
                                       ),
                                     ),
-                                    const SizedBox(width: 16),
                                     Text(
                                       'طريقة الدفع: ${inv.paymentMethodArabic}',
                                       style: TextStyle(

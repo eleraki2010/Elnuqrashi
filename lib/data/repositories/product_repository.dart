@@ -1,4 +1,5 @@
 import 'package:sqflite/sqflite.dart';
+import 'package:uuid/uuid.dart';
 import '../../core/database/app_database.dart';
 import '../models/product.dart';
 
@@ -205,5 +206,77 @@ class ProductRepository {
         .map((p) => StockSummaryItem.fromProduct(p))
         .toList();
     return StockSummary(items: items);
+  }
+
+  /// تسجيل كسر أو توالف أو عجز مخزني:
+  /// يخصم الكمية من المخزون، ويسجل حركة مخزنية من نوع 'damage'،
+  /// ويسجل الخسارة كمصروف تشغيلي (توالف وكسر مخزون) لتدخل في قائمة الأرباح والخسائر بدقة.
+  Future<void> recordStockDamage({
+    required String productId,
+    required int quantity,
+    required String reason,
+    bool recordAsExpense = true,
+    String? userId,
+  }) async {
+    final db = await AppDatabase.instance;
+    final product = await getProductById(productId);
+    if (product == null) throw StateError('المنتج غير موجود');
+    if (quantity <= 0) throw ArgumentError('الكمية يجب أن تكون أكبر من الصفر');
+    if (quantity > product.quantity) {
+      throw StateError(
+        'الكمية التالفة ($quantity) أكبر من الرصيد المتاح بالمخزن (${product.quantity})',
+      );
+    }
+
+    final now = DateTime.now();
+    const uuid = Uuid();
+    final movementId = uuid.v4();
+    final totalLoss = quantity * product.purchasePrice;
+
+    await db.transaction((txn) async {
+      // 1. خصم الكمية من رصيد المنتج
+      await txn.rawUpdate(
+        'UPDATE products SET quantity = quantity - ?, updated_at = ? WHERE id = ?',
+        [quantity, now.toIso8601String(), productId],
+      );
+
+      // 2. تسجيل حركة مخزنية سالبة من نوع damage
+      await txn.insert('stock_movements', {
+        'id': movementId,
+        'product_id': productId,
+        'type': 'damage',
+        'quantity_change': -quantity,
+        'reference_id': movementId,
+        'note': 'كسر/تالف: $reason',
+        'created_at': now.toIso8601String(),
+      });
+
+      // 3. تسجيل الخسارة كمصروف في الدفاتر إن طُلب ذلك
+      if (recordAsExpense && totalLoss > 0) {
+        await txn.insert('expenses', {
+          'id': uuid.v4(),
+          'amount': totalLoss,
+          'category_id': 'توالف وكسر مخزون',
+          'note':
+              'خسارة كسر وتوالف: ${product.name} (عدد $quantity ${product.unit}) - $reason',
+          'created_at': now.toIso8601String(),
+        });
+      }
+
+      // 4. توثيق العملية في سجل التدقيق والرقابة
+      await txn.insert('audit_logs', {
+        'id': uuid.v4(),
+        'table_name': 'products',
+        'record_id': productId,
+        'action': 'damage_write_off',
+        'old_values': '{"quantity": ${product.quantity}}',
+        'new_values':
+            '{"damaged_qty": $quantity, "cost_loss": $totalLoss, "reason": "$reason"}',
+        'user_id': userId,
+        'note':
+            'تسجيل كسر/توالف لصنف "${product.name}" بعدد $quantity ${product.unit} (خسارة ${totalLoss.toStringAsFixed(0)} ج.م)',
+        'created_at': now.toIso8601String(),
+      });
+    });
   }
 }

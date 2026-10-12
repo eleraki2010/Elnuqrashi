@@ -20,7 +20,9 @@ class AppDatabase {
   //     (صافي الربح كان يتضخم بربح ما أُرجع).
   // v10: جدول فئات المصروفات (default + مخصصة) لتتيح شاشة المصروفات
   //      إضافة فئات جديدة بجوار قائمة الفئة.
-  static const int dbVersion = 10;
+  // v11: جداول مرتجع المشتريات للموردين (purchase_return_invoices & items)
+  //      وفئة مصروفات توالف وكسر المخزون.
+  static const int dbVersion = 11;
   static const int _dbVersion = dbVersion;
 
   static Database? _database;
@@ -298,6 +300,38 @@ class AppDatabase {
     ''');
     await _seedDefaultExpenseCategories(db);
 
+    // 18. PurchaseReturnInvoices (مرتجع المشتريات للموردين)
+    await db.execute('''
+      CREATE TABLE purchase_return_invoices (
+        id TEXT PRIMARY KEY,
+        original_purchase_invoice_id TEXT,
+        supplier_id TEXT NOT NULL,
+        return_amount REAL NOT NULL,
+        debt_reduction REAL NOT NULL DEFAULT 0.0,
+        cash_refund_in REAL NOT NULL DEFAULT 0.0,
+        reason TEXT,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (original_purchase_invoice_id) REFERENCES purchase_invoices (id) ON DELETE SET NULL,
+        FOREIGN KEY (supplier_id) REFERENCES suppliers (id) ON DELETE RESTRICT
+      )
+    ''');
+
+    // 19. PurchaseReturnInvoiceItems
+    await db.execute('''
+      CREATE TABLE purchase_return_invoice_items (
+        id TEXT PRIMARY KEY,
+        return_invoice_id TEXT NOT NULL,
+        product_id TEXT NOT NULL,
+        quantity INTEGER NOT NULL,
+        unit_cost REAL NOT NULL,
+        line_total REAL NOT NULL,
+        product_name TEXT,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (return_invoice_id) REFERENCES purchase_return_invoices (id) ON DELETE CASCADE,
+        FOREIGN KEY (product_id) REFERENCES products (id) ON DELETE RESTRICT
+      )
+    ''');
+
     // Seed default categories
     await _seedDefaultCategories(db);
     // Seed default owner account (Phase 3: users & roles)
@@ -405,6 +439,42 @@ class AppDatabase {
       ''');
       await _seedDefaultExpenseCategories(db);
     }
+    if (oldVersion < 11) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS purchase_return_invoices (
+          id TEXT PRIMARY KEY,
+          original_purchase_invoice_id TEXT,
+          supplier_id TEXT NOT NULL,
+          return_amount REAL NOT NULL,
+          debt_reduction REAL NOT NULL DEFAULT 0.0,
+          cash_refund_in REAL NOT NULL DEFAULT 0.0,
+          reason TEXT,
+          created_at TEXT NOT NULL,
+          FOREIGN KEY (original_purchase_invoice_id) REFERENCES purchase_invoices (id) ON DELETE SET NULL,
+          FOREIGN KEY (supplier_id) REFERENCES suppliers (id) ON DELETE RESTRICT
+        )
+      ''');
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS purchase_return_invoice_items (
+          id TEXT PRIMARY KEY,
+          return_invoice_id TEXT NOT NULL,
+          product_id TEXT NOT NULL,
+          quantity INTEGER NOT NULL,
+          unit_cost REAL NOT NULL,
+          line_total REAL NOT NULL,
+          product_name TEXT,
+          created_at TEXT NOT NULL,
+          FOREIGN KEY (return_invoice_id) REFERENCES purchase_return_invoices (id) ON DELETE CASCADE,
+          FOREIGN KEY (product_id) REFERENCES products (id) ON DELETE RESTRICT
+        )
+      ''');
+      // فئة توالف وكسر المخزون
+      await db.insert(
+        'expense_categories',
+        {'id': 'توالف وكسر مخزون', 'name': 'توالف وكسر مخزون', 'created_at': DateTime.now().toIso8601String()},
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+    }
   }
 
   /// بذرة فئات المصروفات الافتراضية (نفس قائمة ExpenseRepository.defaultCategories).
@@ -415,6 +485,7 @@ class AppDatabase {
       'رواتب',
       'صيانة',
       'شحن ونقل',
+      'توالف وكسر مخزون',
       'أخرى',
     ];
     final now = DateTime.now().toIso8601String();

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/constants/app_constants.dart';
@@ -10,6 +11,12 @@ import 'providers/auth_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // ضبط التطبيق للعمل في الوضع الرأسي (Portrait) للأجهزة اللوحية
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
 
   // Initialize SQLite local database.
   // أي فشل في فتح/ترقية القاعدة لا يجب أن يُسقط التطبيق بصمت؛ نلتقطه ونعرضه.
