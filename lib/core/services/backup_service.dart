@@ -5,8 +5,10 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 
+import '../../data/repositories/shop_profile_repository.dart';
 import '../database/app_database.dart';
 
 /// النسخ الاحتياطي والاسترجاع (Phase 3.15).
@@ -17,6 +19,8 @@ class BackupService {
   // الترتيب الصحيح للإدراج (الآباء قبل الأبناء).
   static const List<String> _insertOrder = [
     'categories',
+    'shop_profile',
+    'expense_categories',
     'users',
     'customers',
     'suppliers',
@@ -25,6 +29,8 @@ class BackupService {
     'sale_invoice_items',
     'purchase_invoices',
     'purchase_invoice_items',
+    'purchase_return_invoices',
+    'purchase_return_invoice_items',
     'payments',
     'stock_movements',
     'expenses',
@@ -47,6 +53,29 @@ class BackupService {
     for (final table in _insertOrder) {
       data[table] = await db.query(table);
     }
+
+    // حفظ إعدادات المتجر (الاسم، الهاتف، العنوان، ضريبة القيمة المضافة)
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      data['_store_settings'] = {
+        'store_name': prefs.getString('store_name'),
+        'store_phone': prefs.getString('store_phone'),
+        'store_address': prefs.getString('store_address'),
+        'vat_enabled': prefs.getBool('vat_enabled'),
+      };
+    } catch (_) {}
+
+    // حفظ ملف الشعار كبيانات Base64 لضمان نقله بين الأجهزة
+    try {
+      final profile = await ShopProfileRepository().getProfile();
+      if (profile.logoPath != null) {
+        final logoFile = File(profile.logoPath!);
+        if (await logoFile.exists()) {
+          final logoBytes = await logoFile.readAsBytes();
+          data['_logo_base64'] = base64Encode(logoBytes);
+        }
+      }
+    } catch (_) {}
 
     return data;
   }
@@ -131,11 +160,12 @@ class BackupService {
           'الملف المختار ليس نسخة احتياطية صالحة لتطبيق النقراشي');
     }
 
-    await _restoreFromSnapshot(json);
+    await restoreFromSnapshot(json);
     return true;
   }
 
-  static Future<void> _restoreFromSnapshot(Map<String, dynamic> snapshot) async {
+  /// استعادة البيانات من كائن لقطة JSON تم التحقق منه.
+  static Future<void> restoreFromSnapshot(Map<String, dynamic> snapshot) async {
     final db = await AppDatabase.instance;
 
     await db.transaction((txn) async {
@@ -156,5 +186,36 @@ class BackupService {
         }
       }
     });
+
+    // استعادة إعدادات المتجر إلى SharedPreferences
+    if (snapshot['_store_settings'] is Map) {
+      try {
+        final settings = snapshot['_store_settings'] as Map;
+        final prefs = await SharedPreferences.getInstance();
+        if (settings['store_name'] != null) {
+          await prefs.setString('store_name', settings['store_name'].toString());
+        }
+        if (settings['store_phone'] != null) {
+          await prefs.setString('store_phone', settings['store_phone'].toString());
+        }
+        if (settings['store_address'] != null) {
+          await prefs.setString('store_address', settings['store_address'].toString());
+        }
+        if (settings['vat_enabled'] != null) {
+          await prefs.setBool('vat_enabled', settings['vat_enabled'] == true);
+        }
+      } catch (_) {}
+    }
+
+    // استعادة ملف الشعار من Base64 وحفظه في مجلد المستندات
+    if (snapshot['_logo_base64'] is String && (snapshot['_logo_base64'] as String).isNotEmpty) {
+      try {
+        final logoBytes = base64Decode(snapshot['_logo_base64'] as String);
+        final dir = await getApplicationDocumentsDirectory();
+        final logoFile = File(p.join(dir.path, 'shop_logo.png'));
+        await logoFile.writeAsBytes(logoBytes);
+        await ShopProfileRepository().saveLogoPath(logoFile.path);
+      } catch (_) {}
+    }
   }
 }

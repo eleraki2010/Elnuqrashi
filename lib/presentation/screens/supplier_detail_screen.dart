@@ -104,6 +104,27 @@ class _SupplierDetailScreenState extends ConsumerState<SupplierDetailScreen> {
     }
   }
 
+  Future<void> _shareStatement() async {
+    final st = _statement;
+    if (st == null) return;
+    try {
+      await SupplierStatementPdf.shareStatement(
+        statement: st,
+        storeName: _storeName,
+        storeLogoPath: _storeLogoPath,
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.DANGER_RED,
+            content: Text('تعذر مشاركة كشف الحساب: $e'),
+          ),
+        );
+      }
+    }
+  }
+
   /// فتح بيان فاتورة شراء: عرض أصنافها بالكامل.
   void _openPurchaseDetails(String purchaseInvoiceId) {
     showDialog(
@@ -456,10 +477,13 @@ class _SupplierDetailScreenState extends ConsumerState<SupplierDetailScreen> {
      appBar: AppBar(
          title: Text(
            'كشف حساب المورد: ${s.name}',
-           maxLines: 1,
-           overflow: TextOverflow.ellipsis,
          ),
          actions: [
+          IconButton(
+            icon: const Icon(Icons.share),
+            onPressed: _shareStatement,
+            tooltip: 'مشاركة كشف الحساب (PDF)',
+          ),
           IconButton(
             icon: const Icon(Icons.print),
             onPressed: _printStatement,
@@ -506,47 +530,56 @@ class _SupplierDetailScreenState extends ConsumerState<SupplierDetailScreen> {
                          children: [
                            Text(
                              s.name,
-                             maxLines: 1,
-                             overflow: TextOverflow.ellipsis,
                              style: const TextStyle(
                                fontSize: AppTypography.HEADING_2,
                                fontWeight: FontWeight.bold,
                                color: AppColors.PRIMARY_BLUE_DARK,
                              ),
+                             softWrap: true,
                            ),
                           const SizedBox(height: 4),
-                          Row(
+                          Wrap(
+                            spacing: 12,
+                            runSpacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
-                              if (s.phone != null && s.phone!.isNotEmpty) ...[
-                                const Icon(
-                                  Icons.phone,
-                                  size: 16,
-                                  color: AppColors.TEXT_SECONDARY,
+                              if (s.phone != null && s.phone!.isNotEmpty)
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.phone,
+                                      size: 16,
+                                      color: AppColors.TEXT_SECONDARY,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      s.phone!,
+                                      style: const TextStyle(
+                                        color: AppColors.TEXT_SECONDARY,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  s.phone!,
-                                  style: const TextStyle(
-                                    color: AppColors.TEXT_SECONDARY,
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                              ],
                               if (s.address != null &&
-                                  s.address!.isNotEmpty) ...[
-                                const Icon(
-                                  Icons.location_on_outlined,
-                                  size: 16,
-                                  color: AppColors.TEXT_SECONDARY,
+                                  s.address!.isNotEmpty)
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.location_on_outlined,
+                                      size: 16,
+                                      color: AppColors.TEXT_SECONDARY,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      s.address!,
+                                      style: const TextStyle(
+                                        color: AppColors.TEXT_SECONDARY,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  s.address!,
-                                  style: const TextStyle(
-                                    color: AppColors.TEXT_SECONDARY,
-                                  ),
-                                ),
-                              ],
                             ],
                           ),
                           if (s.notes != null && s.notes!.isNotEmpty) ...[

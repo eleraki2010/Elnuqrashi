@@ -9,7 +9,11 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:alnokrashy_pos/core/constants/app_constants.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:googleapis/drive/v3.dart' as drive;
+import 'package:intl/intl.dart';
 import '../../core/services/backup_service.dart';
+import '../../core/services/google_drive_backup_service.dart';
 import '../../data/repositories/shop_profile_repository.dart';
 import '../../providers/app_providers.dart';
 import '../widgets/max_width_container.dart';
@@ -502,10 +506,205 @@ class _BackupRestoreSection extends ConsumerStatefulWidget {
 }
 
 class _BackupRestoreSectionState extends ConsumerState<_BackupRestoreSection> {
-  bool _busy = false;
+  bool _localBusy = false;
+  bool _cloudBusy = false;
+  bool _isLoadingBackups = false;
+  GoogleSignInAccount? _googleUser;
+  bool _autoBackupEnabled = true;
+  String? _lastCloudBackupTime;
+  List<drive.File> _cloudBackups = [];
 
-  Future<void> _createBackup() async {
-    setState(() => _busy = true);
+  @override
+  void initState() {
+    super.initState();
+    _initGoogleDriveState();
+  }
+
+  Future<void> _initGoogleDriveState() async {
+    final prefs = await SharedPreferences.getInstance();
+    _autoBackupEnabled =
+        prefs.getBool(GoogleDriveBackupService.keyAutoBackupEnabled) ?? true;
+    _lastCloudBackupTime =
+        prefs.getString(GoogleDriveBackupService.keyLastBackupTime);
+
+    final user = await GoogleDriveBackupService.signInSilently();
+    if (mounted) {
+      setState(() {
+        _googleUser = user;
+      });
+      if (user != null) {
+        _loadCloudBackups();
+      }
+    }
+  }
+
+  Future<void> _loadCloudBackups() async {
+    setState(() => _isLoadingBackups = true);
+    try {
+      final list = await GoogleDriveBackupService.listBackups();
+      if (mounted) {
+        setState(() {
+          _cloudBackups = list;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading cloud backups: $e');
+    } finally {
+      if (mounted) setState(() => _isLoadingBackups = false);
+    }
+  }
+
+  Future<void> _signInGoogle() async {
+    setState(() => _cloudBusy = true);
+    try {
+      final user = await GoogleDriveBackupService.signIn();
+      if (mounted) {
+        setState(() {
+          _googleUser = user;
+        });
+        if (user != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              backgroundColor: AppColors.SUCCESS_GREEN,
+              content: Text('تم ربط حساب Google بنجاح: ${user.email}'),
+            ),
+          );
+          _loadCloudBackups();
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.DANGER_RED,
+            content: Text('فشل تسجيل الدخول بحساب Google: $e'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _cloudBusy = false);
+    }
+  }
+
+  Future<void> _signOutGoogle() async {
+    await GoogleDriveBackupService.signOut();
+    if (mounted) {
+      setState(() {
+        _googleUser = null;
+        _cloudBackups = [];
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تم تسجيل الخروج من Google Drive')),
+      );
+    }
+  }
+
+  Future<void> _toggleAutoBackup(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(GoogleDriveBackupService.keyAutoBackupEnabled, value);
+    if (mounted) {
+      setState(() {
+        _autoBackupEnabled = value;
+      });
+    }
+  }
+
+  Future<void> _uploadCloudBackup() async {
+    setState(() => _cloudBusy = true);
+    try {
+      final file = await GoogleDriveBackupService.uploadBackup();
+      final now = DateTime.now();
+      if (mounted) {
+        setState(() {
+          _lastCloudBackupTime = now.toIso8601String();
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.SUCCESS_GREEN,
+            content: Text(
+                'تم رفع النسخة الاحتياطية بنجاح إلى Google Drive (${file.name ?? ""})'),
+            duration: const Duration(seconds: 4),
+          ),
+        );
+        _loadCloudBackups();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.DANGER_RED,
+            content: Text('فشل الرفع إلى Google Drive: $e'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _cloudBusy = false);
+    }
+  }
+
+  Future<void> _restoreCloudBackup(drive.File file) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: AppColors.DANGER_RED),
+            SizedBox(width: 8),
+            Text('استعادة نسخة سحابية'),
+          ],
+        ),
+        content: Text(
+          'سيتم استبدال جميع البيانات الحالية بالنسخة السحابية (${file.name ?? ""}).\n'
+          'هذا الإجراء سيقوم بحذف أية بيانات غير محفوظة واسترجاع حالة المحل من تلك النسخة. هل تريد المتابعة؟',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('إلغاء'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.DANGER_RED,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('استعادة الآن'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    setState(() => _cloudBusy = true);
+    try {
+      final success = await GoogleDriveBackupService.restoreBackup(file.id!);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor:
+                success ? AppColors.SUCCESS_GREEN : AppColors.DANGER_RED,
+            content: Text(success
+                ? 'تم استعادة النسخة السحابية بنجاح! أعد تشغيل التطبيق لتحديث الشاشات.'
+                : 'فشلت الاستعادة'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.DANGER_RED,
+            content: Text('فشل استعادة النسخة السحابية: $e'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _cloudBusy = false);
+    }
+  }
+
+  Future<void> _createLocalBackup() async {
+    setState(() => _localBusy = true);
     try {
       final path = await BackupService.createBackupFile();
       if (mounted) {
@@ -533,15 +732,15 @@ class _BackupRestoreSectionState extends ConsumerState<_BackupRestoreSection> {
         );
       }
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) setState(() => _localBusy = false);
     }
   }
 
-  Future<void> _restoreBackup() async {
+  Future<void> _restoreLocalBackup() async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('استعادة نسخة احتياطية'),
+        title: const Text('استعادة نسخة احتياطية محلية'),
         content: const Text(
           'سيتم استبدال جميع البيانات الحالية بمحتوى النسخة الاحتياطية. '
           'هذا الإجراء لا يمكن التراجع عنه. هل تريد المتابعة؟',
@@ -554,6 +753,7 @@ class _BackupRestoreSectionState extends ConsumerState<_BackupRestoreSection> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.DANGER_RED,
+              foregroundColor: Colors.white,
             ),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('استعادة'),
@@ -563,7 +763,7 @@ class _BackupRestoreSectionState extends ConsumerState<_BackupRestoreSection> {
     );
     if (confirmed != true) return;
 
-    setState(() => _busy = true);
+    setState(() => _localBusy = true);
     try {
       final success = await BackupService.restoreFromBackupFile();
       if (mounted) {
@@ -587,8 +787,22 @@ class _BackupRestoreSectionState extends ConsumerState<_BackupRestoreSection> {
         );
       }
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) setState(() => _localBusy = false);
     }
+  }
+
+  String _formatDateTime(DateTime dt) {
+    return DateFormat('yyyy-MM-dd • hh:mm a', 'ar').format(dt.toLocal());
+  }
+
+  String _formatSize(String? sizeStr) {
+    if (sizeStr == null) return '';
+    final bytes = int.tryParse(sizeStr) ?? 0;
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) {
+      return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    }
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 
   @override
@@ -596,36 +810,439 @@ class _BackupRestoreSectionState extends ConsumerState<_BackupRestoreSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'احفظ نسخة كاملة من المنتجات والمبيعات والعملاء وكل بيانات المتجر '
-          'في ملف JSON آمن، واستعدها على أي جهاز.',
-          style: TextStyle(color: AppColors.TEXT_SECONDARY, fontSize: 13),
+        // ==================== 1. Google Drive Card ====================
+        Card(
+          elevation: 1,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppLayout.BORDER_RADIUS),
+            side: BorderSide(color: Colors.blue.shade100),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.cloud_upload_outlined,
+                        color: AppColors.PRIMARY_BLUE,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'النسخ الاحتياطي السحابي (Google Drive)',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'حفظ نسخة مشفرة تلقائياً كلما اتصل التابلت بالإنترنت',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.TEXT_SECONDARY,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+
+                // Account Status
+                if (_googleUser != null) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 16,
+                          backgroundColor: AppColors.PRIMARY_BLUE,
+                          child: Text(
+                            (_googleUser!.displayName?.isNotEmpty ?? false)
+                                ? _googleUser!.displayName![0]
+                                : 'G',
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _googleUser!.displayName ?? 'حساب Google',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              Text(
+                                _googleUser!.email,
+                                style: const TextStyle(
+                                  fontSize: 11.5,
+                                  color: AppColors.TEXT_SECONDARY,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: _cloudBusy ? null : _signOutGoogle,
+                          child: const Text(
+                            'تسجيل الخروج',
+                            style: TextStyle(
+                                color: AppColors.DANGER_RED, fontSize: 12),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Auto backup toggle
+                  SwitchListTile.adaptive(
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    title: const Text(
+                      'النسخ التلقائي عند الاتصال بالإنترنت',
+                      style:
+                          TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                    subtitle: const Text(
+                      'يتم أخذ نسخة احتياطية في الخلفية كل 12 ساعة فور توفر شبكة',
+                      style: TextStyle(fontSize: 11.5),
+                    ),
+                    value: _autoBackupEnabled,
+                    activeTrackColor: AppColors.PRIMARY_BLUE,
+                    onChanged: _toggleAutoBackup,
+                  ),
+
+                  // Last cloud backup info
+                  if (_lastCloudBackupTime != null) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.history,
+                              size: 16, color: AppColors.TEXT_SECONDARY),
+                          const SizedBox(width: 6),
+                          Text(
+                            'آخر نسخة سحابية: ${_formatDateTime(DateTime.parse(_lastCloudBackupTime!))}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.TEXT_SECONDARY,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  // Upload button
+                  SizedBox(
+                    width: double.infinity,
+                    height: 42,
+                    child: ElevatedButton.icon(
+                      onPressed: _cloudBusy ? null : _uploadCloudBackup,
+                      icon: _cloudBusy
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.cloud_upload, size: 20),
+                      label: const Text(
+                        'رفع نسخة احتياطية سحابية الآن',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.PRIMARY_BLUE,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // Cloud Backups List
+                  const SizedBox(height: 12),
+                  Theme(
+                    data: Theme.of(context)
+                        .copyWith(dividerColor: Colors.transparent),
+                    child: ExpansionTile(
+                      tilePadding: EdgeInsets.zero,
+                      childrenPadding: EdgeInsets.zero,
+                      title: Row(
+                        children: [
+                          const Text(
+                            'النسخ السحابية السابقة',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.PRIMARY_BLUE,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          if (_cloudBackups.isNotEmpty)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppColors.PRIMARY_BLUE
+                                    .withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                '${_cloudBackups.length}',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.PRIMARY_BLUE,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      trailing: IconButton(
+                        icon: _isLoadingBackups
+                            ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2),
+                              )
+                            : const Icon(Icons.refresh, size: 18),
+                        tooltip: 'تحديث القائمة',
+                        onPressed:
+                            _isLoadingBackups ? null : _loadCloudBackups,
+                      ),
+                      children: [
+                        if (_cloudBackups.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 8),
+                            child: Text(
+                              'لا توجد نسخ سحابية محفوظة على Google Drive حتى الآن.',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.TEXT_SECONDARY),
+                            ),
+                          )
+                        else
+                          ListView.separated(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: _cloudBackups.length,
+                            separatorBuilder: (_, _) =>
+                                const Divider(height: 1),
+                            itemBuilder: (context, index) {
+                              final item = _cloudBackups[index];
+                              return ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                dense: true,
+                                leading: const Icon(
+                                  Icons.insert_drive_file_outlined,
+                                  color: AppColors.PRIMARY_BLUE,
+                                  size: 20,
+                                ),
+                                title: Text(
+                                  item.name ?? 'نسخة احتياطية',
+                                  style: const TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  '${item.createdTime != null ? _formatDateTime(item.createdTime!) : ""}  •  ${_formatSize(item.size)}',
+                                  style: const TextStyle(fontSize: 11),
+                                ),
+                                trailing: OutlinedButton(
+                                  onPressed: _cloudBusy
+                                      ? null
+                                      : () => _restoreCloudBackup(item),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: AppColors.DANGER_RED,
+                                    side: const BorderSide(
+                                        color: AppColors.DANGER_RED),
+                                    visualDensity: VisualDensity.compact,
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10),
+                                  ),
+                                  child: const Text('استرجاع'),
+                                ),
+                              );
+                            },
+                          ),
+                      ],
+                    ),
+                  ),
+                ] else ...[
+                  // Not logged in banner
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.amber.shade200),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline,
+                            color: Colors.amber.shade800, size: 20),
+                        const SizedBox(width: 10),
+                        const Expanded(
+                          child: Text(
+                            'اربط حساب Google Drive الخاص بك لحفظ نسخة سحابية مشفرة تلقائياً كلما اتصل التابلت بالإنترنت، مع إمكانية استرجاعها بضغطة زر على أي جهاز.',
+                            style: TextStyle(fontSize: 12, height: 1.3),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 44,
+                    child: ElevatedButton.icon(
+                      onPressed: _cloudBusy ? null : _signInGoogle,
+                      icon: _cloudBusy
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.account_circle, size: 20),
+                      label: const Text(
+                        'تسجيل الدخول وربط Google Drive',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.PRIMARY_BLUE,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
         ),
         const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: ElevatedButton.icon(
-                onPressed: _busy ? null : _createBackup,
-                icon: _busy
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.backup_outlined),
-                label: const Text('إنشاء نسخة احتياطية'),
-              ),
+
+        // ==================== 2. Local Backup Card ====================
+        Card(
+          elevation: 1,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppLayout.BORDER_RADIUS),
+            side: BorderSide(color: Colors.grey.shade200),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.save_alt_rounded,
+                        color: AppColors.TEXT_PRIMARY,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'النسخ الاحتياطي المحلي (ملف على الجهاز / فلاشة USB)',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'تصدير أو استيراد ملف JSON يدوياً دون الحاجة للإنترنت',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.TEXT_SECONDARY,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: _localBusy ? null : _createLocalBackup,
+                        icon: _localBusy
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2),
+                              )
+                            : const Icon(Icons.file_download_outlined),
+                        label: const Text('إنشاء نسخة محلية'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _localBusy ? null : _restoreLocalBackup,
+                        icon: const Icon(Icons.restore),
+                        label: const Text('استعادة نسخة من ملف'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: _busy ? null : _restoreBackup,
-                icon: const Icon(Icons.restore),
-                label: const Text('استعادة نسخة'),
-              ),
-            ),
-          ],
+          ),
         ),
       ],
     );

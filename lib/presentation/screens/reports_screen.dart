@@ -99,30 +99,28 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> with SingleTicker
 
     final scale = ResponsiveScope.scaleOf(context);
     final contentWidth = ResponsiveScope.widthOf(context);
+    final statCols = ResponsiveUtils.statGridColumns(contentWidth);
+    final statSpacing = 16.0 * scale;
+    final statCardWidth =
+        (contentWidth - 32 - (statCols - 1) * statSpacing) / statCols;
+    final statCardHeight =
+        134.0 * ResponsiveUtils.scaleForWidth(statCardWidth);
+    final statRatio = (statCardWidth / statCardHeight).clamp(1.2, 2.3);
 
     return ListView(
       padding: const EdgeInsets.symmetric(vertical: 16),
       children: [
         // Metric Cards Grid
-        () {
-          final statCols = ResponsiveUtils.statGridColumns(contentWidth);
-          final statSpacing = 16.0 * scale;
-          final statCardWidth =
-              (contentWidth - 32 - (statCols - 1) * statSpacing) / statCols;
-          final statCardHeight =
-              134.0 * ResponsiveUtils.scaleForWidth(statCardWidth);
-          final statRatio = (statCardWidth / statCardHeight).clamp(1.2, 2.3);
-
-          return GridView.count(
-            crossAxisCount: statCols,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisSpacing: statSpacing,
-            mainAxisSpacing: statSpacing,
-            childAspectRatio: statRatio,
-            children: [
-              StatCard(
-                title: 'صافي المبيعات',
+        GridView.count(
+          crossAxisCount: statCols,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisSpacing: statSpacing,
+          mainAxisSpacing: statSpacing,
+          childAspectRatio: statRatio,
+          children: [
+            StatCard(
+              title: 'صافي المبيعات',
               value: AppStrings.money(report.netSales),
               subtitle:
                   'الإجمالي ${report.totalSales.toStringAsFixed(0)} − المرتجعات ${report.totalReturns.toStringAsFixed(0)}',
@@ -175,7 +173,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> with SingleTicker
               iconColor: Colors.deepPurple,
             ),
           ],
-        )(),
+        ),
         if (report.totalTax > 0) ...[
           const SizedBox(height: 16),
           Container(

@@ -111,6 +111,21 @@ class CustomerStatementPdf {
       return a.typeOrder.compareTo(b.typeOrder);
     });
 
+    final netActivity = rows.fold(0.0, (sum, r) => sum + (r.debit - r.credit));
+    final openingBalance = c.balanceDue - netActivity;
+    if (openingBalance.abs() > 0.01) {
+      rows.insert(
+        0,
+        _StatementRow(
+          c.createdAt,
+          -1,
+          'رصيد سابق / افتتاحي',
+          openingBalance > 0 ? openingBalance : 0.0,
+          openingBalance < 0 ? -openingBalance : 0.0,
+        ),
+      );
+    }
+
     var running = 0.0;
     final runningBalances = <double>[
       for (final r in rows)

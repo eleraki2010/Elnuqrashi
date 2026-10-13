@@ -7,6 +7,7 @@ import '../../data/repositories/product_repository.dart';
 import '../../providers/app_providers.dart';
 import '../../providers/auth_provider.dart';
 import '../widgets/max_width_container.dart';
+import '../widgets/product_search_dialog.dart';
 
 /// شاشة خدمة المخزن: كشف حيّ بالبضاعة الحالية (الاسم، العدد، القيمة)
 /// بعد خصم المبيعات. القيمة تُحسب بطريقتين: سعر الشراء (التكلفة)
@@ -260,67 +261,79 @@ class _StockSummaryScreenState extends ConsumerState<StockSummaryScreen> {
                               itemBuilder: (context, index) {
                                 final item = items[index];
                                 final isOut = item.quantity <= 0;
-                                return ListTile(
-                                  contentPadding:
-                                      const EdgeInsets.symmetric(
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(
                                     horizontal: 16,
-                                    vertical: 6,
+                                    vertical: 8,
                                   ),
-                                  title: Text(
-                                    item.name,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                  subtitle: Padding(
-                                    padding: const EdgeInsets.only(top: 2),
-                                    child: Text(
-                                      item.barcode != null &&
-                                              item.barcode!.isNotEmpty
-                                          ? '${item.barcode}'
-                                          : '—',
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        color: AppColors.TEXT_SECONDARY,
-                                      ),
-                                    ),
-                                  ),
-                                  trailing: Row(
-                                    mainAxisSize: MainAxisSize.min,
+                                  child: Row(
                                     children: [
-                                      // العدد
-                                      Container(
-                                        width: 64,
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 6,
-                                          vertical: 4,
+                                      // 1. البضاعة
+                                      Expanded(
+                                        flex: 4,
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              item.name,
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 13.5,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              item.barcode != null &&
+                                                      item.barcode!.isNotEmpty
+                                                  ? item.barcode!
+                                                  : '—',
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                color: AppColors.TEXT_SECONDARY,
+                                              ),
+                                            ),
+                                          ],
                                         ),
-                                        decoration: BoxDecoration(
-                                          color: isOut
-                                              ? AppColors.DANGER_RED
-                                                  .withValues(alpha: 0.12)
-                                              : AppColors.SUCCESS_GREEN
-                                                  .withValues(alpha: 0.12),
-                                          borderRadius:
-                                              BorderRadius.circular(6),
-                                        ),
-                                        child: Text(
-                                          '${item.quantity} ${item.unit}',
-                                          textAlign: TextAlign.center,
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.bold,
-                                            color: isOut
-                                                ? AppColors.DANGER_RED
-                                                : AppColors.SUCCESS_GREEN,
+                                      ),
+                                      // 2. العدد
+                                      Expanded(
+                                        flex: 2,
+                                        child: Center(
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 4,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: isOut
+                                                  ? AppColors.DANGER_RED
+                                                      .withValues(alpha: 0.12)
+                                                  : AppColors.SUCCESS_GREEN
+                                                      .withValues(alpha: 0.12),
+                                              borderRadius:
+                                                  BorderRadius.circular(6),
+                                            ),
+                                            child: Text(
+                                              '${item.quantity} ${item.unit}',
+                                              textAlign: TextAlign.center,
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.bold,
+                                                color: isOut
+                                                    ? AppColors.DANGER_RED
+                                                    : AppColors.SUCCESS_GREEN,
+                                              ),
+                                            ),
                                           ),
                                         ),
                                       ),
-                                      const SizedBox(width: 12),
-                                      // القيمة شراء
-                                      SizedBox(
-                                        width: 92,
+                                      // 3. القيمة (شراء)
+                                      Expanded(
+                                        flex: 3,
                                         child: Text(
                                           item.stockValue.toStringAsFixed(0),
                                           textAlign: TextAlign.end,
@@ -331,12 +344,12 @@ class _StockSummaryScreenState extends ConsumerState<StockSummaryScreen> {
                                           ),
                                         ),
                                       ),
-                                      const SizedBox(width: 12),
-                                      // القيمة بيع
-                                      SizedBox(
-                                        width: 92,
+                                      // 4. القيمة (بيع)
+                                      Expanded(
+                                        flex: 3,
                                         child: Text(
-                                          item.expectedSaleValue.toStringAsFixed(0),
+                                          item.expectedSaleValue
+                                              .toStringAsFixed(0),
                                           textAlign: TextAlign.end,
                                           style: const TextStyle(
                                             fontSize: 13,
@@ -370,30 +383,40 @@ class _StockSummaryScreenState extends ConsumerState<StockSummaryScreen> {
                     ),
                   ),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        'الإجمالي',
-                        style: TextStyle(
-                          fontSize: AppTypography.HEADING_3,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.PRIMARY_BLUE_DARK,
+                      const Expanded(
+                        flex: 6,
+                        child: Text(
+                          'الإجمالي العام',
+                          style: TextStyle(
+                            fontSize: AppTypography.HEADING_3,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.PRIMARY_BLUE_DARK,
+                          ),
                         ),
                       ),
-                      Text(
-                        '${summary.totalCostValue.toStringAsFixed(0)} ${AppStrings.CURRENCY}',
-                        style: const TextStyle(
-                          fontSize: AppTypography.HEADING_3,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.WARNING_AMBER,
+                      Expanded(
+                        flex: 3,
+                        child: Text(
+                          '${summary.totalCostValue.toStringAsFixed(0)} ${AppStrings.CURRENCY}',
+                          textAlign: TextAlign.end,
+                          style: const TextStyle(
+                            fontSize: AppTypography.HEADING_3,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.WARNING_AMBER,
+                          ),
                         ),
                       ),
-                      Text(
-                        '${summary.totalSaleValue.toStringAsFixed(0)} ${AppStrings.CURRENCY}',
-                        style: const TextStyle(
-                          fontSize: AppTypography.HEADING_3,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.PRIMARY_BLUE,
+                      Expanded(
+                        flex: 3,
+                        child: Text(
+                          '${summary.totalSaleValue.toStringAsFixed(0)} ${AppStrings.CURRENCY}',
+                          textAlign: TextAlign.end,
+                          style: const TextStyle(
+                            fontSize: AppTypography.HEADING_3,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.PRIMARY_BLUE,
+                          ),
                         ),
                       ),
                     ],
@@ -504,27 +527,9 @@ class _StockSummaryScreenState extends ConsumerState<StockSummaryScreen> {
                   children: [
                     const Text('اختر الصنف:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                     const SizedBox(height: 6),
-                    DropdownButtonFormField<Product>(
-                      isExpanded: true,
-                      initialValue: selectedProduct,
-                      decoration: const InputDecoration(
-                        border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      ),
-                      items: products.map((p) {
-                        return DropdownMenuItem<Product>(
-                          value: p,
-                          child: Text(
-                            '${p.name} (المتاح: ${p.quantity} ${p.unit}) - شراء: ${p.purchasePrice} ج.م',
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: p.quantity <= 0 ? Colors.grey : Colors.black87,
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                      onChanged: (p) {
+                    InkWell(
+                      onTap: () async {
+                        final p = await ProductSearchDialog.show(context);
                         if (p != null) {
                           setDialogState(() {
                             selectedProduct = p;
@@ -533,6 +538,58 @@ class _StockSummaryScreenState extends ConsumerState<StockSummaryScreen> {
                           });
                         }
                       },
+                      borderRadius: BorderRadius.circular(4),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                            color: selectedProduct != null
+                                ? AppColors.PRIMARY_BLUE
+                                : Colors.grey.shade400,
+                            width: selectedProduct != null ? 1.5 : 1.0,
+                          ),
+                          borderRadius: BorderRadius.circular(4),
+                          color: selectedProduct != null
+                              ? AppColors.PRIMARY_BLUE.withValues(alpha: 0.04)
+                              : null,
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              selectedProduct != null
+                                  ? Icons.inventory_2
+                                  : Icons.search,
+                              size: 20,
+                              color: AppColors.PRIMARY_BLUE,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                selectedProduct != null
+                                    ? '${selectedProduct!.name} (المتاح: ${selectedProduct!.quantity} ${selectedProduct!.unit})'
+                                    : 'اضغط للبحث عن الصنف بالاسم أو الباركود...',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: selectedProduct != null
+                                      ? AppColors.PRIMARY_BLUE_DARK
+                                      : AppColors.TEXT_SECONDARY,
+                                  fontWeight: selectedProduct != null
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            const Icon(
+                              Icons.arrow_drop_down,
+                              color: AppColors.TEXT_SECONDARY,
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 14),
                     const Text('الكمية التالفة:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),

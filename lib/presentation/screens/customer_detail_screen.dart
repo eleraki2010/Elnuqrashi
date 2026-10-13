@@ -124,6 +124,28 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
     }
   }
 
+  Future<void> _shareStatement() async {
+    final st = _statement;
+    if (st == null) return;
+    try {
+      await CustomerStatementPdf.shareStatement(
+        statement: st,
+        storeName: _storeName,
+        storeLogoPath: _storeLogoPath,
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.DANGER_RED,
+            content: Text('تعذر مشاركة كشف الحساب: $e'),
+          ),
+        );
+      }
+    }
+  }
+
+
   Future<void> _loadStatement() async {
     setState(() => _isLoading = true);
     final repo = ref.read(customerRepositoryProvider);
@@ -203,6 +225,24 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
       if (byDate != 0) return byDate;
       return a.typeOrder.compareTo(b.typeOrder);
     });
+
+    final sumDeltas = entries.fold(0.0, (acc, e) => acc + e.delta);
+    final openingBalance = s.customer.balanceDue - sumDeltas;
+    if (openingBalance.abs() > 0.01) {
+      entries.insert(
+        0,
+        _StatementEntry(
+          date: s.customer.createdAt,
+          typeOrder: -1,
+          typeLabel: 'رصيد سابق / افتتاحي',
+          refLabel: 'رصيد سابق',
+          subtitle: 'ديون أو رصيد مدور سابق لتاريخ المعاملات المسجلة',
+          delta: openingBalance,
+          displayAmount: openingBalance.abs(),
+        ),
+      );
+    }
+
     return entries;
   }
 
@@ -678,10 +718,13 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
        appBar: AppBar(
          title: Text(
            'كشف حساب: ${c.name}',
-           maxLines: 1,
-           overflow: TextOverflow.ellipsis,
          ),
          actions: [
+          IconButton(
+            icon: const Icon(Icons.share),
+            onPressed: _shareStatement,
+            tooltip: 'مشاركة كشف الحساب (PDF)',
+          ),
           IconButton(
             icon: const Icon(Icons.print),
             onPressed: _printStatement,
@@ -728,47 +771,56 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
                          children: [
                            Text(
                              c.name,
-                             maxLines: 1,
-                             overflow: TextOverflow.ellipsis,
                              style: TextStyle(
                                fontSize: AppTypography.HEADING_2 * scale,
                                fontWeight: FontWeight.bold,
                                color: AppColors.PRIMARY_BLUE_DARK,
                              ),
+                             softWrap: true,
                            ),
                           const SizedBox(height: 4),
-                          Row(
+                          Wrap(
+                            spacing: 12,
+                            runSpacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
-                              if (c.phone != null && c.phone!.isNotEmpty) ...[
-                                const Icon(
-                                  Icons.phone,
-                                  size: 16,
-                                  color: AppColors.TEXT_SECONDARY,
+                              if (c.phone != null && c.phone!.isNotEmpty)
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.phone,
+                                      size: 16,
+                                      color: AppColors.TEXT_SECONDARY,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      c.phone!,
+                                      style: const TextStyle(
+                                        color: AppColors.TEXT_SECONDARY,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  c.phone!,
-                                  style: const TextStyle(
-                                    color: AppColors.TEXT_SECONDARY,
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                              ],
                               if (c.address != null &&
-                                  c.address!.isNotEmpty) ...[
-                                const Icon(
-                                  Icons.location_on_outlined,
-                                  size: 16,
-                                  color: AppColors.TEXT_SECONDARY,
+                                  c.address!.isNotEmpty)
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.location_on_outlined,
+                                      size: 16,
+                                      color: AppColors.TEXT_SECONDARY,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      c.address!,
+                                      style: const TextStyle(
+                                        color: AppColors.TEXT_SECONDARY,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  c.address!,
-                                  style: const TextStyle(
-                                    color: AppColors.TEXT_SECONDARY,
-                                  ),
-                                ),
-                              ],
                             ],
                           ),
                           if (c.notes != null && c.notes!.isNotEmpty) ...[
@@ -784,28 +836,35 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
                           // موعد السداد + حالة التأخر
                           if (c.paymentDueDate != null) ...[
                             const SizedBox(height: 6),
-                            Row(
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 4,
+                              crossAxisAlignment: WrapCrossAlignment.center,
                               children: [
-                                const Icon(
-                                  Icons.event,
-                                  size: 15,
-                                  color: AppColors.TEXT_SECONDARY,
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.event,
+                                      size: 15,
+                                      color: AppColors.TEXT_SECONDARY,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'موعد السداد: ${DateFormat('d MMMM yyyy', 'ar').format(c.paymentDueDate!)}',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: c.isOverdue
+                                            ? AppColors.DANGER_RED
+                                            : AppColors.TEXT_SECONDARY,
+                                        fontWeight: c.isOverdue
+                                            ? FontWeight.bold
+                                            : FontWeight.normal,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  'موعد السداد: ${DateFormat('d MMMM yyyy', 'ar').format(c.paymentDueDate!)}',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: c.isOverdue
-                                        ? AppColors.DANGER_RED
-                                        : AppColors.TEXT_SECONDARY,
-                                    fontWeight: c.isOverdue
-                                        ? FontWeight.bold
-                                        : FontWeight.normal,
-                                  ),
-                                ),
-                                if (c.isOverdue) ...[
-                                  const SizedBox(width: 8),
+                                if (c.isOverdue)
                                   Container(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 8,
@@ -826,7 +885,6 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
                                       ),
                                     ),
                                   ),
-                                ],
                               ],
                             ),
                           ],

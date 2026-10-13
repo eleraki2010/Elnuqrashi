@@ -92,7 +92,21 @@ class SupplierStatement {
       0.0,
       (sum, e) => sum + (e.isPurchase ? e.amount : -e.amount),
     );
-    var running = supplier.balanceOwed - effect;
+    final openingBalance = supplier.balanceOwed - effect;
+    if (openingBalance.abs() > 0.01) {
+      entries.insert(
+        0,
+        StatementEntry(
+          date: supplier.createdAt,
+          isPurchase: openingBalance > 0,
+          title: 'رصيد سابق / افتتاحي للمورد',
+          amount: openingBalance.abs(),
+          referenceId: 'opening_balance',
+          runningBalance: openingBalance,
+        ),
+      );
+    }
+    var running = 0.0;
     for (final e in entries) {
       running += e.isPurchase ? e.amount : -e.amount;
       e.runningBalance = running;

@@ -22,6 +22,7 @@ class SuppliersListScreen extends ConsumerWidget {
       text: supplier?.address ?? '',
     );
     final notesController = TextEditingController(text: supplier?.notes ?? '');
+    final initialOwedController = TextEditingController(text: '');
     final isEdit = supplier != null;
 
     showDialog(
@@ -57,6 +58,19 @@ class SuppliersListScreen extends ConsumerWidget {
                   prefixIcon: Icon(Icons.location_on_outlined),
                 ),
               ),
+              if (!isEdit) ...[
+                const SizedBox(height: 12),
+                TextField(
+                  controller: initialOwedController,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                    labelText: 'رصيد افتتاحي / مستحقات سابقة للمورد (ج.م)',
+                    hintText: '0.00 (اختياري، إن كان للمورد دين سابق عليك)',
+                    prefixIcon: Icon(Icons.account_balance_wallet_outlined),
+                  ),
+                ),
+              ],
               const SizedBox(height: 12),
               TextField(
                 controller: notesController,
@@ -103,6 +117,8 @@ class SuppliersListScreen extends ConsumerWidget {
                 );
                 await repo.updateSupplier(updated);
               } else {
+                final initialOwed =
+                    double.tryParse(initialOwedController.text.trim()) ?? 0.0;
                 final newSupplier = Supplier(
                   id: const Uuid().v4(),
                   name: name,
@@ -115,7 +131,7 @@ class SuppliersListScreen extends ConsumerWidget {
                   notes: notesController.text.trim().isEmpty
                       ? null
                       : notesController.text.trim(),
-                  balanceOwed: 0.0,
+                  balanceOwed: initialOwed,
                   createdAt: now,
                   updatedAt: now,
                 );
@@ -194,27 +210,30 @@ class SuppliersListScreen extends ConsumerWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'إدارة الموردين والمستحقات',
-                      style: TextStyle(
-                        fontSize: AppTypography.HEADING_2,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.PRIMARY_BLUE_DARK,
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'إدارة الموردين والمستحقات',
+                        style: TextStyle(
+                          fontSize: AppTypography.HEADING_2,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.PRIMARY_BLUE_DARK,
+                        ),
                       ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'متابعة فواتير التوريد، حسابات ومستحقات الموردين، ودفعات السداد',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AppColors.TEXT_SECONDARY,
+                      SizedBox(height: 4),
+                      Text(
+                        'متابعة فواتير التوريد، حسابات ومستحقات الموردين، ودفعات السداد',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppColors.TEXT_SECONDARY,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
+                const SizedBox(width: 12),
                 ElevatedButton.icon(
                   onPressed: () => _showAddEditSupplierDialog(context, ref),
                   icon: const Icon(Icons.add_business),
@@ -300,158 +319,215 @@ class SuppliersListScreen extends ConsumerWidget {
                           final s = suppliers[index];
                           final hasOwed = s.hasOwed;
 
-                          return ListTile(
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 8,
-                            ),
-                            leading: CircleAvatar(
-                              backgroundColor: hasOwed
-                                  ? AppColors.WARNING_AMBER.withValues(
-                                      alpha: 0.15,
-                                    )
-                                  : AppColors.PRIMARY_BLUE.withValues(
-                                      alpha: 0.12,
-                                    ),
-                              child: Icon(
-                                Icons.local_shipping,
-                                color: hasOwed
-                                    ? AppColors.WARNING_AMBER
-                                    : AppColors.PRIMARY_BLUE,
+                          return InkWell(
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => SupplierDetailScreen(
+                                    supplierId: s.id,
+                                  ),
+                                ),
+                              );
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
                               ),
-                            ),
-                             title: Text(
-                               s.name,
-                               maxLines: 1,
-                               overflow: TextOverflow.ellipsis,
-                               style: const TextStyle(
-                                 fontWeight: FontWeight.bold,
-                                 fontSize: 15,
-                               ),
-                             ),
-                            subtitle: Padding(
-                              padding: const EdgeInsets.only(top: 4),
-                              child: Row(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  if (s.phone != null &&
-                                      s.phone!.isNotEmpty) ...[
-                                    const Icon(
-                                      Icons.phone,
-                                      size: 14,
-                                      color: AppColors.TEXT_SECONDARY,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      s.phone!,
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        color: AppColors.TEXT_SECONDARY,
+                                  // السطر الأول: الأيقونة + اسم المورد بالكامل + شارة المستحقات
+                                  Row(
+                                    crossAxisAlignment: CrossAxisAlignment.center,
+                                    children: [
+                                      CircleAvatar(
+                                        radius: 18,
+                                        backgroundColor: hasOwed
+                                            ? AppColors.WARNING_AMBER.withValues(
+                                                alpha: 0.15,
+                                              )
+                                            : AppColors.PRIMARY_BLUE.withValues(
+                                                alpha: 0.12,
+                                              ),
+                                        child: Icon(
+                                          Icons.local_shipping,
+                                          size: 20,
+                                          color: hasOwed
+                                              ? AppColors.WARNING_AMBER
+                                              : AppColors.PRIMARY_BLUE,
+                                        ),
                                       ),
-                                    ),
-                                    const SizedBox(width: 16),
-                                  ],
-                                  if (s.address != null &&
-                                      s.address!.isNotEmpty) ...[
-                                    const Icon(
-                                      Icons.location_on_outlined,
-                                      size: 14,
-                                      color: AppColors.TEXT_SECONDARY,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      s.address!,
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        color: AppColors.TEXT_SECONDARY,
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Text(
+                                          s.name,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16,
+                                            color: AppColors.PRIMARY_BLUE_DARK,
+                                          ),
+                                          softWrap: true,
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                      const SizedBox(width: 8),
+                                      // شارة المستحق
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 5,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: hasOwed
+                                              ? AppColors.WARNING_AMBER.withValues(
+                                                  alpha: 0.12,
+                                                )
+                                              : AppColors.SUCCESS_GREEN.withValues(
+                                                  alpha: 0.12,
+                                                ),
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Text(
+                                          hasOwed
+                                              ? 'مستحق له: ${s.balanceOwed.toStringAsFixed(0)} ${AppStrings.CURRENCY}'
+                                              : 'خالص (0.00)',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 13,
+                                            color: hasOwed
+                                                ? AppColors.WARNING_AMBER
+                                                : AppColors.SUCCESS_GREEN,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+
+                                  // السطر الثاني: بيانات الهاتف والعنوان + أزرار العمليات
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Wrap(
+                                          spacing: 12,
+                                          runSpacing: 6,
+                                          crossAxisAlignment:
+                                              WrapCrossAlignment.center,
+                                          children: [
+                                            if (s.phone != null &&
+                                                s.phone!.isNotEmpty)
+                                              Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  const Icon(
+                                                    Icons.phone,
+                                                    size: 15,
+                                                    color: AppColors.TEXT_SECONDARY,
+                                                  ),
+                                                  const SizedBox(width: 4),
+                                                  Text(
+                                                    s.phone!,
+                                                    style: const TextStyle(
+                                                      fontSize: 13,
+                                                      color: AppColors.TEXT_SECONDARY,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            if (s.address != null &&
+                                                s.address!.isNotEmpty)
+                                              Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  const Icon(
+                                                    Icons.location_on_outlined,
+                                                    size: 15,
+                                                    color: AppColors.TEXT_SECONDARY,
+                                                  ),
+                                                  const SizedBox(width: 4),
+                                                  Text(
+                                                    s.address!,
+                                                    style: const TextStyle(
+                                                      fontSize: 13,
+                                                      color: AppColors.TEXT_SECONDARY,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+
+                                      // أزرار العمليات
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          OutlinedButton.icon(
+                                            style: OutlinedButton.styleFrom(
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 10,
+                                                vertical: 6,
+                                              ),
+                                              minimumSize: const Size(0, 36),
+                                            ),
+                                            onPressed: () {
+                                              Navigator.of(context).push(
+                                                MaterialPageRoute(
+                                                  builder: (_) =>
+                                                      SupplierDetailScreen(
+                                                    supplierId: s.id,
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                            icon: const Icon(
+                                              Icons.receipt_long,
+                                              size: 16,
+                                            ),
+                                            label: const Text(
+                                              'كشف الحساب',
+                                              style: TextStyle(fontSize: 12.5),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          IconButton(
+                                            tooltip: 'تعديل',
+                                            icon: const Icon(
+                                              Icons.edit_outlined,
+                                              size: 20,
+                                              color: AppColors.PRIMARY_BLUE,
+                                            ),
+                                            onPressed: () =>
+                                                _showAddEditSupplierDialog(
+                                              context,
+                                              ref,
+                                              s,
+                                            ),
+                                          ),
+                                          IconButton(
+                                            tooltip: 'حذف',
+                                            icon: const Icon(
+                                              Icons.delete_outline,
+                                              size: 20,
+                                              color: AppColors.DANGER_RED,
+                                            ),
+                                            onPressed: () =>
+                                                _confirmDeleteSupplier(
+                                              context,
+                                              ref,
+                                              s,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
                                 ],
                               ),
                             ),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                // Owed Badge
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: hasOwed
-                                        ? AppColors.WARNING_AMBER.withValues(
-                                            alpha: 0.12,
-                                          )
-                                        : AppColors.SUCCESS_GREEN.withValues(
-                                            alpha: 0.12,
-                                          ),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Text(
-                                    hasOwed
-                                        ? 'مستحق له: ${s.balanceOwed.toStringAsFixed(0)} ${AppStrings.CURRENCY}'
-                                        : 'خالص (0.00)',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12,
-                                      color: hasOwed
-                                          ? AppColors.WARNING_AMBER
-                                          : AppColors.SUCCESS_GREEN,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                OutlinedButton.icon(
-                                  style: OutlinedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 6,
-                                    ),
-                                    minimumSize: const Size(0, 36),
-                                  ),
-                                  onPressed: () {
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder: (_) => SupplierDetailScreen(
-                                          supplierId: s.id,
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                  icon: const Icon(
-                                    Icons.receipt_long,
-                                    size: 16,
-                                  ),
-                                  label: const Text(
-                                    'كشف الحساب',
-                                    style: TextStyle(fontSize: 12),
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.edit_outlined,
-                                    color: AppColors.PRIMARY_BLUE,
-                                  ),
-                                  onPressed: () => _showAddEditSupplierDialog(
-                                    context,
-                                    ref,
-                                    s,
-                                  ),
-                                ),
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.delete_outline,
-                                    color: AppColors.DANGER_RED,
-                                  ),
-                                  onPressed: () =>
-                                      _confirmDeleteSupplier(context, ref, s),
-                                ),
-                              ],
-                            ),
                           );
-                        },
+                        }
                       ),
                     ),
                   );

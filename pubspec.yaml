@@ -55,6 +55,10 @@ dependencies:
   url_launcher: ^6.3.1
   file_picker: ^8.1.7
   crypto: ^3.0.3
+  google_sign_in: 6.2.2
+  googleapis: ^17.0.0
+  connectivity_plus: ^7.3.2
+  http: ^1.6.0
 
 dev_dependencies:
   flutter_test:

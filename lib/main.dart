@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/constants/app_constants.dart';
 import 'core/database/app_database.dart';
 import 'core/theme/app_theme.dart';
+import 'core/services/google_drive_backup_service.dart';
 import 'presentation/screens/login_screen.dart';
 import 'presentation/screens/main_layout_screen.dart';
 import 'providers/auth_provider.dart';
@@ -28,6 +29,14 @@ void main() async {
   } catch (e, st) {
     FlutterError.reportError(FlutterErrorDetails(exception: e, stack: st));
     // نتيح للتطبيق الإقلاع حتى لو فشلت القاعدة: AuthGate سيعرض شاشة فارغة بدل تعليق.
+  }
+
+  // استماع وتفعيل النسخ الاحتياطي التلقائي عند توفر الإنترنت
+  try {
+    GoogleDriveBackupService.initializeAutoBackupListener();
+    GoogleDriveBackupService.checkAndTriggerAutoBackup();
+  } catch (e) {
+    debugPrint('Google Drive background init: $e');
   }
 
   runApp(

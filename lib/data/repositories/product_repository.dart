@@ -255,10 +255,10 @@ class ProductRepository {
       if (recordAsExpense && totalLoss > 0) {
         await txn.insert('expenses', {
           'id': uuid.v4(),
-          'amount': totalLoss,
-          'category_id': 'توالف وكسر مخزون',
-          'note':
+          'title':
               'خسارة كسر وتوالف: ${product.name} (عدد $quantity ${product.unit}) - $reason',
+          'amount': totalLoss,
+          'category': 'توالف وكسر مخزون',
           'created_at': now.toIso8601String(),
         });
       }

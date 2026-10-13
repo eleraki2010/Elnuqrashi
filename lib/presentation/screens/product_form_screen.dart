@@ -125,7 +125,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
           ),
         ),
       );
-      Navigator.of(context).pop();
+      Navigator.of(context).pop(product);
     }
   }
 

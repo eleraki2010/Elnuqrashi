@@ -10,6 +10,7 @@ import '../../data/models/purchase_invoice_item.dart';
 import '../../providers/app_providers.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/phase2_providers.dart';
+import '../widgets/product_search_dialog.dart';
 
 class PurchaseFormScreen extends ConsumerStatefulWidget {
   const PurchaseFormScreen({super.key});
@@ -89,66 +90,19 @@ class _PurchaseFormScreenState extends ConsumerState<PurchaseFormScreen> {
      });
    }
 
-   void _showProductSearchDialog() {
-     showDialog(
-       context: context,
-       builder: (ctx) => AlertDialog(
-         title: const Text('بحث عن منتج'),
-         content: Column(
-           mainAxisSize: MainAxisSize.min,
-           children: [
-             TextField(
-               decoration: const InputDecoration(
-                 labelText: 'ابحث باسم المنتج',
-                 prefixIcon: Icon(Icons.search),
-               ),
-               onChanged: (val) {
-                 ref.read(searchQueryProvider.notifier).setQuery(val);
-               },
-             ),
-             const SizedBox(height: 8),
-             Expanded(
-               child: ref.watch(productListProvider).when(
-                 data: (products) {
-                   final query = ref.watch(searchQueryProvider);
-                   final filtered = query.isEmpty
-                       ? products
-                       : products.where((p) =>
-                           p.name.toLowerCase().contains(query.toLowerCase())).toList();
-                   return ListView.builder(
-                     itemCount: filtered.length,
-                     itemBuilder: (context, index) {
-                       final product = filtered[index];
-                       return ListTile(
-                         title: Text(product.name),
-                         subtitle: Text(
-                             '${product.quantity} ${product.unit} • سعر الشراء: ${AppStrings.money(product.purchasePrice)}'),
-                         onTap: () {
-                           Navigator.of(ctx).pop();
-                           setState(() {
-                             _selectedProduct = product;
-                             _unitCostController.text = product.purchasePrice.toString();
-                           });
-                         },
-                       );
-                     },
-                   );
-                 },
-                 loading: () => const Center(child: CircularProgressIndicator()),
-                 error: (e, _) => Center(child: Text('خطأ: $e')),
-               ),
-             ),
-           ],
-         ),
-         actions: [
-           TextButton(
-             onPressed: () => Navigator.of(ctx).pop(),
-             child: const Text('إغلاق'),
-           ),
-         ],
-       ),
-     );
-   }
+   Future<void> _showProductSearchDialog() async {
+    final product = await ProductSearchDialog.show(context);
+    if (product != null && mounted) {
+      setState(() {
+        _selectedProduct = product;
+        _unitCostController.text = product.purchasePrice.toString();
+        if (_quantityController.text.trim().isEmpty ||
+            _quantityController.text.trim() == '0') {
+          _quantityController.text = '1';
+        }
+      });
+    }
+  }
 
   Future<void> _savePurchase() async {
     if (_selectedSupplierId == null) {
@@ -214,7 +168,6 @@ class _PurchaseFormScreenState extends ConsumerState<PurchaseFormScreen> {
   @override
   Widget build(BuildContext context) {
     final suppliersAsync = ref.watch(suppliersListProvider);
-    final productsAsync = ref.watch(productListProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('تسجيل فاتورة شراء وتوريد بضاعة')),
@@ -283,68 +236,199 @@ class _PurchaseFormScreenState extends ConsumerState<PurchaseFormScreen> {
                     color: AppColors.PRIMARY_BLUE_DARK,
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 14),
 
+                // Product Selection Box
+                if (_selectedProduct == null)
+                  InkWell(
+                    onTap: _showProductSearchDialog,
+                    borderRadius:
+                        BorderRadius.circular(AppLayout.BORDER_RADIUS),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.PRIMARY_BLUE.withValues(alpha: 0.04),
+                        borderRadius:
+                            BorderRadius.circular(AppLayout.BORDER_RADIUS),
+                        border: Border.all(
+                          color:
+                              AppColors.PRIMARY_BLUE.withValues(alpha: 0.35),
+                          width: 1.2,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.search,
+                            color: AppColors.PRIMARY_BLUE,
+                            size: 24,
+                          ),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'اضغط للبحث عن صنف بالاسم، الباركود أو التصنيف...',
+                                  style: TextStyle(
+                                    fontSize: 14.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.PRIMARY_BLUE_DARK,
+                                  ),
+                                ),
+                                SizedBox(height: 2),
+                                Text(
+                                  'يمكنك البحث في كامل المخزن أو إضافة صنف جديد على الفور',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.TEXT_SECONDARY,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.PRIMARY_BLUE,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 10,
+                              ),
+                            ),
+                            onPressed: _showProductSearchDialog,
+                            icon: const Icon(Icons.manage_search, size: 20),
+                            label: const Text('بحث واختيار'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                else
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.PRIMARY_BLUE.withValues(alpha: 0.06),
+                      borderRadius:
+                          BorderRadius.circular(AppLayout.BORDER_RADIUS),
+                      border: Border.all(
+                        color: AppColors.PRIMARY_BLUE,
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          backgroundColor:
+                              AppColors.PRIMARY_BLUE.withValues(alpha: 0.15),
+                          child: const Icon(
+                            Icons.inventory_2,
+                            color: AppColors.PRIMARY_BLUE,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _selectedProduct!.name,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15.5,
+                                  color: AppColors.PRIMARY_BLUE_DARK,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Wrap(
+                                spacing: 14,
+                                runSpacing: 4,
+                                children: [
+                                  if (_selectedProduct!.barcode != null &&
+                                      _selectedProduct!.barcode!.isNotEmpty)
+                                    Text(
+                                      'الباركود: ${_selectedProduct!.barcode}',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: AppColors.TEXT_SECONDARY,
+                                      ),
+                                    ),
+                                  Text(
+                                    'الرصيد الحالي: ${_selectedProduct!.quantity} ${_selectedProduct!.unit}',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: AppColors.TEXT_SECONDARY,
+                                    ),
+                                  ),
+                                  Text(
+                                    'سعر الشراء المسجل: ${AppStrings.money(_selectedProduct!.purchasePrice)}',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.PRIMARY_BLUE,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            minimumSize: const Size(0, 36),
+                          ),
+                          onPressed: _showProductSearchDialog,
+                          icon: const Icon(Icons.swap_horiz, size: 18),
+                          label: const Text(
+                            'تغيير',
+                            style: TextStyle(fontSize: 12.5),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        IconButton(
+                          icon: const Icon(
+                            Icons.close,
+                            color: AppColors.DANGER_RED,
+                          ),
+                          tooltip: 'إلغاء التحديد',
+                          onPressed: () {
+                            setState(() {
+                              _selectedProduct = null;
+                              _unitCostController.clear();
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+
+                const SizedBox(height: 14),
+
+                // Row of Quantity, Unit Cost, and Add Button
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                     // Product Dropdown with Search Button
-                     Expanded(
-                       flex: 4,
-                       child: Row(
-                         children: [
-                           Expanded(
-                             child: productsAsync.when(
-                               data: (products) {
-                                 return DropdownButtonFormField<Product>(
-                                   initialValue: _selectedProduct,
-                                   decoration: const InputDecoration(
-                                     labelText: 'اختر المنتج *',
-                                     prefixIcon: Icon(Icons.inventory_2_outlined),
-                                   ),
-                                   items: products.map((p) {
-                                     return DropdownMenuItem(
-                                       value: p,
-                                       child: Text(
-                                         '${p.name} (حالي: ${p.quantity} ${p.unit})',
-                                       ),
-                                     );
-                                   }).toList(),
-                                   onChanged: (p) {
-                                     setState(() {
-                                       _selectedProduct = p;
-                                       if (p != null) {
-                                         _unitCostController.text = p.purchasePrice
-                                             .toString();
-                                       }
-                                     });
-                                   },
-                                 );
-                               },
-                               loading: () => const SizedBox.shrink(),
-                               error: (_, _) => const Text('تعذر تحميل المنتجات'),
-                             ),
-                           ),
-                           const SizedBox(width: 8),
-                           IconButton(
-                             icon: const Icon(Icons.search),
-                             tooltip: 'بحث عن منتج',
-                             onPressed: _showProductSearchDialog,
-                           ),
-                         ],
-                       ),
-                     ),
-                    const SizedBox(width: 12),
-
                     // Quantity
                     Expanded(
                       flex: 2,
                       child: TextField(
                         controller: _quantityController,
                         keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'الكمية *',
-                          prefixIcon: Icon(Icons.numbers),
+                        decoration: InputDecoration(
+                          labelText: 'الكمية الواردة *',
+                          suffixText: _selectedProduct?.unit ?? 'وحدة',
+                          prefixIcon: const Icon(Icons.numbers),
                         ),
                       ),
                     ),
@@ -352,15 +436,16 @@ class _PurchaseFormScreenState extends ConsumerState<PurchaseFormScreen> {
 
                     // Unit Cost
                     Expanded(
-                      flex: 2,
+                      flex: 3,
                       child: TextField(
                         controller: _unitCostController,
                         keyboardType: const TextInputType.numberWithOptions(
                           decimal: true,
                         ),
                         decoration: const InputDecoration(
-                          labelText: 'سعر الشراء *',
+                          labelText: 'سعر الشراء للوحدة *',
                           suffixText: AppStrings.CURRENCY,
+                          prefixIcon: Icon(Icons.payments_outlined),
                         ),
                       ),
                     ),
@@ -369,12 +454,20 @@ class _PurchaseFormScreenState extends ConsumerState<PurchaseFormScreen> {
                     // Add Button
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
-                        minimumSize: const Size(0, 52),
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        minimumSize: const Size(0, 48),
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        backgroundColor: AppColors.SUCCESS_GREEN,
+                        foregroundColor: Colors.white,
                       ),
                       onPressed: _addItem,
-                      icon: const Icon(Icons.add),
-                      label: const Text('إضافة'),
+                      icon: const Icon(Icons.add_shopping_cart),
+                      label: const Text(
+                        'إضافة للفاتورة',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ],
                 ),
