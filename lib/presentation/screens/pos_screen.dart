@@ -9,6 +9,7 @@ import '../../providers/app_providers.dart';
 import '../../providers/phase2_providers.dart';
 import '../../providers/pos_cart_provider.dart';
 import '../widgets/receipt_dialog.dart';
+import '../widgets/product_image_view.dart';
 import 'barcode_scanner_screen.dart';
 
 class POSScreen extends ConsumerStatefulWidget {
@@ -888,7 +889,16 @@ class _POSScreenState extends ConsumerState<POSScreen> {
                               if (isInCart) {
                                 _showQuantityDialog(context, product);
                               } else {
-                                cartNotifier.addProduct(product);
+                                final err = cartNotifier.addProduct(product);
+                                if (err != null && mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      backgroundColor: AppColors.DANGER_RED,
+                                      content: Text(err),
+                                      duration: const Duration(seconds: 2),
+                                    ),
+                                  );
+                                }
                               }
                             },
                             child: Column(
@@ -899,27 +909,10 @@ class _POSScreenState extends ConsumerState<POSScreen> {
                                   child: Stack(
                                     fit: StackFit.expand,
                                     children: [
-                                      product.imageUrl != null && product.imageUrl!.isNotEmpty
-                                          ? Image.network(
-                                              product.imageUrl!,
-                                              fit: BoxFit.cover,
-                                              errorBuilder: (_, _, _) => Container(
-                                                color: Colors.grey.shade100,
-                                                child: const Icon(
-                                                  Icons.image_not_supported_outlined,
-                                                  size: 32,
-                                                  color: AppColors.TEXT_SECONDARY,
-                                                ),
-                                              ),
-                                            )
-                                          : Container(
-                                              color: Colors.grey.shade100,
-                                              child: const Icon(
-                                                Icons.inventory_2_outlined,
-                                                size: 32,
-                                                color: AppColors.TEXT_SECONDARY,
-                                              ),
-                                            ),
+                                      ProductImageView(
+                                        imageUrl: product.imageUrl,
+                                        iconSize: 32,
+                                      ),
                                       if (isInCart)
                                         Positioned(
                                           top: 6,
@@ -1269,21 +1262,10 @@ class _POSScreenState extends ConsumerState<POSScreen> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     clipBehavior: Clip.antiAlias,
-                    child: product.imageUrl != null && product.imageUrl!.isNotEmpty
-                        ? Image.network(
-                            product.imageUrl!,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => const Icon(
-                              Icons.inventory_2_outlined,
-                              size: 22,
-                              color: AppColors.TEXT_SECONDARY,
-                            ),
-                          )
-                        : const Icon(
-                            Icons.inventory_2_outlined,
-                            size: 22,
-                            color: AppColors.TEXT_SECONDARY,
-                          ),
+                    child: ProductImageView(
+                      imageUrl: product.imageUrl,
+                      iconSize: 22,
+                    ),
                   ),
                   const SizedBox(width: 10),
 
@@ -1369,7 +1351,17 @@ class _POSScreenState extends ConsumerState<POSScreen> {
                         ),
                         InkWell(
                           onTap: () {
-                            cartNotifier.addProduct(product, quantity: 1);
+                            final err =
+                                cartNotifier.addProduct(product, quantity: 1);
+                            if (err != null && context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  backgroundColor: AppColors.DANGER_RED,
+                                  content: Text(err),
+                                  duration: const Duration(seconds: 2),
+                                ),
+                              );
+                            }
                           },
                           child: const Padding(
                             padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -2125,9 +2117,21 @@ class _POSScreenState extends ConsumerState<POSScreen> {
                       const SizedBox(width: 12),
                       IconButton.filledTonal(
                         onPressed: () {
-                          qty++;
-                          quantityController.text = qty.toString();
-                          setDialogState(() {});
+                          if (qty < product.quantity) {
+                            qty++;
+                            quantityController.text = qty.toString();
+                            setDialogState(() {});
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                backgroundColor: AppColors.WARNING_AMBER,
+                                content: Text(
+                                  'تم الوصول للحد الأقصى المتاح بالمخزن (${product.quantity} ${product.unit})',
+                                ),
+                                duration: const Duration(seconds: 1),
+                              ),
+                            );
+                          }
                         },
                         icon: const Icon(Icons.add),
                       ),
@@ -2142,7 +2146,10 @@ class _POSScreenState extends ConsumerState<POSScreen> {
                       return ActionChip(
                         label: Text('+$preset'),
                         onPressed: () {
-                          qty += preset;
+                          final target = qty + preset;
+                          qty = target <= product.quantity
+                              ? target
+                              : product.quantity;
                           quantityController.text = qty.toString();
                           setDialogState(() {});
                         },
@@ -2181,8 +2188,29 @@ class _POSScreenState extends ConsumerState<POSScreen> {
               ElevatedButton(
                 onPressed: () {
                   final finalQty = int.tryParse(quantityController.text) ?? 0;
+                  if (finalQty > product.quantity) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        backgroundColor: AppColors.DANGER_RED,
+                        content: Text(
+                          'الكمية المطلوبة ($finalQty) تتجاوز رصيد المخزن المتاح (${product.quantity} ${product.unit})',
+                        ),
+                      ),
+                    );
+                    return;
+                  }
                   if (finalQty > 0) {
-                    cartNotifier.updateQuantity(product.id, finalQty);
+                    final err =
+                        cartNotifier.updateQuantity(product.id, finalQty);
+                    if (err != null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          backgroundColor: AppColors.DANGER_RED,
+                          content: Text(err),
+                        ),
+                      );
+                      return;
+                    }
                   } else {
                     cartNotifier.removeProduct(product.id);
                   }

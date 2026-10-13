@@ -332,202 +332,253 @@ class SuppliersListScreen extends ConsumerWidget {
                             child: Padding(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 16,
-                                vertical: 12,
+                                vertical: 8,
                               ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  // السطر الأول: الأيقونة + اسم المورد بالكامل + شارة المستحقات
-                                  Row(
-                                    crossAxisAlignment: CrossAxisAlignment.center,
-                                    children: [
-                                      CircleAvatar(
-                                        radius: 18,
-                                        backgroundColor: hasOwed
-                                            ? AppColors.WARNING_AMBER.withValues(
-                                                alpha: 0.15,
-                                              )
-                                            : AppColors.PRIMARY_BLUE.withValues(
-                                                alpha: 0.12,
-                                              ),
-                                        child: Icon(
-                                          Icons.local_shipping,
-                                          size: 20,
-                                          color: hasOwed
-                                              ? AppColors.WARNING_AMBER
-                                              : AppColors.PRIMARY_BLUE,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Text(
-                                          s.name,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 16,
-                                            color: AppColors.PRIMARY_BLUE_DARK,
-                                          ),
-                                          softWrap: true,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      // شارة المستحق
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 10,
-                                          vertical: 5,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: hasOwed
-                                              ? AppColors.WARNING_AMBER.withValues(
-                                                  alpha: 0.12,
-                                                )
-                                              : AppColors.SUCCESS_GREEN.withValues(
-                                                  alpha: 0.12,
-                                                ),
-                                          borderRadius: BorderRadius.circular(12),
-                                        ),
-                                        child: Text(
-                                          hasOwed
-                                              ? 'مستحق له: ${s.balanceOwed.toStringAsFixed(0)} ${AppStrings.CURRENCY}'
-                                              : 'خالص (0.00)',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 13,
+                              child: LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final isWide = constraints.maxWidth >= 720;
+
+                                  if (isWide) {
+                                    // صف واحد متناسق وأنيق للشاشات العريضة
+                                    return Row(
+                                      crossAxisAlignment: CrossAxisAlignment.center,
+                                      children: [
+                                        CircleAvatar(
+                                          radius: 16,
+                                          backgroundColor: hasOwed
+                                              ? AppColors.WARNING_AMBER.withValues(alpha: 0.15)
+                                              : AppColors.PRIMARY_BLUE.withValues(alpha: 0.12),
+                                          child: Icon(
+                                            Icons.local_shipping,
+                                            size: 18,
                                             color: hasOwed
                                                 ? AppColors.WARNING_AMBER
-                                                : AppColors.SUCCESS_GREEN,
+                                                : AppColors.PRIMARY_BLUE,
                                           ),
                                         ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-
-                                  // السطر الثاني: بيانات الهاتف والعنوان + أزرار العمليات
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: Wrap(
-                                          spacing: 12,
-                                          runSpacing: 6,
-                                          crossAxisAlignment:
-                                              WrapCrossAlignment.center,
-                                          children: [
-                                            if (s.phone != null &&
-                                                s.phone!.isNotEmpty)
-                                              Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  const Icon(
-                                                    Icons.phone,
-                                                    size: 15,
-                                                    color: AppColors.TEXT_SECONDARY,
-                                                  ),
-                                                  const SizedBox(width: 4),
-                                                  Text(
-                                                    s.phone!,
-                                                    style: const TextStyle(
-                                                      fontSize: 13,
-                                                      color: AppColors.TEXT_SECONDARY,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            if (s.address != null &&
-                                                s.address!.isNotEmpty)
-                                              Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  const Icon(
-                                                    Icons.location_on_outlined,
-                                                    size: 15,
-                                                    color: AppColors.TEXT_SECONDARY,
-                                                  ),
-                                                  const SizedBox(width: 4),
-                                                  Text(
-                                                    s.address!,
-                                                    style: const TextStyle(
-                                                      fontSize: 13,
-                                                      color: AppColors.TEXT_SECONDARY,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                          ],
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-
-                                      // أزرار العمليات
-                                      Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          OutlinedButton.icon(
-                                            style: OutlinedButton.styleFrom(
-                                              padding: const EdgeInsets.symmetric(
-                                                horizontal: 10,
-                                                vertical: 6,
-                                              ),
-                                              minimumSize: const Size(0, 36),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          flex: 3,
+                                          child: Text(
+                                            s.name,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14.5,
+                                              color: AppColors.PRIMARY_BLUE_DARK,
                                             ),
-                                            onPressed: () {
-                                              Navigator.of(context).push(
-                                                MaterialPageRoute(
-                                                  builder: (_) =>
-                                                      SupplierDetailScreen(
-                                                    supplierId: s.id,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        if (s.phone != null && s.phone!.isNotEmpty) ...[
+                                          Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const Icon(Icons.phone, size: 14, color: AppColors.TEXT_SECONDARY),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                s.phone!,
+                                                style: const TextStyle(fontSize: 12.5, color: AppColors.TEXT_SECONDARY),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(width: 12),
+                                        ],
+                                        if (s.address != null && s.address!.isNotEmpty) ...[
+                                          Flexible(
+                                            flex: 2,
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                const Icon(Icons.location_on_outlined, size: 14, color: AppColors.TEXT_SECONDARY),
+                                                const SizedBox(width: 4),
+                                                Flexible(
+                                                  child: Text(
+                                                    s.address!,
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                    style: const TextStyle(fontSize: 12.5, color: AppColors.TEXT_SECONDARY),
                                                   ),
                                                 ),
-                                              );
-                                            },
-                                            icon: const Icon(
-                                              Icons.receipt_long,
+                                              ],
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                        ],
+                                        // شارة المستحق
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                          decoration: BoxDecoration(
+                                            color: hasOwed
+                                                ? AppColors.WARNING_AMBER.withValues(alpha: 0.12)
+                                                : AppColors.SUCCESS_GREEN.withValues(alpha: 0.12),
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: Text(
+                                            hasOwed
+                                                ? 'مستحق: ${s.balanceOwed.toStringAsFixed(0)} ${AppStrings.CURRENCY}'
+                                                : 'خالص (0.00)',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 12,
+                                              color: hasOwed
+                                                  ? AppColors.WARNING_AMBER
+                                                  : AppColors.SUCCESS_GREEN,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        // أزرار العمليات
+                                        OutlinedButton.icon(
+                                          style: OutlinedButton.styleFrom(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                            minimumSize: const Size(0, 32),
+                                          ),
+                                          onPressed: () {
+                                            Navigator.of(context).push(
+                                              MaterialPageRoute(
+                                                builder: (_) => SupplierDetailScreen(supplierId: s.id),
+                                              ),
+                                            );
+                                          },
+                                          icon: const Icon(Icons.receipt_long, size: 14),
+                                          label: const Text('كشف الحساب', style: TextStyle(fontSize: 11.5)),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        IconButton(
+                                          tooltip: 'تعديل',
+                                          icon: const Icon(Icons.edit_outlined, size: 18, color: AppColors.PRIMARY_BLUE),
+                                          onPressed: () => _showAddEditSupplierDialog(context, ref, s),
+                                        ),
+                                        IconButton(
+                                          tooltip: 'حذف',
+                                          icon: const Icon(Icons.delete_outline, size: 18, color: AppColors.DANGER_RED),
+                                          onPressed: () => _confirmDeleteSupplier(context, ref, s),
+                                        ),
+                                      ],
+                                    );
+                                  }
+
+                                  // عرض مدمج للشاشات المتوسطة والضيقة
+                                  return Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        crossAxisAlignment: CrossAxisAlignment.center,
+                                        children: [
+                                          CircleAvatar(
+                                            radius: 15,
+                                            backgroundColor: hasOwed
+                                                ? AppColors.WARNING_AMBER.withValues(alpha: 0.15)
+                                                : AppColors.PRIMARY_BLUE.withValues(alpha: 0.12),
+                                            child: Icon(
+                                              Icons.local_shipping,
                                               size: 16,
-                                            ),
-                                            label: const Text(
-                                              'كشف الحساب',
-                                              style: TextStyle(fontSize: 12.5),
+                                              color: hasOwed ? AppColors.WARNING_AMBER : AppColors.PRIMARY_BLUE,
                                             ),
                                           ),
-                                          const SizedBox(width: 4),
-                                          IconButton(
-                                            tooltip: 'تعديل',
-                                            icon: const Icon(
-                                              Icons.edit_outlined,
-                                              size: 20,
-                                              color: AppColors.PRIMARY_BLUE,
-                                            ),
-                                            onPressed: () =>
-                                                _showAddEditSupplierDialog(
-                                              context,
-                                              ref,
-                                              s,
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              s.name,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 14,
+                                                color: AppColors.PRIMARY_BLUE_DARK,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
                                             ),
                                           ),
-                                          IconButton(
-                                            tooltip: 'حذف',
-                                            icon: const Icon(
-                                              Icons.delete_outline,
-                                              size: 20,
-                                              color: AppColors.DANGER_RED,
+                                          const SizedBox(width: 8),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                                            decoration: BoxDecoration(
+                                              color: hasOwed
+                                                  ? AppColors.WARNING_AMBER.withValues(alpha: 0.12)
+                                                  : AppColors.SUCCESS_GREEN.withValues(alpha: 0.12),
+                                              borderRadius: BorderRadius.circular(8),
                                             ),
-                                            onPressed: () =>
-                                                _confirmDeleteSupplier(
-                                              context,
-                                              ref,
-                                              s,
+                                            child: Text(
+                                              hasOwed
+                                                  ? 'مستحق: ${s.balanceOwed.toStringAsFixed(0)} ${AppStrings.CURRENCY}'
+                                                  : 'خالص (0.00)',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 11.5,
+                                                color: hasOwed ? AppColors.WARNING_AMBER : AppColors.SUCCESS_GREEN,
+                                              ),
                                             ),
                                           ),
                                         ],
                                       ),
+                                      const SizedBox(height: 6),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Wrap(
+                                              spacing: 10,
+                                              runSpacing: 4,
+                                              crossAxisAlignment: WrapCrossAlignment.center,
+                                              children: [
+                                                if (s.phone != null && s.phone!.isNotEmpty)
+                                                  Row(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      const Icon(Icons.phone, size: 13, color: AppColors.TEXT_SECONDARY),
+                                                      const SizedBox(width: 3),
+                                                      Text(s.phone!, style: const TextStyle(fontSize: 11.5, color: AppColors.TEXT_SECONDARY)),
+                                                    ],
+                                                  ),
+                                                if (s.address != null && s.address!.isNotEmpty)
+                                                  Row(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      const Icon(Icons.location_on_outlined, size: 13, color: AppColors.TEXT_SECONDARY),
+                                                      const SizedBox(width: 3),
+                                                      Text(s.address!, style: const TextStyle(fontSize: 11.5, color: AppColors.TEXT_SECONDARY)),
+                                                    ],
+                                                  ),
+                                              ],
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          OutlinedButton.icon(
+                                            style: OutlinedButton.styleFrom(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                              minimumSize: const Size(0, 30),
+                                            ),
+                                            onPressed: () {
+                                              Navigator.of(context).push(
+                                                MaterialPageRoute(
+                                                  builder: (_) => SupplierDetailScreen(supplierId: s.id),
+                                                ),
+                                              );
+                                            },
+                                            icon: const Icon(Icons.receipt_long, size: 13),
+                                            label: const Text('كشف الحساب', style: TextStyle(fontSize: 11)),
+                                          ),
+                                          const SizedBox(width: 2),
+                                          IconButton(
+                                            tooltip: 'تعديل',
+                                            icon: const Icon(Icons.edit_outlined, size: 18, color: AppColors.PRIMARY_BLUE),
+                                            onPressed: () => _showAddEditSupplierDialog(context, ref, s),
+                                          ),
+                                          IconButton(
+                                            tooltip: 'حذف',
+                                            icon: const Icon(Icons.delete_outline, size: 18, color: AppColors.DANGER_RED),
+                                            onPressed: () => _confirmDeleteSupplier(context, ref, s),
+                                          ),
+                                        ],
+                                      ),
                                     ],
-                                  ),
-                                ],
+                                  );
+                                },
                               ),
                             ),
                           );
-                        }
+                        },
                       ),
                     ),
                   );

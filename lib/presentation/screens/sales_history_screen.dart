@@ -327,168 +327,383 @@ class SalesHistoryScreen extends ConsumerWidget {
                                 ? AppColors.WARNING_AMBER
                                 : AppColors.DANGER_RED;
 
-                            return ListTile(
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 8,
-                              ),
-                              leading: CircleAvatar(
-                                backgroundColor: statusColor.withValues(
-                                  alpha: 0.12,
+                            return InkWell(
+                              onTap: () => _showInvoiceDetails(context, ref, inv),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 10,
                                 ),
-                                child: Icon(
-                                  isCompleted
-                                      ? Icons.check_circle_outline
-                                      : isHeld
-                                      ? Icons.pause_circle_outlined
-                                      : Icons.cancel_outlined,
-                                  color: statusColor,
-                                ),
-                              ),
-                              title: Wrap(
-                                spacing: 8,
-                                runSpacing: 4,
-                                crossAxisAlignment: WrapCrossAlignment.center,
-                                children: [
-                                  Text(
-                                    inv.invoiceNumber,
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 15 * scale,
-                                    ),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: statusColor.withValues(
-                                        alpha: 0.12,
-                                      ),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(
-                                      inv.statusArabic,
-                                      style: TextStyle(
-                                        fontSize: 12 * scale,
-                                        fontWeight: FontWeight.bold,
-                                        color: statusColor,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              subtitle: Padding(
-                                padding: const EdgeInsets.only(top: 4),
-                                child: Wrap(
-                                  spacing: 12,
-                                  runSpacing: 2,
-                                  children: [
-                                    Text(
-                                      dateFormat.format(inv.createdAt),
-                                      style: TextStyle(
-                                        fontSize: 12 * scale,
-                                        color: AppColors.TEXT_SECONDARY,
-                                      ),
-                                    ),
-                                    Text(
-                                      'طريقة الدفع: ${inv.paymentMethodArabic}',
-                                      style: TextStyle(
-                                        fontSize: 12 * scale,
-                                        color: AppColors.TEXT_SECONDARY,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    crossAxisAlignment: CrossAxisAlignment.end,
-                                    children: [
-                                      Text(
-                                        AppStrings.money(inv.total),
-                                        style: TextStyle(
-                                          fontSize: 14.5 * scale,
-                                          fontWeight: FontWeight.bold,
-                                          color: AppColors.PRIMARY_BLUE,
+                                child: LayoutBuilder(
+                                  builder: (context, constraints) {
+                                    final isWide = constraints.maxWidth >= 680;
+                                    final customerText = inv.customerName?.isNotEmpty == true
+                                        ? inv.customerName!
+                                        : 'عميل نقدي';
+
+                                    if (isWide) {
+                                      // عرض عريض (شاشات الكمبيوتر والتابلت بالعرض)
+                                      return Row(
+                                        crossAxisAlignment: CrossAxisAlignment.center,
+                                        children: [
+                                          CircleAvatar(
+                                            radius: 18,
+                                            backgroundColor: statusColor.withValues(alpha: 0.12),
+                                            child: Icon(
+                                              isCompleted
+                                                  ? Icons.check_circle_outline
+                                                  : isHeld
+                                                  ? Icons.pause_circle_outlined
+                                                  : Icons.cancel_outlined,
+                                              size: 20,
+                                              color: statusColor,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          // بيانات الفاتورة الأساسية
+                                          Expanded(
+                                            flex: 4,
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Row(
+                                                  children: [
+                                                    Text(
+                                                      inv.invoiceNumber,
+                                                      style: const TextStyle(
+                                                        fontWeight: FontWeight.bold,
+                                                        fontSize: 14.5,
+                                                        color: AppColors.PRIMARY_BLUE_DARK,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 8),
+                                                    Container(
+                                                      padding: const EdgeInsets.symmetric(
+                                                        horizontal: 7,
+                                                        vertical: 2,
+                                                      ),
+                                                      decoration: BoxDecoration(
+                                                        color: statusColor.withValues(alpha: 0.12),
+                                                        borderRadius: BorderRadius.circular(4),
+                                                      ),
+                                                      child: Text(
+                                                        inv.statusArabic,
+                                                        style: TextStyle(
+                                                          fontSize: 11,
+                                                          fontWeight: FontWeight.bold,
+                                                          color: statusColor,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Row(
+                                                  children: [
+                                                    const Icon(
+                                                      Icons.person_outline,
+                                                      size: 14,
+                                                      color: AppColors.TEXT_SECONDARY,
+                                                    ),
+                                                    const SizedBox(width: 4),
+                                                    Flexible(
+                                                      child: Text(
+                                                        customerText,
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow.ellipsis,
+                                                        style: const TextStyle(
+                                                          fontSize: 12,
+                                                          color: AppColors.TEXT_SECONDARY,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 12),
+                                                    const Icon(
+                                                      Icons.schedule,
+                                                      size: 14,
+                                                      color: AppColors.TEXT_SECONDARY,
+                                                    ),
+                                                    const SizedBox(width: 4),
+                                                    Text(
+                                                      dateFormat.format(inv.createdAt),
+                                                      style: const TextStyle(
+                                                        fontSize: 12,
+                                                        color: AppColors.TEXT_SECONDARY,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 12),
+                                                    Text(
+                                                      'الدفع: ${inv.paymentMethodArabic}',
+                                                      style: const TextStyle(
+                                                        fontSize: 12,
+                                                        color: AppColors.TEXT_SECONDARY,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          // المبالغ المالية
+                                          Column(
+                                            crossAxisAlignment: CrossAxisAlignment.end,
+                                            children: [
+                                              Text(
+                                                AppStrings.money(inv.total),
+                                                style: const TextStyle(
+                                                  fontSize: 15,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: AppColors.PRIMARY_BLUE,
+                                                ),
+                                              ),
+                                              Text(
+                                                'المدفوع: ${AppStrings.money(inv.paidAmount)}',
+                                                style: const TextStyle(
+                                                  fontSize: 11.5,
+                                                  color: AppColors.TEXT_SECONDARY,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(width: 16),
+                                          // أزرار العمليات
+                                          OutlinedButton.icon(
+                                            style: OutlinedButton.styleFrom(
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 10,
+                                                vertical: 6,
+                                              ),
+                                              minimumSize: const Size(0, 34),
+                                            ),
+                                            onPressed: () => _showInvoiceDetails(context, ref, inv),
+                                            icon: const Icon(Icons.receipt, size: 15),
+                                            label: const Text(
+                                              'عرض الفاتورة',
+                                              style: TextStyle(fontSize: 12),
+                                            ),
+                                          ),
+                                          if (isCompleted) ...[
+                                            const SizedBox(width: 6),
+                                            IconButton(
+                                              tooltip: 'إلغاء الفاتورة',
+                                              icon: const Icon(
+                                                Icons.cancel_outlined,
+                                                size: 20,
+                                                color: AppColors.DANGER_RED,
+                                              ),
+                                              onPressed: () => _confirmCancelInvoice(context, ref, inv),
+                                            ),
+                                          ],
+                                          if (inv.status == 'cancelled') ...[
+                                            const SizedBox(width: 6),
+                                            IconButton(
+                                              tooltip: 'استرجاع الفاتورة الملغاة',
+                                              icon: const Icon(
+                                                Icons.restore,
+                                                size: 20,
+                                                color: AppColors.SUCCESS_GREEN,
+                                              ),
+                                              onPressed: () => _confirmRestoreInvoice(context, ref, inv),
+                                            ),
+                                          ],
+                                          const SizedBox(width: 4),
+                                          IconButton(
+                                            tooltip: inv.status == 'held'
+                                                ? 'حذف الفاتورة المعلّقة'
+                                                : 'حذف الفاتورة',
+                                            icon: const Icon(
+                                              Icons.delete_outline,
+                                              size: 20,
+                                              color: AppColors.DANGER_RED,
+                                            ),
+                                            onPressed: () => _confirmDeleteInvoice(context, ref, inv),
+                                          ),
+                                        ],
+                                      );
+                                    }
+
+                                    // عرض متجاوب للشاشات المتوسطة أو الضيقة (بدون أي اقتصاص)
+                                    return Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        // السطر 1: أيقونة + رقم الفاتورة + شارة الحالة + الإجمالي
+                                        Row(
+                                          children: [
+                                            CircleAvatar(
+                                              radius: 16,
+                                              backgroundColor: statusColor.withValues(alpha: 0.12),
+                                              child: Icon(
+                                                isCompleted
+                                                    ? Icons.check_circle_outline
+                                                    : isHeld
+                                                    ? Icons.pause_circle_outlined
+                                                    : Icons.cancel_outlined,
+                                                size: 18,
+                                                color: statusColor,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              inv.invoiceNumber,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 14,
+                                                color: AppColors.PRIMARY_BLUE_DARK,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 6,
+                                                vertical: 2,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: statusColor.withValues(alpha: 0.12),
+                                                borderRadius: BorderRadius.circular(4),
+                                              ),
+                                              child: Text(
+                                                inv.statusArabic,
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: statusColor,
+                                                ),
+                                              ),
+                                            ),
+                                            const Spacer(),
+                                            Text(
+                                              AppStrings.money(inv.total),
+                                              style: const TextStyle(
+                                                fontSize: 14.5,
+                                                fontWeight: FontWeight.bold,
+                                                color: AppColors.PRIMARY_BLUE,
+                                              ),
+                                            ),
+                                          ],
                                         ),
-                                      ),
-                                      Text(
-                                        'المدفوع: ${AppStrings.money(inv.paidAmount)}',
-                                        style: TextStyle(
-                                          fontSize: 11 * scale,
-                                          color: AppColors.TEXT_SECONDARY,
+                                        const SizedBox(height: 6),
+                                        // السطر 2: العميل + التاريخ + طريقة الدفع + المدفوع
+                                        Wrap(
+                                          spacing: 12,
+                                          runSpacing: 4,
+                                          crossAxisAlignment: WrapCrossAlignment.center,
+                                          children: [
+                                            Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                const Icon(
+                                                  Icons.person_outline,
+                                                  size: 14,
+                                                  color: AppColors.TEXT_SECONDARY,
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  customerText,
+                                                  style: const TextStyle(
+                                                    fontSize: 12,
+                                                    color: AppColors.TEXT_SECONDARY,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                const Icon(
+                                                  Icons.schedule,
+                                                  size: 14,
+                                                  color: AppColors.TEXT_SECONDARY,
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  dateFormat.format(inv.createdAt),
+                                                  style: const TextStyle(
+                                                    fontSize: 12,
+                                                    color: AppColors.TEXT_SECONDARY,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            Text(
+                                              'طريقة الدفع: ${inv.paymentMethodArabic}',
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                color: AppColors.TEXT_SECONDARY,
+                                              ),
+                                            ),
+                                            Text(
+                                              'المدفوع: ${AppStrings.money(inv.paidAmount)}',
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w600,
+                                                color: AppColors.TEXT_PRIMARY,
+                                              ),
+                                            ),
+                                          ],
                                         ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(width: 16),
-                                  OutlinedButton.icon(
-                                    style: OutlinedButton.styleFrom(
-                                      padding: EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 6 * scale,
-                                      ),
-                                      minimumSize: Size(0, 36 * scale),
-                                    ),
-                                    onPressed: () =>
-                                        _showInvoiceDetails(context, ref, inv),
-                                    icon: Icon(Icons.receipt, size: 16 * scale),
-                                    label: Text(
-                                      'عرض الفاتورة',
-                                      style: TextStyle(fontSize: 12 * scale),
-                                    ),
-                                  ),
-                                  if (isCompleted) ...[
-                                    const SizedBox(width: 8),
-                                    IconButton(
-                                      tooltip: 'إلغاء الفاتورة',
-                                      icon: const Icon(
-                                        Icons.cancel_outlined,
-                                        color: AppColors.DANGER_RED,
-                                      ),
-                                      onPressed: () => _confirmCancelInvoice(
-                                        context,
-                                        ref,
-                                        inv,
-                                      ),
-                                    ),
-                                  ],
-                                  if (inv.status == 'cancelled') ...[
-                                    const SizedBox(width: 8),
-                                    IconButton(
-                                      tooltip: 'استرجاع الفاتورة الملغاة',
-                                      icon: const Icon(
-                                        Icons.restore,
-                                        color: AppColors.SUCCESS_GREEN,
-                                      ),
-                                      onPressed: () => _confirmRestoreInvoice(
-                                        context,
-                                        ref,
-                                        inv,
-                                      ),
-                                    ),
-                                  ],
-                                  const SizedBox(width: 4),
-                                  IconButton(
-                                    tooltip: inv.status == 'held'
-                                        ? 'حذف الفاتورة المعلّقة'
-                                        : 'حذف الفاتورة',
-                                    icon: const Icon(
-                                      Icons.delete_outline,
-                                      color: AppColors.DANGER_RED,
-                                    ),
-                                    onPressed: () => _confirmDeleteInvoice(
-                                      context,
-                                      ref,
-                                      inv,
-                                    ),
-                                  ),
-                                ],
+                                        const SizedBox(height: 8),
+                                        // السطر 3: أزرار العمليات
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.end,
+                                          children: [
+                                            OutlinedButton.icon(
+                                              style: OutlinedButton.styleFrom(
+                                                padding: const EdgeInsets.symmetric(
+                                                  horizontal: 10,
+                                                  vertical: 4,
+                                                ),
+                                                minimumSize: const Size(0, 32),
+                                              ),
+                                              onPressed: () => _showInvoiceDetails(context, ref, inv),
+                                              icon: const Icon(Icons.receipt, size: 15),
+                                              label: const Text(
+                                                'عرض الفاتورة',
+                                                style: TextStyle(fontSize: 11.5),
+                                              ),
+                                            ),
+                                            if (isCompleted) ...[
+                                              const SizedBox(width: 6),
+                                              IconButton(
+                                                tooltip: 'إلغاء الفاتورة',
+                                                icon: const Icon(
+                                                  Icons.cancel_outlined,
+                                                  size: 20,
+                                                  color: AppColors.DANGER_RED,
+                                                ),
+                                                onPressed: () => _confirmCancelInvoice(context, ref, inv),
+                                              ),
+                                            ],
+                                            if (inv.status == 'cancelled') ...[
+                                              const SizedBox(width: 6),
+                                              IconButton(
+                                                tooltip: 'استرجاع الفاتورة الملغاة',
+                                                icon: const Icon(
+                                                  Icons.restore,
+                                                  size: 20,
+                                                  color: AppColors.SUCCESS_GREEN,
+                                                ),
+                                                onPressed: () => _confirmRestoreInvoice(context, ref, inv),
+                                              ),
+                                            ],
+                                            const SizedBox(width: 4),
+                                            IconButton(
+                                              tooltip: inv.status == 'held'
+                                                  ? 'حذف الفاتورة المعلّقة'
+                                                  : 'حذف الفاتورة',
+                                              icon: const Icon(
+                                                Icons.delete_outline,
+                                                size: 20,
+                                                color: AppColors.DANGER_RED,
+                                              ),
+                                              onPressed: () => _confirmDeleteInvoice(context, ref, inv),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    );
+                                  },
+                                ),
                               ),
                             );
                           },

@@ -147,9 +147,7 @@ class _ProductsListScreenState extends ConsumerState<ProductsListScreen> {
                                 child: Text(category.name))),
                         ],
                         onChanged: (value) {
-                          // Note: This won't actually update the provider
-                          // In a real implementation, we'd use a notifier
-                          // For now, we'll just use the value directly in filtering
+                          ref.read(selectedCategoryFilterProvider.notifier).setCategory(value);
                         },
                         isExpanded: true,
                         dropdownColor: AppColors.NEUTRAL_SURFACE,
@@ -213,7 +211,20 @@ class _ProductsListScreenState extends ConsumerState<ProductsListScreen> {
                       return ProductCard(
                         product: product,
                         onTap: () {
-                          // TODO: Navigate to product details
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  ProductFormScreen(productToEdit: product),
+                            ),
+                          );
+                        },
+                        onEdit: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  ProductFormScreen(productToEdit: product),
+                            ),
+                          );
                         },
                       );
                     },

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/constants/app_constants.dart';
@@ -351,254 +350,280 @@ class CustomersListScreen extends ConsumerWidget {
                             child: Padding(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 16,
-                                vertical: 12,
+                                vertical: 8,
                               ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  // السطر الأول: أيقونة + اسم العميل بالكامل + شارة المديونية
-                                  Row(
-                                    crossAxisAlignment: CrossAxisAlignment.center,
-                                    children: [
-                                      CircleAvatar(
-                                        radius: 18,
-                                        backgroundColor: hasDebt
-                                            ? AppColors.DANGER_RED.withValues(
-                                                alpha: 0.12,
-                                              )
-                                            : AppColors.PRIMARY_BLUE.withValues(
-                                                alpha: 0.12,
-                                              ),
-                                        child: Icon(
-                                          Icons.person,
-                                          size: 20,
-                                          color: hasDebt
-                                              ? AppColors.DANGER_RED
-                                              : AppColors.PRIMARY_BLUE,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Text(
-                                          c.name,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 16,
-                                            color: AppColors.PRIMARY_BLUE_DARK,
-                                          ),
-                                          softWrap: true,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      // شارة المديونية
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 10,
-                                          vertical: 5,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: hasDebt
-                                              ? AppColors.DANGER_RED.withValues(
-                                                  alpha: 0.12,
-                                                )
-                                              : AppColors.SUCCESS_GREEN.withValues(
-                                                  alpha: 0.12,
-                                                ),
-                                          borderRadius: BorderRadius.circular(12),
-                                        ),
-                                        child: Text(
-                                          hasDebt
-                                              ? 'مديونية: ${AppStrings.money(c.balanceDue)}'
-                                              : 'خالص (0.00)',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 13,
+                              child: LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final isWide = constraints.maxWidth >= 720;
+
+                                  if (isWide) {
+                                    // صف واحد متناسق وأنيق للشاشات العريضة
+                                    return Row(
+                                      crossAxisAlignment: CrossAxisAlignment.center,
+                                      children: [
+                                        CircleAvatar(
+                                          radius: 16,
+                                          backgroundColor: hasDebt
+                                              ? AppColors.DANGER_RED.withValues(alpha: 0.12)
+                                              : AppColors.PRIMARY_BLUE.withValues(alpha: 0.12),
+                                          child: Icon(
+                                            Icons.person,
+                                            size: 18,
                                             color: hasDebt
                                                 ? AppColors.DANGER_RED
-                                                : AppColors.SUCCESS_GREEN,
+                                                : AppColors.PRIMARY_BLUE,
                                           ),
                                         ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-
-                                  // السطر الثاني: بيانات التواصل وموعد السداد + أزرار العمليات
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: Wrap(
-                                          spacing: 12,
-                                          runSpacing: 6,
-                                          crossAxisAlignment:
-                                              WrapCrossAlignment.center,
-                                          children: [
-                                            if (c.phone != null &&
-                                                c.phone!.isNotEmpty) ...[
-                                              Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  const Icon(
-                                                    Icons.phone,
-                                                    size: 15,
-                                                    color: AppColors.TEXT_SECONDARY,
-                                                  ),
-                                                  const SizedBox(width: 4),
-                                                  Text(
-                                                    c.phone!,
-                                                    style: const TextStyle(
-                                                      fontSize: 13,
-                                                      color: AppColors.TEXT_SECONDARY,
-                                                    ),
-                                                  ),
-                                                ],
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          flex: 3,
+                                          child: Text(
+                                            c.name,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14.5,
+                                              color: AppColors.PRIMARY_BLUE_DARK,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        if (c.phone != null && c.phone!.isNotEmpty) ...[
+                                          Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const Icon(Icons.phone, size: 14, color: AppColors.TEXT_SECONDARY),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                c.phone!,
+                                                style: const TextStyle(fontSize: 12.5, color: AppColors.TEXT_SECONDARY),
                                               ),
                                             ],
-                                            if (c.address != null &&
-                                                c.address!.isNotEmpty) ...[
-                                              Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  const Icon(
-                                                    Icons.location_on_outlined,
-                                                    size: 15,
-                                                    color: AppColors.TEXT_SECONDARY,
-                                                  ),
-                                                  const SizedBox(width: 4),
-                                                  Text(
+                                          ),
+                                          const SizedBox(width: 12),
+                                        ],
+                                        if (c.address != null && c.address!.isNotEmpty) ...[
+                                          Flexible(
+                                            flex: 2,
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                const Icon(Icons.location_on_outlined, size: 14, color: AppColors.TEXT_SECONDARY),
+                                                const SizedBox(width: 4),
+                                                Flexible(
+                                                  child: Text(
                                                     c.address!,
-                                                    style: const TextStyle(
-                                                      fontSize: 13,
-                                                      color: AppColors.TEXT_SECONDARY,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ],
-                                            if (c.paymentDueDate != null &&
-                                                c.hasDebt) ...[
-                                              Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  Icon(
-                                                    Icons.event,
-                                                    size: 15,
-                                                    color: c.isOverdue
-                                                        ? AppColors.DANGER_RED
-                                                        : AppColors.TEXT_SECONDARY,
-                                                  ),
-                                                  const SizedBox(width: 4),
-                                                  Text(
-                                                    'السداد: ${DateFormat('d MMM', 'ar').format(c.paymentDueDate!)}',
-                                                    style: TextStyle(
-                                                      fontSize: 13,
-                                                      color: c.isOverdue
-                                                          ? AppColors.DANGER_RED
-                                                          : AppColors.TEXT_SECONDARY,
-                                                      fontWeight: c.isOverdue
-                                                          ? FontWeight.bold
-                                                          : FontWeight.normal,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ],
-                                            if (c.isOverdue) ...[
-                                              Container(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                  horizontal: 8,
-                                                  vertical: 3,
-                                                ),
-                                                decoration: BoxDecoration(
-                                                  color: AppColors.DANGER_RED,
-                                                  borderRadius:
-                                                      BorderRadius.circular(10),
-                                                ),
-                                                child: const Text(
-                                                  'متأخر عن السداد',
-                                                  style: TextStyle(
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 11,
-                                                    color: Colors.white,
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                    style: const TextStyle(fontSize: 12.5, color: AppColors.TEXT_SECONDARY),
                                                   ),
                                                 ),
-                                              ),
-                                            ],
-                                          ],
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-
-                                      // أزرار العمليات
-                                      Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          OutlinedButton.icon(
-                                            style: OutlinedButton.styleFrom(
-                                              padding: const EdgeInsets.symmetric(
-                                                horizontal: 10,
-                                                vertical: 6,
-                                              ),
-                                              minimumSize: const Size(0, 36),
-                                            ),
-                                            onPressed: () {
-                                              Navigator.of(context).push(
-                                                MaterialPageRoute(
-                                                  builder: (_) =>
-                                                      CustomerDetailScreen(
-                                                    customerId: c.id,
-                                                  ),
-                                                ),
-                                              );
-                                            },
-                                            icon: const Icon(
-                                              Icons.receipt_long,
-                                              size: 16,
-                                            ),
-                                            label: const Text(
-                                              'كشف الحساب',
-                                              style: TextStyle(fontSize: 12.5),
+                                              ],
                                             ),
                                           ),
-                                          const SizedBox(width: 4),
-                                          IconButton(
-                                            tooltip: 'تعديل',
-                                            icon: const Icon(
-                                              Icons.edit_outlined,
-                                              size: 20,
-                                              color: AppColors.PRIMARY_BLUE,
-                                            ),
-                                            onPressed: () =>
-                                                _showAddEditCustomerDialog(
-                                              context,
-                                              ref,
-                                              c,
-                                            ),
-                                          ),
-                                          IconButton(
-                                            tooltip: 'حذف',
-                                            icon: const Icon(
-                                              Icons.delete_outline,
-                                              size: 20,
+                                          const SizedBox(width: 12),
+                                        ],
+                                        if (c.isOverdue) ...[
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
                                               color: AppColors.DANGER_RED,
+                                              borderRadius: BorderRadius.circular(8),
                                             ),
-                                            onPressed: () =>
-                                                _confirmDeleteCustomer(
-                                              context,
-                                              ref,
-                                              c,
+                                            child: const Text(
+                                              'متأخر',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 10.5,
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                        ],
+                                        // شارة المديونية
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                          decoration: BoxDecoration(
+                                            color: hasDebt
+                                                ? AppColors.DANGER_RED.withValues(alpha: 0.12)
+                                                : AppColors.SUCCESS_GREEN.withValues(alpha: 0.12),
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: Text(
+                                            hasDebt
+                                                ? 'مديونية: ${AppStrings.money(c.balanceDue)}'
+                                                : 'خالص (0.00)',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 12,
+                                              color: hasDebt
+                                                  ? AppColors.DANGER_RED
+                                                  : AppColors.SUCCESS_GREEN,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        // أزرار العمليات
+                                        OutlinedButton.icon(
+                                          style: OutlinedButton.styleFrom(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                            minimumSize: const Size(0, 32),
+                                          ),
+                                          onPressed: () {
+                                            Navigator.of(context).push(
+                                              MaterialPageRoute(
+                                                builder: (_) => CustomerDetailScreen(customerId: c.id),
+                                              ),
+                                            );
+                                          },
+                                          icon: const Icon(Icons.receipt_long, size: 14),
+                                          label: const Text('كشف الحساب', style: TextStyle(fontSize: 11.5)),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        IconButton(
+                                          tooltip: 'تعديل',
+                                          icon: const Icon(Icons.edit_outlined, size: 18, color: AppColors.PRIMARY_BLUE),
+                                          onPressed: () => _showAddEditCustomerDialog(context, ref, c),
+                                        ),
+                                        IconButton(
+                                          tooltip: 'حذف',
+                                          icon: const Icon(Icons.delete_outline, size: 18, color: AppColors.DANGER_RED),
+                                          onPressed: () => _confirmDeleteCustomer(context, ref, c),
+                                        ),
+                                      ],
+                                    );
+                                  }
+
+                                  // عرض مدمج للشاشات المتوسطة والضيقة
+                                  return Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        crossAxisAlignment: CrossAxisAlignment.center,
+                                        children: [
+                                          CircleAvatar(
+                                            radius: 15,
+                                            backgroundColor: hasDebt
+                                                ? AppColors.DANGER_RED.withValues(alpha: 0.12)
+                                                : AppColors.PRIMARY_BLUE.withValues(alpha: 0.12),
+                                            child: Icon(
+                                              Icons.person,
+                                              size: 16,
+                                              color: hasDebt ? AppColors.DANGER_RED : AppColors.PRIMARY_BLUE,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              c.name,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 14,
+                                                color: AppColors.PRIMARY_BLUE_DARK,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                                            decoration: BoxDecoration(
+                                              color: hasDebt
+                                                  ? AppColors.DANGER_RED.withValues(alpha: 0.12)
+                                                  : AppColors.SUCCESS_GREEN.withValues(alpha: 0.12),
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                            child: Text(
+                                              hasDebt
+                                                  ? 'مديونية: ${AppStrings.money(c.balanceDue)}'
+                                                  : 'خالص (0.00)',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 11.5,
+                                                color: hasDebt ? AppColors.DANGER_RED : AppColors.SUCCESS_GREEN,
+                                              ),
                                             ),
                                           ),
                                         ],
                                       ),
+                                      const SizedBox(height: 6),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Wrap(
+                                              spacing: 10,
+                                              runSpacing: 4,
+                                              crossAxisAlignment: WrapCrossAlignment.center,
+                                              children: [
+                                                if (c.phone != null && c.phone!.isNotEmpty)
+                                                  Row(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      const Icon(Icons.phone, size: 13, color: AppColors.TEXT_SECONDARY),
+                                                      const SizedBox(width: 3),
+                                                      Text(c.phone!, style: const TextStyle(fontSize: 11.5, color: AppColors.TEXT_SECONDARY)),
+                                                    ],
+                                                  ),
+                                                if (c.address != null && c.address!.isNotEmpty)
+                                                  Row(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      const Icon(Icons.location_on_outlined, size: 13, color: AppColors.TEXT_SECONDARY),
+                                                      const SizedBox(width: 3),
+                                                      Text(c.address!, style: const TextStyle(fontSize: 11.5, color: AppColors.TEXT_SECONDARY)),
+                                                    ],
+                                                  ),
+                                                if (c.isOverdue)
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                                    decoration: BoxDecoration(
+                                                      color: AppColors.DANGER_RED,
+                                                      borderRadius: BorderRadius.circular(6),
+                                                    ),
+                                                    child: const Text('متأخر', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: Colors.white)),
+                                                  ),
+                                              ],
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          OutlinedButton.icon(
+                                            style: OutlinedButton.styleFrom(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                              minimumSize: const Size(0, 30),
+                                            ),
+                                            onPressed: () {
+                                              Navigator.of(context).push(
+                                                MaterialPageRoute(
+                                                  builder: (_) => CustomerDetailScreen(customerId: c.id),
+                                                ),
+                                              );
+                                            },
+                                            icon: const Icon(Icons.receipt_long, size: 13),
+                                            label: const Text('كشف الحساب', style: TextStyle(fontSize: 11)),
+                                          ),
+                                          const SizedBox(width: 2),
+                                          IconButton(
+                                            tooltip: 'تعديل',
+                                            icon: const Icon(Icons.edit_outlined, size: 18, color: AppColors.PRIMARY_BLUE),
+                                            onPressed: () => _showAddEditCustomerDialog(context, ref, c),
+                                          ),
+                                          IconButton(
+                                            tooltip: 'حذف',
+                                            icon: const Icon(Icons.delete_outline, size: 18, color: AppColors.DANGER_RED),
+                                            onPressed: () => _confirmDeleteCustomer(context, ref, c),
+                                          ),
+                                        ],
+                                      ),
                                     ],
-                                  ),
-                                ],
+                                  );
+                                },
                               ),
                             ),
                           );
-                        }
+                        },
                       ),
                     ),
                   );

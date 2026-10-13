@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -641,23 +641,54 @@ class ThermalReceiptPrinter {
           ),
         _row('طريقة الدفع', invoice.paymentMethodArabic, baseFont),
         pw.SizedBox(height: 8),
+        _divider(),
+        pw.SizedBox(height: 6),
+
+        // سياسة الاسترجاع والضمان (معايير نقاط البيع المحاسبية)
         pw.Center(
           child: pw.Text(
-            'شكراً لتعاملكم معنا',
+            'البضاعة المباعة ترد وتستبدل خلال 14 يوماً مع أصل الفاتورة',
+            textAlign: pw.TextAlign.center,
             style: pw.TextStyle(
               font: baseFont,
-              fontSize: width80mm ? 9 : 8,
+              fontSize: width80mm ? 7.5 : 6.5,
+              color: PdfColors.grey700,
             ),
+          ),
+        ),
+        pw.SizedBox(height: 6),
+
+        // باركود الفاتورة للبحث والاسترجاع السريع
+        pw.Center(
+          child: pw.BarcodeWidget(
+            barcode: pw.Barcode.code128(),
+            data: invoice.invoiceNumber,
+            width: width80mm ? 120 : 95,
+            height: width80mm ? 26 : 22,
+            drawText: false,
           ),
         ),
         pw.SizedBox(height: 2),
         pw.Center(
           child: pw.Text(
-            'نتمنى لكم يوماً سعيداً',
+            invoice.invoiceNumber,
             style: pw.TextStyle(
               font: baseFont,
-              fontSize: width80mm ? 8 : 7,
-              color: PdfColors.grey600,
+              fontSize: width80mm ? 7.5 : 6.5,
+              color: PdfColors.grey700,
+            ),
+          ),
+        ),
+        pw.SizedBox(height: 6),
+
+        // عبارة الشكر والترحيب
+        pw.Center(
+          child: pw.Text(
+            'شكراً لتعاملكم معنا ★ نسعد بخدمتكم دائماً',
+            textAlign: pw.TextAlign.center,
+            style: pw.TextStyle(
+              font: boldFont,
+              fontSize: width80mm ? 8.5 : 7.5,
             ),
           ),
         ),

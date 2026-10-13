@@ -78,9 +78,11 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
         borderRadius: BorderRadius.circular(AppLayout.BORDER_RADIUS),
       ),
       child: Container(
-        width: 440,
-        constraints: const BoxConstraints(maxHeight: 680),
-        padding: const EdgeInsets.all(AppLayout.SPACING_UNIT * 3),
+        width: 450,
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.88,
+        ),
+        padding: const EdgeInsets.all(AppLayout.SPACING_UNIT * 2.5),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -96,8 +98,8 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
                     borderRadius: BorderRadius.circular(10),
                     child: Image.file(
                       File(_storeLogoPath!),
-                      width: 44,
-                      height: 44,
+                      width: 40,
+                      height: 40,
                       fit: BoxFit.cover,
                       errorBuilder: (_, _, _) => const SizedBox.shrink(),
                     ),
@@ -121,12 +123,18 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
               'فاتورة مبيعات نقدية',
               style: TextStyle(fontSize: 13, color: AppColors.TEXT_SECONDARY),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             const Divider(thickness: 1, height: 1),
-            const SizedBox(height: 8),
 
-            // Metadata
-            Row(
+            // محتوى الفاتورة القابل للتمرير لتجنب أي اقتصاص
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Metadata
+                    Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
@@ -341,59 +349,104 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
                 ),
               ],
             ),
-
-            const SizedBox(height: 20),
-
-            // Paper width toggle (Phase 3.14)
-            Row(
-              children: [
-                const Text('عرض الورقة:', style: TextStyle(fontSize: 13)),
-                const SizedBox(width: 8),
-                ChoiceChip(
-                  label: const Text('80mm'),
-                  selected: _width80mm,
-                  onSelected: (_) => setState(() => _width80mm = true),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                ChoiceChip(
-                  label: const Text('58mm'),
-                  selected: !_width80mm,
-                  onSelected: (_) => setState(() => _width80mm = false),
-                ),
-              ],
+              ),
             ),
-            const SizedBox(height: 12),
 
-            // Action Buttons
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('إغلاق'),
-                  ),
+        const SizedBox(height: 8),
+        const Divider(thickness: 1, height: 1),
+        const SizedBox(height: 8),
+
+        // خيار مقاس لفة ورق الطباعة الحرارية بتوضيح كامل
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.print_outlined,
+                size: 18,
+                color: AppColors.PRIMARY_BLUE_DARK,
+              ),
+              const SizedBox(width: 6),
+              const Text(
+                'مقاس الورق:',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.TEXT_PRIMARY,
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _shareReceipt,
-                    icon: const Icon(Icons.share, size: 18),
-                    label: const Text('مشاركة'),
-                  ),
+              ),
+              const Spacer(),
+              ChoiceChip(
+                label: const Text('80 مم (عريض / كاشير قياسي)'),
+                labelStyle: TextStyle(
+                  fontSize: 11,
+                  fontWeight: _width80mm ? FontWeight.bold : FontWeight.normal,
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: _printReceipt,
-                    icon: const Icon(Icons.print, size: 18),
-                    label: const Text('طباعة'),
-                  ),
+                selected: _width80mm,
+                onSelected: (_) => setState(() => _width80mm = true),
+              ),
+              const SizedBox(width: 6),
+              ChoiceChip(
+                label: const Text('58 مم (صغير / محمول)'),
+                labelStyle: TextStyle(
+                  fontSize: 11,
+                  fontWeight: !_width80mm ? FontWeight.bold : FontWeight.normal,
                 ),
-              ],
+                selected: !_width80mm,
+                onSelected: (_) => setState(() => _width80mm = false),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+
+        // أزرار العمليات
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                ),
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('إغلاق'),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                ),
+                onPressed: _shareReceipt,
+                icon: const Icon(Icons.share, size: 16),
+                label: const Text('مشاركة'),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  backgroundColor: AppColors.PRIMARY_BLUE,
+                ),
+                onPressed: _printReceipt,
+                icon: const Icon(Icons.print, size: 16),
+                label: const Text('طباعة'),
+              ),
             ),
           ],
         ),
-      ),
+      ],
+    ),
+  ),
     );
   }
 

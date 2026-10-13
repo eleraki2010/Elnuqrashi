@@ -1,11 +1,16 @@
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p_path;
+import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../data/models/category.dart';
 import '../../data/models/product.dart';
 import '../../providers/app_providers.dart';
+import '../widgets/product_image_view.dart';
 import 'barcode_scanner_screen.dart';
 
 class ProductFormScreen extends ConsumerStatefulWidget {
@@ -30,6 +35,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
 
   String? _selectedCategoryId;
   String _selectedUnit = 'قطعة';
+  String? _imageUrl;
 
   final List<String> _units = ['قطعة', 'متر', 'كرتونة', 'لفة', 'طقم', 'شيكارة'];
 
@@ -53,6 +59,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     );
     _notesController = TextEditingController(text: p?.notes ?? '');
 
+    _imageUrl = p?.imageUrl;
     _selectedCategoryId = p?.categoryId;
     if (p != null && _units.contains(p.unit)) {
       _selectedUnit = p.unit;
@@ -71,12 +78,68 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     super.dispose();
   }
 
+  Future<void> _pickProductImage() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: false,
+      );
+
+      if (result != null && result.files.isNotEmpty) {
+        final pickedPath = result.files.single.path;
+        if (pickedPath != null && pickedPath.isNotEmpty) {
+          // نسخ الصورة داخل مجلد المستندات الدائم للتطبيق
+          final appDir = await getApplicationDocumentsDirectory();
+          final imagesDir =
+              Directory(p_path.join(appDir.path, 'product_images'));
+          if (!await imagesDir.exists()) {
+            await imagesDir.create(recursive: true);
+          }
+          final ext = p_path.extension(pickedPath);
+          final fileName = 'prod_${DateTime.now().millisecondsSinceEpoch}$ext';
+          final targetPath = p_path.join(imagesDir.path, fileName);
+          final savedFile = await File(pickedPath).copy(targetPath);
+
+          setState(() {
+            _imageUrl = savedFile.path;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.DANGER_RED,
+            content: Text('تعذر اختيار الصورة: $e'),
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _saveProduct() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedCategoryId == null) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('يرجى اختيار تصنيف المنتج')));
+      return;
+    }
+
+    final buyPrice =
+        double.tryParse(_purchasePriceController.text.trim()) ?? 0.0;
+    final sellPrice = double.tryParse(_salePriceController.text.trim()) ?? 0.0;
+
+    // حماية محاسبية وقانونية: سعر البيع لا يمكن أن يكون أقل من سعر الشراء
+    if (sellPrice < buyPrice) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.DANGER_RED,
+          content: Text(
+            'خطأ: سعر البيع (${AppStrings.money(sellPrice)}) لا يمكن أن يكون أقل من سعر الشراء (${AppStrings.money(buyPrice)})',
+          ),
+        ),
+      );
       return;
     }
 
@@ -94,11 +157,11 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
           : _barcodeController.text.trim(),
       categoryId: _selectedCategoryId!,
       unit: _selectedUnit,
-      purchasePrice:
-          double.tryParse(_purchasePriceController.text.trim()) ?? 0.0,
-      salePrice: double.tryParse(_salePriceController.text.trim()) ?? 0.0,
+      purchasePrice: buyPrice,
+      salePrice: sellPrice,
       quantity: int.tryParse(_quantityController.text.trim()) ?? 0,
       minQuantityAlert: int.tryParse(_minAlertController.text.trim()) ?? 5,
+      imageUrl: _imageUrl,
       notes: _notesController.text.trim().isEmpty
           ? null
           : _notesController.text.trim(),
@@ -208,6 +271,103 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                   ),
                   const SizedBox(height: 20),
 
+                  // صورة المنتج مع زر الاختيار والمعاينة والحذف
+                  Center(
+                    child: Column(
+                      children: [
+                        Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            InkWell(
+                              onTap: _pickProductImage,
+                              borderRadius: BorderRadius.circular(16),
+                              child: Container(
+                                width: 120,
+                                height: 120,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF1F5F9),
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: const Color(0xFFCBD5E1),
+                                    width: 1.5,
+                                  ),
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(15),
+                                  child: _imageUrl != null &&
+                                          _imageUrl!.isNotEmpty
+                                      ? ProductImageView(
+                                          imageUrl: _imageUrl,
+                                          width: 120,
+                                          height: 120,
+                                          fit: BoxFit.cover,
+                                        )
+                                      : const Column(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            Icon(
+                                              Icons.add_a_photo_outlined,
+                                              size: 38,
+                                              color: AppColors.PRIMARY_BLUE,
+                                            ),
+                                            SizedBox(height: 6),
+                                            Text(
+                                              'إضافة صورة',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: AppColors.TEXT_SECONDARY,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                ),
+                              ),
+                            ),
+                            if (_imageUrl != null && _imageUrl!.isNotEmpty)
+                              Positioned(
+                                top: -6,
+                                right: -6,
+                                child: InkWell(
+                                  onTap: () {
+                                    setState(() {
+                                      _imageUrl = null;
+                                    });
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: const BoxDecoration(
+                                      color: AppColors.DANGER_RED,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.close,
+                                      size: 16,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        TextButton.icon(
+                          onPressed: _pickProductImage,
+                          icon: const Icon(Icons.photo_library_outlined,
+                              size: 18),
+                          label: Text(
+                            _imageUrl == null
+                                ? 'اختيار صورة من الجهاز'
+                                : 'تغيير صورة المنتج',
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
                   // Product Name
                   TextFormField(
                     controller: _nameController,
@@ -289,7 +449,8 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                           final barcode = await Navigator.push<String>(
                             context,
                             MaterialPageRoute(
-                                builder: (_) => const BarcodeScannerScreen()),
+                              builder: (_) => const BarcodeScannerScreen(),
+                            ),
                           );
                           if (barcode != null && mounted) {
                             setState(() {
@@ -344,6 +505,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
 
                   // Purchase & Sale Price
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
                         child: TextFormField(
@@ -359,12 +521,21 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                               color: AppColors.TEXT_SECONDARY,
                             ),
                           ),
+                          onChanged: (_) {
+                            if (_salePriceController.text.isNotEmpty) {
+                              _formKey.currentState?.validate();
+                            }
+                          },
                           validator: (val) {
                             if (val == null || val.trim().isEmpty) {
                               return 'يرجى إدخال سعر الشراء';
                             }
-                            if (double.tryParse(val) == null) {
+                            final p = double.tryParse(val.trim());
+                            if (p == null) {
                               return 'أدخل رقم صحيح';
+                            }
+                            if (p < 0) {
+                              return 'لا يمكن أن يكون سالباً';
                             }
                             return null;
                           },
@@ -389,8 +560,18 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                             if (val == null || val.trim().isEmpty) {
                               return 'يرجى إدخال سعر البيع';
                             }
-                            if (double.tryParse(val) == null) {
+                            final s = double.tryParse(val.trim());
+                            if (s == null) {
                               return 'أدخل رقم صحيح';
+                            }
+                            if (s < 0) {
+                              return 'لا يمكن أن يكون سالباً';
+                            }
+                            final p = double.tryParse(
+                                    _purchasePriceController.text.trim()) ??
+                                0.0;
+                            if (s < p) {
+                              return 'سعر البيع ($s) لا يمكن أن يقل عن الشراء ($p)';
                             }
                             return null;
                           },

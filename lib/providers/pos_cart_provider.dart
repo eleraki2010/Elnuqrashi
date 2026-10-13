@@ -85,16 +85,30 @@ class CartNotifier extends Notifier<CartState> {
 
   SaleInvoice? get latestSaleInvoice => _latestSaleInvoice;
 
-  void addProduct(Product product, {int quantity = 1}) {
-    final existingIndex = state.items.indexWhere((item) => item.product.id == product.id);
+  /// يضيف منتجاً للسلة مع التحقق الصارم من توفر الرصيد بالمخزن.
+  /// يعيد null في حال النجاح، أو رسالة التنبيه في حال عدم توفر الكمية.
+  String? addProduct(Product product, {int quantity = 1}) {
+    if (product.quantity <= 0) {
+      return 'المنتج "${product.name}" نافد من المخزن تماماً (الرصيد: 0)';
+    }
+
+    final existingIndex =
+        state.items.indexWhere((item) => item.product.id == product.id);
 
     if (existingIndex >= 0) {
       final updatedItems = List<CartItem>.from(state.items);
       final currentItem = updatedItems[existingIndex];
-      currentItem.quantity += quantity;
+      final targetQty = currentItem.quantity + quantity;
+      if (targetQty > product.quantity) {
+        return 'الكمية المطلوبة ($targetQty) تتجاوز رصيد المخزن المتاح (${product.quantity} ${product.unit})';
+      }
+      currentItem.quantity = targetQty;
       state = state.copyWith(items: updatedItems);
       _updateTax();
     } else {
+      if (quantity > product.quantity) {
+        return 'الكمية المطلوبة ($quantity) تتجاوز رصيد المخزن المتاح (${product.quantity} ${product.unit})';
+      }
       final newItem = CartItem(
         product: product,
         quantity: quantity,
@@ -103,12 +117,20 @@ class CartNotifier extends Notifier<CartState> {
       state = state.copyWith(items: [...state.items, newItem]);
       _updateTax();
     }
+    return null;
   }
 
-  void updateQuantity(String productId, int newQuantity) {
+  /// يعدل كمية منتج بالسلة مع التحقق من عدم تجاوز الرصيد المتاح.
+  String? updateQuantity(String productId, int newQuantity) {
     if (newQuantity <= 0) {
       removeProduct(productId);
-      return;
+      return null;
+    }
+
+    final existingItem =
+        state.items.where((i) => i.product.id == productId).firstOrNull;
+    if (existingItem != null && newQuantity > existingItem.product.quantity) {
+      return 'الكمية المطلوبة ($newQuantity) تتجاوز رصيد المخزن المتاح (${existingItem.product.quantity} ${existingItem.product.unit})';
     }
 
     final updatedItems = state.items.map((item) {
@@ -124,6 +146,7 @@ class CartNotifier extends Notifier<CartState> {
 
     state = state.copyWith(items: updatedItems);
     _updateTax();
+    return null;
   }
 
   void updateUnitPrice(String productId, double newPrice) {
@@ -181,6 +204,18 @@ class CartNotifier extends Notifier<CartState> {
    }
 
   Future<void> completeSale() async {
+    // التحقق النهائي من توفر رصيد المخزن لكافة الأصناف بالسلة
+    final productRepo = ref.read(productRepositoryProvider);
+    for (final item in state.items) {
+      final latest = await productRepo.getProductById(item.product.id);
+      final available = latest?.quantity ?? 0;
+      if (item.quantity > available) {
+        throw StateError(
+          'لا يمكن إتمام البيع: الكمية المطلوبة للمنتج "${item.product.name}" هي ${item.quantity} بينما المتاح حالياً بالمخزن هو $available ${item.product.unit} فقط',
+        );
+      }
+    }
+
     final invoiceNumber =
         await ref.read(saleRepositoryProvider).generateNextInvoiceNumber();
     final invoice = buildSaleInvoice(
