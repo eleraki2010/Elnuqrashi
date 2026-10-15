@@ -32,7 +32,6 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
 
   Future<void> _loadStoreInfo() async {
     final prefs = await SharedPreferences.getInstance();
-    // الشعار من قاعدة بيانات المحل (المصدر الوحيد للحقيقة).
     String? logoPath;
     try {
       logoPath = (await ShopProfileRepository().getProfile()).logoPath;
@@ -74,19 +73,20 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
     final dateFormat = DateFormat('yyyy/MM/dd - hh:mm a');
 
     return Dialog(
+      backgroundColor: Colors.white,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppLayout.BORDER_RADIUS),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Container(
-        width: 450,
+        width: 440,
         constraints: BoxConstraints(
-          maxHeight: MediaQuery.sizeOf(context).height * 0.88,
+          maxHeight: MediaQuery.sizeOf(context).height * 0.90,
         ),
-        padding: const EdgeInsets.all(AppLayout.SPACING_UNIT * 2.5),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Receipt Header (الشعار بجوار اسم المحل — لا فوقه)
+            // ترويسة الفاتورة: الشعار بجوار اسم المحل (ولا داعي لكتابة رقم الفاتورة هنا)
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               mainAxisSize: MainAxisSize.min,
@@ -95,11 +95,11 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
                     _storeLogoPath!.isNotEmpty &&
                     File(_storeLogoPath!).existsSync()) ...[
                   ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(8),
                     child: Image.file(
                       File(_storeLogoPath!),
-                      width: 40,
-                      height: 40,
+                      width: 38,
+                      height: 38,
                       fit: BoxFit.cover,
                       errorBuilder: (_, _, _) => const SizedBox.shrink(),
                     ),
@@ -107,353 +107,487 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
                   const SizedBox(width: 10),
                 ],
                 Text(
-                  _storeName?.trim().isEmpty == false
-                      ? _storeName!
+                  _storeName?.trim().isNotEmpty == true
+                      ? _storeName!.trim()
                       : AppStrings.STORE_NAME,
                   style: const TextStyle(
-                    fontSize: AppTypography.HEADING_3,
+                    fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.PRIMARY_BLUE_DARK,
+                    color: Color(0xFF0F172A),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 4),
-            const Text(
-              'فاتورة مبيعات نقدية',
-              style: TextStyle(fontSize: 13, color: AppColors.TEXT_SECONDARY),
+            if (_storePhone != null && _storePhone!.trim().isNotEmpty) ...[
+              const SizedBox(height: 2),
+              Text(
+                'هاتف: ${_storePhone!.trim()}',
+                style: const TextStyle(
+                  fontSize: 11.5,
+                  color: AppColors.TEXT_SECONDARY,
+                ),
+              ),
+            ],
+            const SizedBox(height: 3),
+            Text(
+              invoice.status == 'held' ? 'فاتورة معلقة' : 'فاتورة مبيعات',
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF64748B),
+              ),
             ),
-            const SizedBox(height: 10),
-            const Divider(thickness: 1, height: 1),
+            const SizedBox(height: 8),
+            const Divider(thickness: 0.8, height: 1, color: Color(0xFFE2E8F0)),
 
-            // محتوى الفاتورة القابل للتمرير لتجنب أي اقتصاص
+            // محتوى الفاتورة القابل للتمرير
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Metadata
-                    Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'رقم الفاتورة: ${invoice.invoiceNumber}',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: invoice.status == 'completed'
-                        ? AppColors.SUCCESS_GREEN.withValues(alpha: 0.12)
-                        : AppColors.DANGER_RED.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    invoice.statusArabic,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: invoice.status == 'completed'
-                          ? AppColors.SUCCESS_GREEN
-                          : AppColors.DANGER_RED,
+                    // بطاقة بيانات الفاتورة
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 9,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'رقم الفاتورة: ${invoice.invoiceNumber}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                  color: Color(0xFF0F172A),
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: invoice.status == 'completed'
+                                      ? AppColors.SUCCESS_GREEN
+                                          .withValues(alpha: 0.12)
+                                      : (invoice.status == 'held'
+                                          ? AppColors.WARNING_AMBER
+                                              .withValues(alpha: 0.12)
+                                          : AppColors.DANGER_RED
+                                              .withValues(alpha: 0.12)),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  invoice.statusArabic,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: invoice.status == 'completed'
+                                        ? AppColors.SUCCESS_GREEN
+                                        : (invoice.status == 'held'
+                                            ? AppColors.WARNING_AMBER
+                                            : AppColors.DANGER_RED),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 5),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'التاريخ: ${dateFormat.format(invoice.createdAt)}',
+                                style: const TextStyle(
+                                  fontSize: 11.5,
+                                  color: Color(0xFF64748B),
+                                ),
+                              ),
+                              Text(
+                                'طريقة الدفع: ${invoice.paymentMethodArabic}',
+                                style: const TextStyle(
+                                  fontSize: 11.5,
+                                  color: Color(0xFF64748B),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 5),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'العميل: ${invoice.customerName ?? 'عميل نقدي'}',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  color: Color(0xFF334155),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'التاريخ: ${dateFormat.format(invoice.createdAt)}',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.TEXT_SECONDARY,
-                  ),
-                ),
-                Text(
-                  'طريقة الدفع: ${invoice.paymentMethodArabic}',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.TEXT_SECONDARY,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'العميل: ${invoice.customerName ?? 'عميل نقدي'}',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.TEXT_SECONDARY,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            const Divider(thickness: 1, height: 1),
+                    const SizedBox(height: 10),
 
-            // جدول الأصناف: جدول محترف بحدود واضحة على كل الخلايا
-            // (تشكيل بنمط جداول الفواتير في البرامج المحاسبية): حد خارجي
-            // داكن + شبكة داخلية بين كل الصفوف والأعمدة + رأس مؤطر.
-            Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: AppColors.NEUTRAL_SURFACE,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFF475569), width: 1.2),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _gridRow(
-                    isHeader: true,
-                    cells: const [
-                      _GridCell('الصنف', flex: 4, align: TextAlign.start),
-                      _GridCell('الكمية', flex: 2),
-                      _GridCell('السعر', flex: 2),
-                      _GridCell('الإجمالي', flex: 2, align: TextAlign.end),
-                    ],
-                  ),
-                  for (var i = 0; i < invoice.items.length; i++)
-                    _gridRow(
-                      zebra: i.isEven,
-                      cells: [
-                        _GridCell(invoice.items[i].productName ?? 'منتج',
-                            flex: 4, align: TextAlign.start),
-                        _GridCell('${invoice.items[i].quantity}', flex: 2),
-                        _GridCell(
-                            invoice.items[i].unitPrice.toStringAsFixed(0),
-                            flex: 2),
-                        _GridCell(
-                            invoice.items[i].lineTotal.toStringAsFixed(0),
-                            flex: 2, align: TextAlign.end, bold: true),
-                      ],
+                    // جدول الأصناف: تكبير خانة الصنف وتصغير خانات الكمية والسعر والإجمالي
+                    Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: const Color(0xFFCBD5E1),
+                          width: 0.8,
+                        ),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _gridRow(
+                            isHeader: true,
+                            cells: const [
+                              _GridCell(
+                                'الصنف',
+                                flex: 56,
+                                align: TextAlign.start,
+                              ),
+                              _GridCell(
+                                'الكمية',
+                                flex: 12,
+                                align: TextAlign.center,
+                              ),
+                              _GridCell(
+                                'السعر',
+                                flex: 16,
+                                align: TextAlign.center,
+                              ),
+                              _GridCell(
+                                'الإجمالي',
+                                flex: 16,
+                                align: TextAlign.end,
+                              ),
+                            ],
+                          ),
+                          for (var i = 0; i < invoice.items.length; i++)
+                            _gridRow(
+                              zebra: i.isEven,
+                              cells: [
+                                _GridCell(
+                                  invoice.items[i].productName ?? 'منتج',
+                                  flex: 56,
+                                  align: TextAlign.start,
+                                ),
+                                _GridCell(
+                                  '${invoice.items[i].quantity}',
+                                  flex: 12,
+                                  align: TextAlign.center,
+                                ),
+                                _GridCell(
+                                  invoice.items[i].unitPrice.toStringAsFixed(0),
+                                  flex: 16,
+                                  align: TextAlign.center,
+                                ),
+                                _GridCell(
+                                  invoice.items[i].lineTotal.toStringAsFixed(0),
+                                  flex: 16,
+                                  align: TextAlign.end,
+                                  bold: true,
+                                ),
+                              ],
+                            ),
+                        ],
+                      ),
                     ),
-                ],
-              ),
-            ),
+                    const SizedBox(height: 10),
 
-            const Divider(thickness: 1, height: 16),
-
-            // Financial Summary
-            if (invoice.discount > 0) ...[
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'الإجمالي الفرعي:',
-                    style: TextStyle(fontSize: 13),
-                  ),
-                  Text(
-                    AppStrings.money(invoice.subtotal),
-                    style: const TextStyle(fontSize: 13),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'الخصم:',
-                    style: TextStyle(fontSize: 13, color: AppColors.DANGER_RED),
-                  ),
-                  Text(
-                    '- ${AppStrings.money(invoice.discount)}',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: AppColors.DANGER_RED,
+                    // ملخص المبالغ المالية
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Column(
+                        children: [
+                          if (invoice.discount > 0 || invoice.tax > 0) ...[
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'الإجمالي الفرعي:',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Color(0xFF64748B),
+                                  ),
+                                ),
+                                Text(
+                                  AppStrings.money(invoice.subtotal),
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ],
+                            ),
+                            if (invoice.discount > 0) ...[
+                              const SizedBox(height: 4),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text(
+                                    'الخصم:',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: AppColors.DANGER_RED,
+                                    ),
+                                  ),
+                                  Text(
+                                    '- ${AppStrings.money(invoice.discount)}',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.DANGER_RED,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                            if (invoice.tax > 0) ...[
+                              const SizedBox(height: 4),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text(
+                                    'الضريبة:',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF64748B),
+                                    ),
+                                  ),
+                                  Text(
+                                    AppStrings.money(invoice.tax),
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
+                                ],
+                              ),
+                            ],
+                            const Divider(
+                              height: 12,
+                              thickness: 0.6,
+                              color: Color(0xFFE2E8F0),
+                            ),
+                          ],
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                '${AppStrings.LABEL_TOTAL}:',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF0F172A),
+                                ),
+                              ),
+                              Text(
+                                AppStrings.money(invoice.total),
+                                style: const TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.PRIMARY_BLUE,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                '${AppStrings.LABEL_PAID}:',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF64748B),
+                                ),
+                              ),
+                              Text(
+                                AppStrings.money(invoice.paidAmount),
+                                style: const TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                invoice.isChangePositive
+                                    ? '${AppStrings.LABEL_CHANGE}:'
+                                    : '${AppStrings.LABEL_REMAINING_ON_CUSTOMER}:',
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: invoice.isChangePositive
+                                      ? AppColors.SUCCESS_GREEN
+                                      : AppColors.DANGER_RED,
+                                ),
+                              ),
+                              Text(
+                                invoice.isChangePositive
+                                    ? AppStrings.money(invoice.changeDue)
+                                    : AppStrings.money(
+                                        invoice.remainingOnCustomer,
+                                      ),
+                                style: TextStyle(
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: invoice.isChangePositive
+                                      ? AppColors.SUCCESS_GREEN
+                                      : AppColors.DANGER_RED,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-            ],
+                    const SizedBox(height: 10),
 
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  '${AppStrings.LABEL_TOTAL}:',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                Text(
-                  AppStrings.money(invoice.total),
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.PRIMARY_BLUE,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
+                    // سياسة الاسترجاع
+                    const Text(
+                      'البضاعة المباعة ترد وتستبدل خلال 14 يوماً مع أصل الفاتورة',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        color: Color(0xFF64748B),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
 
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  '${AppStrings.LABEL_PAID}:',
-                  style: TextStyle(fontSize: 13),
-                ),
-                Text(
-                  AppStrings.money(invoice.paidAmount),
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  invoice.isChangePositive
-                      ? '${AppStrings.LABEL_CHANGE}:'
-                      : '${AppStrings.LABEL_REMAINING_ON_CUSTOMER}:',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: invoice.isChangePositive
-                        ? AppColors.SUCCESS_GREEN
-                        : AppColors.DANGER_RED,
-                  ),
-                ),
-                Text(
-                  invoice.isChangePositive
-                      ? AppStrings.money(invoice.changeDue)
-                      : AppStrings.money(invoice.remainingOnCustomer),
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: invoice.isChangePositive
-                        ? AppColors.SUCCESS_GREEN
-                        : AppColors.DANGER_RED,
-                  ),
-                ),
-              ],
-            ),
+                    // تذييل الشكر
+                    const Text(
+                      'شكراً لتعاملكم معنا ★ نسعد بخدمتكم دائماً',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF334155),
+                      ),
+                    ),
                   ],
                 ),
               ),
             ),
 
-        const SizedBox(height: 8),
-        const Divider(thickness: 1, height: 1),
-        const SizedBox(height: 8),
+            const SizedBox(height: 6),
+            const Divider(thickness: 0.8, height: 1, color: Color(0xFFE2E8F0)),
+            const SizedBox(height: 6),
 
-        // خيار مقاس لفة ورق الطباعة الحرارية بتوضيح كامل
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF8FAFC),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
-          ),
-          child: Row(
-            children: [
-              const Icon(
-                Icons.print_outlined,
-                size: 18,
-                color: AppColors.PRIMARY_BLUE_DARK,
-              ),
-              const SizedBox(width: 6),
-              const Text(
-                'مقاس الورق:',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.TEXT_PRIMARY,
+            // خيار مقاس لفة ورق الطباعة الحرارية
+            Row(
+              children: [
+                const Icon(
+                  Icons.print_outlined,
+                  size: 16,
+                  color: AppColors.PRIMARY_BLUE_DARK,
                 ),
-              ),
-              const Spacer(),
-              ChoiceChip(
-                label: const Text('80 مم (عريض / كاشير قياسي)'),
-                labelStyle: TextStyle(
-                  fontSize: 11,
-                  fontWeight: _width80mm ? FontWeight.bold : FontWeight.normal,
+                const SizedBox(width: 6),
+                const Text(
+                  'مقاس الورق:',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.TEXT_PRIMARY,
+                  ),
                 ),
-                selected: _width80mm,
-                onSelected: (_) => setState(() => _width80mm = true),
-              ),
-              const SizedBox(width: 6),
-              ChoiceChip(
-                label: const Text('58 مم (صغير / محمول)'),
-                labelStyle: TextStyle(
-                  fontSize: 11,
-                  fontWeight: !_width80mm ? FontWeight.bold : FontWeight.normal,
+                const Spacer(),
+                ChoiceChip(
+                  label: const Text('80 مم (عريض / كاشير قياسي)'),
+                  labelStyle: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: _width80mm ? FontWeight.bold : FontWeight.normal,
+                  ),
+                  selected: _width80mm,
+                  onSelected: (_) => setState(() => _width80mm = true),
                 ),
-                selected: !_width80mm,
-                onSelected: (_) => setState(() => _width80mm = false),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 10),
+                const SizedBox(width: 4),
+                ChoiceChip(
+                  label: const Text('58 مم (محمول)'),
+                  labelStyle: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight:
+                        !_width80mm ? FontWeight.bold : FontWeight.normal,
+                  ),
+                  selected: !_width80mm,
+                  onSelected: (_) => setState(() => _width80mm = false),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
 
-        // أزرار العمليات
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
+            // أزرار العمليات
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 9),
+                      side: const BorderSide(color: Color(0xFFCBD5E1)),
+                    ),
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('إغلاق'),
+                  ),
                 ),
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('إغلاق'),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 9),
+                      side: const BorderSide(color: Color(0xFFCBD5E1)),
+                    ),
+                    onPressed: _shareReceipt,
+                    icon: const Icon(Icons.share, size: 15),
+                    label: const Text('مشاركة'),
+                  ),
                 ),
-                onPressed: _shareReceipt,
-                icon: const Icon(Icons.share, size: 16),
-                label: const Text('مشاركة'),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  backgroundColor: AppColors.PRIMARY_BLUE,
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 9),
+                      backgroundColor: AppColors.PRIMARY_BLUE,
+                      foregroundColor: Colors.white,
+                    ),
+                    onPressed: _printReceipt,
+                    icon: const Icon(Icons.print, size: 15),
+                    label: const Text('طباعة'),
+                  ),
                 ),
-                onPressed: _printReceipt,
-                icon: const Icon(Icons.print, size: 16),
-                label: const Text('طباعة'),
-              ),
+              ],
             ),
           ],
         ),
-      ],
-    ),
-  ),
+      ),
     );
   }
 
-  /// صف في جدول الأصناف: صف مكوّن من خلايا محددة — الرأس بخلفية رمادية
-  /// والنصوص العيادية بخط صفير (zebra) لوضوح الأقواس الطويلة.
-  static const Color _gridLine = Color(0xFF94A3B8);
-  static const Color _headerBg = Color(0xFFEEF2F7);
+  static const Color _gridLine = Color(0xFFCBD5E1);
+  static const Color _headerBg = Color(0xFFF1F5F9);
   static const Color _zebraBg = Color(0xFFF8FAFC);
 
   Widget _gridRow({
@@ -467,26 +601,24 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
           Expanded(
             flex: c.flex,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
               decoration: BoxDecoration(
-                color: isHeader ? _headerBg : (zebra ? _zebraBg : null),
-                // حد كامل على كل خلية: الشبكة الداخلية تتضح تماماً
-                // (حدود مزدوجة بين الخلية المجاورة ≈ سُمك موحّد).
-                border: Border.all(color: _gridLine, width: 0.7),
+                color: isHeader ? _headerBg : (zebra ? _zebraBg : Colors.white),
+                border: Border.all(color: _gridLine, width: 0.5),
               ),
               child: Text(
                 c.text,
                 textAlign: c.align,
-                maxLines: 1,
+                maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: isHeader ? 12.5 : 13,
+                  fontSize: isHeader ? 11.5 : 12,
                   fontWeight: isHeader || c.bold
                       ? FontWeight.bold
-                      : FontWeight.w400,
+                      : FontWeight.normal,
                   color: isHeader
-                      ? AppColors.PRIMARY_BLUE_DARK
-                      : AppColors.TEXT_PRIMARY,
+                      ? const Color(0xFF1E293B)
+                      : const Color(0xFF334155),
                 ),
               ),
             ),
@@ -496,7 +628,6 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
   }
 }
 
-/// خلية في جدول الفاتورة: نص + مرونة + محاذاة.
 class _GridCell {
   final String text;
   final int flex;

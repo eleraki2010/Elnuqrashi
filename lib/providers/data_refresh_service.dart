@@ -14,9 +14,12 @@ void refreshAfterSale(dynamic ref) {
   ref.invalidate(stockSummaryProvider);
   ref.invalidate(dashboardStatsProvider);
   ref.invalidate(topSellingProductsProvider);
+  ref.invalidate(allTopSellingProductsProvider);
   ref.invalidate(customersListProvider);
   ref.invalidate(totalCustomerDebtProvider);
   ref.invalidate(overdueCustomersProvider);
+  ref.invalidate(customersNearingDueDateProvider);
+  ref.invalidate(allCustomersNearingDueDateProvider);
   ref.invalidate(paymentsProvider);
   ref.invalidate(shopBalanceProvider);
   ref.invalidate(auditLogProvider);
@@ -42,6 +45,8 @@ void refreshAfterPayment(dynamic ref) {
   ref.invalidate(customersListProvider);
   ref.invalidate(totalCustomerDebtProvider);
   ref.invalidate(overdueCustomersProvider);
+  ref.invalidate(customersNearingDueDateProvider);
+  ref.invalidate(allCustomersNearingDueDateProvider);
   ref.invalidate(suppliersListProvider);
   ref.invalidate(dashboardStatsProvider);
   ref.invalidate(shopBalanceProvider);
@@ -64,6 +69,7 @@ void refreshAfterProductChange(dynamic ref) {
   ref.invalidate(stockSummaryProvider);
   ref.invalidate(dashboardStatsProvider);
   ref.invalidate(topSellingProductsProvider);
+  ref.invalidate(allTopSellingProductsProvider);
   ref.invalidate(auditLogProvider);
 }
 
@@ -72,6 +78,8 @@ void refreshAfterCustomerChange(dynamic ref) {
   ref.invalidate(customersListProvider);
   ref.invalidate(totalCustomerDebtProvider);
   ref.invalidate(overdueCustomersProvider);
+  ref.invalidate(customersNearingDueDateProvider);
+  ref.invalidate(allCustomersNearingDueDateProvider);
   ref.invalidate(dashboardStatsProvider);
 }
 

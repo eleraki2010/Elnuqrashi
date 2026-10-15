@@ -148,6 +148,14 @@ class SupplierStatementPdf {
                         baseFont,
                         boldFont,
                       ),
+                      if (statement.totalReturns > 0.005)
+                        _summaryCard(
+                          'إجمالي المرتجعات',
+                          AppStrings.money(statement.totalReturns),
+                          PdfColors.orange800,
+                          baseFont,
+                          boldFont,
+                        ),
                       _summaryCard(
                         'إجمالي الدفعات',
                         AppStrings.money(statement.totalPayments),

@@ -64,6 +64,27 @@ class CustomerRepository {
     return maps.map((m) => Customer.fromMap(m)).toList();
   }
 
+  /// عملاء قاربوا موعد السداد (أو متأخرون، أو أصحاب الديون المستحقة)
+  Future<List<Customer>> getCustomersNearingDueDate({int limit = 5}) async {
+    final db = await AppDatabase.instance;
+    final maps = await db.rawQuery(
+      '''
+      SELECT * FROM customers
+      WHERE balance_due > 0.01
+      ORDER BY 
+        CASE 
+          WHEN payment_due_date IS NOT NULL THEN 0 
+          ELSE 1 
+        END,
+        payment_due_date ASC,
+        balance_due DESC
+      LIMIT ?
+      ''',
+      [limit],
+    );
+    return maps.map((m) => Customer.fromMap(m)).toList();
+  }
+
   Future<List<Customer>> searchCustomers(String query) async {
     final db = await AppDatabase.instance;
     final clean = query.trim();
@@ -217,10 +238,14 @@ class CustomerRepository {
     final invoices = <SaleInvoice>[];
     for (final m in invoiceMaps) {
       final inv = SaleInvoice.fromMap(m);
-      final itemMaps = await db.query(
-        'sale_invoice_items',
-        where: 'sale_invoice_id = ?',
-        whereArgs: [inv.id],
+      final itemMaps = await db.rawQuery(
+        '''
+        SELECT sii.*, p.name as product_name
+        FROM sale_invoice_items sii
+        LEFT JOIN products p ON p.id = sii.product_id
+        WHERE sii.invoice_id = ?
+        ''',
+        [inv.id],
       );
       final items = itemMaps.map((im) => SaleInvoiceItem.fromMap(im)).toList();
       invoices.add(inv.copyWith(items: items));

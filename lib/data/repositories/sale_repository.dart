@@ -440,36 +440,25 @@ class SaleRepository {
     return (result.first['total_debt'] as num?)?.toDouble() ?? 0.0;
   }
 
+  /// أكثر المنتجات مبيعاً من فواتير البيع المكتملة
   Future<List<TopSellingProduct>> getTopSellingProducts({int limit = 5}) async {
     final db = await AppDatabase.instance;
-    final now = DateTime.now();
-    final startOfWeek = DateTime(
-      now.year,
-      now.month,
-      now.day - now.weekday + 1,
-    ).toIso8601String();
-
-    final result = await db.rawQuery(
-      '''
-      SELECT 
-        p.id as product_id,
-        p.name as product_name,
-        SUM(sii.quantity) as total_quantity,
-        SUM(sii.quantity * sii.unit_price) as total_revenue,
-        SUM(sii.quantity * (sii.unit_price - COALESCE(sii.unit_cost, p.purchase_price))) as total_profit
+    final maps = await db.rawQuery('''
+      SELECT sii.product_id,
+             COALESCE(p.name, sii.product_name) as product_name,
+             SUM(sii.quantity) as total_quantity,
+             SUM(sii.line_total) as total_revenue,
+             SUM(sii.line_total - (sii.quantity * COALESCE(sii.unit_cost, p.purchase_price, 0.0))) as total_profit
       FROM sale_invoice_items sii
       JOIN sale_invoices si ON sii.invoice_id = si.id
-      JOIN products p ON sii.product_id = p.id
+      LEFT JOIN products p ON sii.product_id = p.id
       WHERE si.status = 'completed'
-        AND si.created_at >= ?
-      GROUP BY p.id, p.name
-      ORDER BY total_revenue DESC
+      GROUP BY sii.product_id
+      ORDER BY total_quantity DESC
       LIMIT ?
-      ''',
-      [startOfWeek, limit],
-    );
+    ''', [limit]);
 
-    return result.map((m) => TopSellingProduct.fromMap(m)).toList();
+    return maps.map((m) => TopSellingProduct.fromMap(m)).toList();
   }
 
   Future<void> cancelSaleInvoice(String invoiceId, {String? userId}) async {

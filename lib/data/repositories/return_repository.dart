@@ -23,41 +23,25 @@ class ReturnRepository {
   Future<void> createReturnInvoice({
     required ReturnInvoice invoice,
     required List<ReturnInvoiceItem> items,
+    bool isCashRefund = false,
     String? userId,
   }) async {
     final db = await AppDatabase.instance;
+    final now = DateTime.now();
 
     await db.transaction((txn) async {
-      // 1. حساب مقدار المرتجع الذي يُسدّد به دين العميل (قبل الإدراج حتى
-      //    تُحفظ القيمة الصحيحة في سطر المرتجع نفسه).
-      // القاعدة المحاسبية: المرتجع يُسدّد به أولاً المتبقي على العميل من
-      // فاتورته (إن بقي شيء)، وما زاد يُسلَّم للعميل نقداً من الصندوق:
-      //   - فاتورة بها متبقٍ (آجل أو دفع جزئي): المرتجع يخفض الدين حتى
-      //     حدّ المتبقي، والباقي يخرج نقداً.
-      //   - فاتورة مدفوعة بالكامل: المرتجع بالكامل يخرج نقداً (debt_reduction=0).
-      // المقدار المخصوم يُحفظ في `debt_reduction` ليبقى كشف الحساب والخزينة
-      // متسقين حتى لو سدّد العميل باقي دينه لاحقاً.
-      double debtReduction = 0.0;
-      if (invoice.customerId != null) {
-        final custMaps = await txn.query(
-          'customers',
-          columns: ['balance_due'],
-          where: 'id = ?',
-          whereArgs: [invoice.customerId],
-          limit: 1,
-        );
-        final currentDebt =
-            (custMaps.first['balance_due'] as num?)?.toDouble() ?? 0.0;
-        if (currentDebt > 0.01 && invoice.returnAmount > 0) {
-          debtReduction = invoice.returnAmount < currentDebt
-              ? invoice.returnAmount
-              : currentDebt;
-        }
-      }
-      final cashOut = invoice.returnAmount - debtReduction;
+      // 1. حساب التسوية وتحديث الحسابات:
+      // إذا كان العميل نقدياً (customerId == null) أو تم اختيار رد نقدي من الخزينة:
+      // - debtReduction = 0.0 (لا يُخصم من دين العميل).
+      // - المبلغ يُردّ نقداً من الصندوق (cashRefundOut = returnAmount - debtReduction = returnAmount)
+      // وإذا كان خصماً من حساب العميل (isCashRefund == false و customerId != null):
+      // - debtReduction = returnAmount (يُخصم من حساب العميل لتخفيض دينه أو رصيده).
+      // - cashRefundOut = 0.0 (لا يخرج نقد من الخزينة).
+      final bool cashRefund = isCashRefund || invoice.customerId == null;
+      final debtReduction = cashRefund ? 0.0 : invoice.returnAmount;
       final returnInvoice = invoice.copyWith(debtReduction: debtReduction);
 
-      // 2. Insert return invoice (بقيمة debt_reduction المحسوبة)
+      // 2. إدراج فاتورة المرتجع
       await txn.insert('return_invoices', returnInvoice.toMap());
 
       // 2.5. حلّ تكلفة كل صنف وقت البيع الأصلي (من عناصر الفاتورة الأصلية،
@@ -78,16 +62,14 @@ class ReturnRepository {
           r['product_id'] as String: (r['unit_cost'] as num?)?.toDouble() ?? 0.0,
       };
 
-      // 3. Insert return items
-      // مهم: ربط كل عنصر بمعرّف فاتورة المرتجع (كان يُحفظ فارغاً فتنكسر
-      // استعلامات السجل والحماية من الإرجاع المزدوج).
+      // 3. إدراج عناصر المرتجع
       for (final item in items) {
         item.returnInvoiceId = invoice.id;
         item.unitCost ??= costByProduct[item.productId];
         await txn.insert('return_invoice_items', item.toMap());
       }
 
-      // 4. Create stock movements (positive - items returned to stock)
+      // 4. حركة مخزنية موجبة وإعادة الأصناف للمخزون
       for (final item in items) {
         await txn.insert('stock_movements', {
           'id': _uuid.v4(),
@@ -95,36 +77,39 @@ class ReturnRepository {
           'type': 'return',
           'quantity_change': item.quantity,
           'reference_id': invoice.id,
-          'note': 'مرتجع - فاتورة رقم ${invoice.originalSaleInvoiceId}',
-          'created_at': DateTime.now().toIso8601String(),
+          'note': 'مرتجع مبيعات - فاتورة رقم ${invoice.originalSaleInvoiceId}',
+          'created_at': now.toIso8601String(),
         });
 
-        // Update product quantity
+        // زيادة كمية المنتج في المخزن
         await txn.rawUpdate(
           'UPDATE products SET quantity = quantity + ?, updated_at = ? WHERE id = ?',
-          [item.quantity, DateTime.now().toIso8601String(), item.productId],
+          [item.quantity, now.toIso8601String(), item.productId],
         );
       }
 
-      // 5. خصم ما سُدّد به المرتجع من دين العميل.
-      if (debtReduction > 0.01 && invoice.customerId != null) {
+      // 5. خصم قيمة المرتجع من حساب العميل (فقط عند التسوية على الحساب)
+      if (!cashRefund && invoice.customerId != null && debtReduction > 0) {
         await txn.rawUpdate(
           'UPDATE customers SET balance_due = balance_due - ?, updated_at = ? WHERE id = ?',
-          [debtReduction, DateTime.now().toIso8601String(), invoice.customerId],
+          [debtReduction, now.toIso8601String(), invoice.customerId],
         );
       }
 
-      // 6. Audit log
+      // 6. توثيق العملية في سجل التدقيق مع بيان الأثر على الخزينة وحساب العميل
       await txn.insert('audit_logs', {
         'id': _uuid.v4(),
         'table_name': 'return_invoices',
         'record_id': invoice.id,
         'action': 'create',
         'old_values': null,
-        'new_values': '{"return_amount": ${invoice.returnAmount}, "debt_reduction": $debtReduction, "cash_out": $cashOut, "reason": "${invoice.reason}"}',
+        'new_values':
+            '{"return_amount": ${invoice.returnAmount}, "debt_reduction": $debtReduction, "cash_refund_out": ${returnInvoice.cashRefundOut}}',
         'user_id': userId,
-        'note': 'مرتجع من الفاتورة ${invoice.originalSaleInvoiceId} (خصم دين ${debtReduction.toStringAsFixed(0)}، نقد ${cashOut.toStringAsFixed(0)})',
-        'created_at': DateTime.now().toIso8601String(),
+        'note': cashRefund
+            ? 'مرتجع مبيعات نقدي (صرف نقد من الخزينة: ${invoice.returnAmount.toStringAsFixed(0)} ج.م، إعادة للمخزون)'
+            : 'مرتجع مبيعات آجل (خصم من حساب العميل: ${debtReduction.toStringAsFixed(0)} ج.م، إعادة للمخزون)',
+        'created_at': now.toIso8601String(),
       });
     });
   }

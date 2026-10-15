@@ -87,12 +87,17 @@ class CustomerStatementPdf {
       final originalNo =
           invoiceNumbers[r.invoice.originalSaleInvoiceId] ?? '—';
       var label = 'مرتجع من فاتورة #$originalNo';
-      if (r.invoice.cashRefundOut > 0.005) {
-        label +=
-            ' (أُسلِم منها ${r.invoice.cashRefundOut.toStringAsFixed(0)} نقداً)';
+      final isCashRefund = r.invoice.cashRefundOut > 0.001 && r.invoice.debtReduction <= 0.001;
+      if (isCashRefund) {
+        label += ' (استرداد نقدي من الخزينة)';
       }
+      final returnVal = isCashRefund
+          ? 0.0
+          : (r.invoice.debtReduction > 0.001
+              ? r.invoice.debtReduction
+              : r.invoice.returnAmount);
       rows.add(
-          _StatementRow(r.invoice.createdAt, 1, label, 0.0, r.invoice.debtReduction));
+          _StatementRow(r.invoice.createdAt, 1, label, 0.0, returnVal));
     }
     for (final p in s.payments) {
       rows.add(_StatementRow(

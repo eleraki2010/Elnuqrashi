@@ -86,3 +86,19 @@ final purchasesListProvider = FutureProvider<List<PurchaseInvoice>>((ref) async 
   final repo = ref.watch(purchaseRepositoryProvider);
   return await repo.getAllPurchaseInvoices();
 });
+
+// Customers Nearing Due Date Provider (top 5)
+final customersNearingDueDateProvider = FutureProvider<List<Customer>>((ref) async {
+  ref.watch(salesHistoryProvider);
+  ref.watch(customersListProvider);
+  final repo = ref.watch(customerRepositoryProvider);
+  return await repo.getCustomersNearingDueDate(limit: 5);
+});
+
+// All Customers Nearing Due Date Provider (for "عرض المزيد")
+final allCustomersNearingDueDateProvider = FutureProvider<List<Customer>>((ref) async {
+  ref.watch(salesHistoryProvider);
+  ref.watch(customersListProvider);
+  final repo = ref.watch(customerRepositoryProvider);
+  return await repo.getCustomersNearingDueDate(limit: 50);
+});

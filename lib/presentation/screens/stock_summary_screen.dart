@@ -501,7 +501,7 @@ class _StockSummaryScreenState extends ConsumerState<StockSummaryScreen> {
     );
     int quantity = 1;
     final reasonController = TextEditingController(text: 'تالف وكسر مخزني');
-    final qtyController = TextEditingController(text: '1');
+    final qtyController = TextEditingController();
     bool recordAsExpense = true;
 
     await showDialog(
@@ -614,6 +614,7 @@ class _StockSummaryScreenState extends ConsumerState<StockSummaryScreen> {
                             keyboardType: TextInputType.number,
                             textAlign: TextAlign.center,
                             decoration: InputDecoration(
+                              hintText: '1',
                               border: const OutlineInputBorder(),
                               contentPadding: const EdgeInsets.symmetric(vertical: 8),
                               helperText: 'أقصى كمية متاحة: $maxStock',

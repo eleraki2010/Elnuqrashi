@@ -46,17 +46,19 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     final p = widget.productToEdit;
     _nameController = TextEditingController(text: p?.name ?? '');
     _barcodeController = TextEditingController(text: p?.barcode ?? '');
+
+    // يجب أن تكون الحقول فارغة تماماً عند إضافة منتج جديد ليكتب المستخدم مباشرة دون مسح
     _purchasePriceController = TextEditingController(
-      text: p != null ? p.purchasePrice.toString() : '',
+      text: p != null ? (p.purchasePrice > 0 ? p.purchasePrice.toString() : '') : '',
     );
     _salePriceController = TextEditingController(
-      text: p != null ? p.salePrice.toString() : '',
+      text: p != null ? (p.salePrice > 0 ? p.salePrice.toString() : '') : '',
     );
     _quantityController = TextEditingController(
-      text: p != null ? p.quantity.toString() : '0',
+      text: p != null ? (p.quantity > 0 ? p.quantity.toString() : '') : '',
     );
     _minAlertController = TextEditingController(
-      text: p != null ? p.minQuantityAlert.toString() : '5',
+      text: p != null ? (p.minQuantityAlert > 0 ? p.minQuantityAlert.toString() : '') : '',
     );
     _notesController = TextEditingController(text: p?.notes ?? '');
 
@@ -89,10 +91,8 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       if (result != null && result.files.isNotEmpty) {
         final pickedPath = result.files.single.path;
         if (pickedPath != null && pickedPath.isNotEmpty) {
-          // نسخ الصورة داخل مجلد المستندات الدائم للتطبيق
           final appDir = await getApplicationDocumentsDirectory();
-          final imagesDir =
-              Directory(p_path.join(appDir.path, 'product_images'));
+          final imagesDir = Directory(p_path.join(appDir.path, 'product_images'));
           if (!await imagesDir.exists()) {
             await imagesDir.create(recursive: true);
           }
@@ -121,17 +121,16 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   Future<void> _saveProduct() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedCategoryId == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('يرجى اختيار تصنيف المنتج')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('يرجى اختيار تصنيف المنتج')),
+      );
       return;
     }
 
-    final buyPrice =
-        double.tryParse(_purchasePriceController.text.trim()) ?? 0.0;
+    final buyPrice = double.tryParse(_purchasePriceController.text.trim()) ?? 0.0;
     final sellPrice = double.tryParse(_salePriceController.text.trim()) ?? 0.0;
 
-    // حماية محاسبية وقانونية: سعر البيع لا يمكن أن يكون أقل من سعر الشراء
+    // حماية محاسبية: سعر البيع لا يمكن أن يكون أقل من سعر الشراء
     if (sellPrice < buyPrice) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -146,7 +145,6 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
 
     final repo = ref.read(productRepositoryProvider);
     final now = DateTime.now();
-
     final isEdit = widget.productToEdit != null;
     final productId = isEdit ? widget.productToEdit!.id : const Uuid().v4();
 
@@ -243,426 +241,467 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(isEdit ? 'تعديل منتج' : AppStrings.BTN_ADD_PRODUCT),
+        elevation: 0.5,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(AppLayout.SPACING_UNIT * 3),
-        child: Center(
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 720),
-            padding: const EdgeInsets.all(AppLayout.SPACING_UNIT * 3),
-            decoration: BoxDecoration(
-              color: AppColors.NEUTRAL_SURFACE,
-              borderRadius: BorderRadius.circular(AppLayout.BORDER_RADIUS),
-              border: Border.all(color: const Color(0xFFE5E7EB)),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isWide = constraints.maxWidth >= 720;
+
+          return SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Center(
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 820),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.NEUTRAL_SURFACE,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.03),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Form(
+                  key: _formKey,
+                  child: isWide
+                      ? _buildWideLayout(categoriesAsync)
+                      : _buildCompactLayout(categoriesAsync),
+                ),
+              ),
             ),
-            child: Form(
-              key: _formKey,
+          );
+        },
+      ),
+    );
+  }
+
+  // تخطيط الشاشات الواسعة (عمودين متوازيين مدمجين يلائمان الشاشة تماماً بدون تمرير)
+  Widget _buildWideLayout(AsyncValue<List<Category>> categoriesAsync) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // العمود الأيمن: البيانات الأساسية + الصورة
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'البيانات الأساسية للمنتج',
-                    style: TextStyle(
-                      fontSize: AppTypography.HEADING_3,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.PRIMARY_BLUE_DARK,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // صورة المنتج مع زر الاختيار والمعاينة والحذف
-                  Center(
-                    child: Column(
-                      children: [
-                        Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            InkWell(
-                              onTap: _pickProductImage,
-                              borderRadius: BorderRadius.circular(16),
-                              child: Container(
-                                width: 120,
-                                height: 120,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF1F5F9),
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(
-                                    color: const Color(0xFFCBD5E1),
-                                    width: 1.5,
-                                  ),
-                                ),
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(15),
-                                  child: _imageUrl != null &&
-                                          _imageUrl!.isNotEmpty
-                                      ? ProductImageView(
-                                          imageUrl: _imageUrl,
-                                          width: 120,
-                                          height: 120,
-                                          fit: BoxFit.cover,
-                                        )
-                                      : const Column(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          children: [
-                                            Icon(
-                                              Icons.add_a_photo_outlined,
-                                              size: 38,
-                                              color: AppColors.PRIMARY_BLUE,
-                                            ),
-                                            SizedBox(height: 6),
-                                            Text(
-                                              'إضافة صورة',
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                color: AppColors.TEXT_SECONDARY,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                ),
-                              ),
-                            ),
-                            if (_imageUrl != null && _imageUrl!.isNotEmpty)
-                              Positioned(
-                                top: -6,
-                                right: -6,
-                                child: InkWell(
-                                  onTap: () {
-                                    setState(() {
-                                      _imageUrl = null;
-                                    });
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.all(4),
-                                    decoration: const BoxDecoration(
-                                      color: AppColors.DANGER_RED,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(
-                                      Icons.close,
-                                      size: 16,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        TextButton.icon(
-                          onPressed: _pickProductImage,
-                          icon: const Icon(Icons.photo_library_outlined,
-                              size: 18),
-                          label: Text(
-                            _imageUrl == null
-                                ? 'اختيار صورة من الجهاز'
-                                : 'تغيير صورة المنتج',
-                            style: const TextStyle(fontSize: 13),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Product Name
-                  TextFormField(
-                    controller: _nameController,
-                    decoration: const InputDecoration(
-                      labelText: 'اسم المنتج *',
-                      hintText:
-                          'مثال: خلاط حنفية تركي كروم، كوع بلاستيك 1 بوصة...',
-                      prefixIcon: Icon(Icons.inventory_2_outlined),
-                    ),
-                    validator: (val) {
-                      if (val == null || val.trim().isEmpty) {
-                        return 'يرجى إدخال اسم المنتج';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Category & Add Category Button
-                  Row(
-                    children: [
-                      Expanded(
-                        child: categoriesAsync.when(
-                          data: (categories) {
-                            if (_selectedCategoryId == null &&
-                                categories.isNotEmpty) {
-                              _selectedCategoryId = categories.first.id;
-                            }
-                            return DropdownButtonFormField<String>(
-                              initialValue: _selectedCategoryId,
-                              decoration: const InputDecoration(
-                                labelText: 'الفئة / التصنيف *',
-                                prefixIcon: Icon(Icons.category_outlined),
-                              ),
-                              items: categories.map((cat) {
-                                return DropdownMenuItem(
-                                  value: cat.id,
-                                  child: Text(cat.name),
-                                );
-                              }).toList(),
-                              onChanged: (val) {
-                                setState(() => _selectedCategoryId = val);
-                              },
-                            );
-                          },
-                          loading: () => const LinearProgressIndicator(),
-                          error: (_, _) => const Text('تعذر تحميل الفئات'),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      IconButton.filledTonal(
-                        onPressed: _showAddCategoryDialog,
-                        tooltip: 'إضافة تصنيف جديد',
-                        icon: const Icon(Icons.add),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Barcode & Unit
-                  Row(
-                    children: [
-                      Expanded(
-                        flex: 2,
-                        child: TextFormField(
-                          controller: _barcodeController,
-                          decoration: const InputDecoration(
-                            labelText: 'الباركود / الكود',
-                            hintText: 'امسح أو اكتب الكود',
-                            prefixIcon: Icon(Icons.qr_code_scanner),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      IconButton(
-                        icon: const Icon(Icons.qr_code_scanner),
-                        tooltip: 'مسح الباركود',
-                        onPressed: () async {
-                          final barcode = await Navigator.push<String>(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const BarcodeScannerScreen(),
-                            ),
-                          );
-                          if (barcode != null && mounted) {
-                            setState(() {
-                              _barcodeController.text = barcode;
-                            });
-                          }
-                        },
-                        style: IconButton.styleFrom(
-                          backgroundColor: AppColors.PRIMARY_BLUE,
-                          foregroundColor: Colors.white,
-                          minimumSize: const Size(48, 48),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        flex: 1,
-                        child: DropdownButtonFormField<String>(
-                          initialValue: _selectedUnit,
-                          decoration: const InputDecoration(
-                            labelText: 'الوحدة *',
-                            prefixIcon: Icon(Icons.straighten),
-                          ),
-                          items: _units.map((unit) {
-                            return DropdownMenuItem(
-                              value: unit,
-                              child: Text(unit),
-                            );
-                          }).toList(),
-                          onChanged: (val) {
-                            if (val != null) {
-                              setState(() => _selectedUnit = val);
-                            }
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  const Divider(),
-                  const SizedBox(height: 16),
-
-                  // Pricing & Stock Header
-                  const Text(
-                    'الأسعار والمخزون',
-                    style: TextStyle(
-                      fontSize: AppTypography.HEADING_3,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.PRIMARY_BLUE_DARK,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Purchase & Sale Price
+                  _buildHeaderRow('1. البيانات الأساسية للصنف'),
+                  const SizedBox(height: 10),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // الصورة بشكل مدمج
+                      _buildCompactImagePicker(),
+                      const SizedBox(width: 12),
+                      // اسم المنتج
                       Expanded(
-                        child: TextFormField(
-                          controller: _purchasePriceController,
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
-                          decoration: const InputDecoration(
-                            labelText: 'سعر الشراء (التكلفة) *',
-                            suffixText: AppStrings.CURRENCY,
-                            prefixIcon: Icon(
-                              Icons.arrow_downward,
-                              color: AppColors.TEXT_SECONDARY,
-                            ),
-                          ),
-                          onChanged: (_) {
-                            if (_salePriceController.text.isNotEmpty) {
-                              _formKey.currentState?.validate();
-                            }
-                          },
-                          validator: (val) {
-                            if (val == null || val.trim().isEmpty) {
-                              return 'يرجى إدخال سعر الشراء';
-                            }
-                            final p = double.tryParse(val.trim());
-                            if (p == null) {
-                              return 'أدخل رقم صحيح';
-                            }
-                            if (p < 0) {
-                              return 'لا يمكن أن يكون سالباً';
-                            }
-                            return null;
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: TextFormField(
-                          controller: _salePriceController,
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
-                          decoration: const InputDecoration(
-                            labelText: 'سعر البيع للجمهور *',
-                            suffixText: AppStrings.CURRENCY,
-                            prefixIcon: Icon(
-                              Icons.sell_outlined,
-                              color: AppColors.SUCCESS_GREEN,
-                            ),
-                          ),
-                          validator: (val) {
-                            if (val == null || val.trim().isEmpty) {
-                              return 'يرجى إدخال سعر البيع';
-                            }
-                            final s = double.tryParse(val.trim());
-                            if (s == null) {
-                              return 'أدخل رقم صحيح';
-                            }
-                            if (s < 0) {
-                              return 'لا يمكن أن يكون سالباً';
-                            }
-                            final p = double.tryParse(
-                                    _purchasePriceController.text.trim()) ??
-                                0.0;
-                            if (s < p) {
-                              return 'سعر البيع ($s) لا يمكن أن يقل عن الشراء ($p)';
-                            }
-                            return null;
-                          },
-                        ),
+                        child: _buildNameField(),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-
-                  // Quantity & Min Quantity Alert
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextFormField(
-                          controller: _quantityController,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            labelText: 'الكمية الحالية في المخزن *',
-                            prefixIcon: Icon(Icons.storage_outlined),
-                          ),
-                          validator: (val) {
-                            if (val == null || val.trim().isEmpty) {
-                              return 'أدخل الكمية';
-                            }
-                            if (int.tryParse(val) == null) {
-                              return 'أدخل رقم صحيح';
-                            }
-                            return null;
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: TextFormField(
-                          controller: _minAlertController,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            labelText: 'حد التنبيه الأدنى *',
-                            hintText: 'مثال: 5',
-                            prefixIcon: Icon(
-                              Icons.notifications_active_outlined,
-                              color: AppColors.WARNING_AMBER,
-                            ),
-                          ),
-                          validator: (val) {
-                            if (val == null || val.trim().isEmpty) {
-                              return 'أدخل حد التنبيه';
-                            }
-                            if (int.tryParse(val) == null) {
-                              return 'أدخل رقم صحيح';
-                            }
-                            return null;
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Notes
-                  TextFormField(
-                    controller: _notesController,
-                    maxLines: 2,
-                    decoration: const InputDecoration(
-                      labelText: 'ملاحظات إضافية (اختياري)',
-                      prefixIcon: Icon(Icons.notes_outlined),
-                    ),
-                  ),
-                  const SizedBox(height: 28),
-
-                  // Submit Buttons
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      OutlinedButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: const Text('إلغاء'),
-                      ),
-                      const SizedBox(width: 16),
-                      ElevatedButton.icon(
-                        onPressed: _saveProduct,
-                        icon: const Icon(Icons.save_outlined),
-                        label: Text(isEdit ? 'حفظ التعديلات' : 'حفظ المنتج'),
-                      ),
-                    ],
-                  ),
+                  const SizedBox(height: 10),
+                  _buildCategoryRow(categoriesAsync),
+                  const SizedBox(height: 10),
+                  _buildBarcodeAndUnitRow(),
                 ],
               ),
             ),
-          ),
+            const SizedBox(width: 20),
+            // العمود الأيسر: الأسعار والمخزون والملاحظات
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildHeaderRow('2. الأسعار والمخزون'),
+                  const SizedBox(height: 10),
+                  _buildPriceRow(),
+                  const SizedBox(height: 10),
+                  _buildStockRow(),
+                  const SizedBox(height: 10),
+                  _buildNotesField(),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        const Divider(height: 1),
+        const SizedBox(height: 12),
+        _buildActionButtons(),
+      ],
+    );
+  }
+
+  // تخطيط الشاشات الصغيرة / الهواتف (مدمج جداً ليتسع في شاشة واحدة)
+  Widget _buildCompactLayout(AsyncValue<List<Category>> categoriesAsync) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // صف الاسم مع أيقونة/صورة المنتج المصغرة
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildCompactImagePicker(),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _buildNameField(),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        _buildCategoryRow(categoriesAsync),
+        const SizedBox(height: 10),
+        _buildBarcodeAndUnitRow(),
+        const SizedBox(height: 10),
+        _buildPriceRow(),
+        const SizedBox(height: 10),
+        _buildStockRow(),
+        const SizedBox(height: 10),
+        _buildNotesField(),
+        const SizedBox(height: 14),
+        _buildActionButtons(),
+      ],
+    );
+  }
+
+  Widget _buildHeaderRow(String title) {
+    return Text(
+      title,
+      style: const TextStyle(
+        fontSize: 13.5,
+        fontWeight: FontWeight.bold,
+        color: AppColors.PRIMARY_BLUE_DARK,
+      ),
+    );
+  }
+
+  Widget _buildCompactImagePicker() {
+    return InkWell(
+      onTap: _pickProductImage,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        width: 58,
+        height: 58,
+        decoration: BoxDecoration(
+          color: AppColors.NEUTRAL_BG,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFFCBD5E1)),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(9),
+          child: _imageUrl != null && _imageUrl!.isNotEmpty
+              ? Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    ProductImageView(
+                      imageUrl: _imageUrl,
+                      width: 58,
+                      height: 58,
+                      fit: BoxFit.cover,
+                    ),
+                    Positioned(
+                      top: 2,
+                      right: 2,
+                      child: InkWell(
+                        onTap: () => setState(() => _imageUrl = null),
+                        child: Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: const BoxDecoration(
+                            color: AppColors.DANGER_RED,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.close, size: 10, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
+                )
+              : const Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.add_a_photo_outlined, size: 22, color: AppColors.PRIMARY_BLUE),
+                    SizedBox(height: 2),
+                    Text('صورة', style: TextStyle(fontSize: 10, color: AppColors.TEXT_SECONDARY)),
+                  ],
+                ),
         ),
       ),
+    );
+  }
+
+  Widget _buildNameField() {
+    return TextFormField(
+      controller: _nameController,
+      decoration: const InputDecoration(
+        labelText: 'اسم المنتج *',
+        hintText: 'اكتب اسم المنتج بدقة...',
+        prefixIcon: Icon(Icons.inventory_2_outlined, size: 20),
+        isDense: true,
+        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+      ),
+      validator: (val) {
+        if (val == null || val.trim().isEmpty) {
+          return 'يرجى إدخال اسم المنتج';
+        }
+        return null;
+      },
+    );
+  }
+
+  Widget _buildCategoryRow(AsyncValue<List<Category>> categoriesAsync) {
+    return Row(
+      children: [
+        Expanded(
+          child: categoriesAsync.when(
+            data: (categories) {
+              if (_selectedCategoryId == null && categories.isNotEmpty) {
+                _selectedCategoryId = categories.first.id;
+              }
+              return DropdownButtonFormField<String>(
+                initialValue: _selectedCategoryId,
+                decoration: const InputDecoration(
+                  labelText: 'التصنيف *',
+                  prefixIcon: Icon(Icons.category_outlined, size: 20),
+                  isDense: true,
+                  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                ),
+                items: categories.map((cat) {
+                  return DropdownMenuItem(
+                    value: cat.id,
+                    child: Text(cat.name, style: const TextStyle(fontSize: 13)),
+                  );
+                }).toList(),
+                onChanged: (val) {
+                  setState(() => _selectedCategoryId = val);
+                },
+              );
+            },
+            loading: () => const LinearProgressIndicator(),
+            error: (_, _) => const Text('تعذر تحميل الفئات'),
+          ),
+        ),
+        const SizedBox(width: 8),
+        IconButton.filledTonal(
+          onPressed: _showAddCategoryDialog,
+          tooltip: 'إضافة تصنيف جديد',
+          iconSize: 20,
+          visualDensity: VisualDensity.compact,
+          icon: const Icon(Icons.add),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBarcodeAndUnitRow() {
+    return Row(
+      children: [
+        Expanded(
+          flex: 3,
+          child: TextFormField(
+            controller: _barcodeController,
+            decoration: const InputDecoration(
+              labelText: 'الباركود / الكود',
+              hintText: 'امسح أو اكتب الكود',
+              prefixIcon: Icon(Icons.qr_code_scanner, size: 20),
+              isDense: true,
+              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+            ),
+          ),
+        ),
+        const SizedBox(width: 6),
+        IconButton(
+          icon: const Icon(Icons.qr_code_scanner, size: 20),
+          tooltip: 'مسح الباركود بالكاميرا',
+          visualDensity: VisualDensity.compact,
+          onPressed: () async {
+            final barcode = await Navigator.push<String>(
+              context,
+              MaterialPageRoute(builder: (_) => const BarcodeScannerScreen()),
+            );
+            if (barcode != null && mounted) {
+              setState(() => _barcodeController.text = barcode);
+            }
+          },
+          style: IconButton.styleFrom(
+            backgroundColor: AppColors.PRIMARY_BLUE,
+            foregroundColor: Colors.white,
+            minimumSize: const Size(40, 40),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          flex: 2,
+          child: DropdownButtonFormField<String>(
+            initialValue: _selectedUnit,
+            decoration: const InputDecoration(
+              labelText: 'الوحدة *',
+              isDense: true,
+              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            ),
+            items: _units.map((unit) {
+              return DropdownMenuItem(
+                value: unit,
+                child: Text(unit, style: const TextStyle(fontSize: 13)),
+              );
+            }).toList(),
+            onChanged: (val) {
+              if (val != null) setState(() => _selectedUnit = val);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPriceRow() {
+    return Row(
+      children: [
+        Expanded(
+          child: TextFormField(
+            controller: _purchasePriceController,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(
+              labelText: 'سعر الشراء (التكلفة) *',
+              hintText: '0.00',
+              suffixText: 'ج.م',
+              isDense: true,
+              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+            ),
+            validator: (val) {
+              if (val == null || val.trim().isEmpty) {
+                return 'أدخل سعر الشراء';
+              }
+              final p = double.tryParse(val.trim());
+              if (p == null || p < 0) return 'أدخل رقم صحيح';
+              return null;
+            },
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: TextFormField(
+            controller: _salePriceController,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(
+              labelText: 'سعر البيع للجمهور *',
+              hintText: '0.00',
+              suffixText: 'ج.م',
+              isDense: true,
+              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+            ),
+            validator: (val) {
+              if (val == null || val.trim().isEmpty) {
+                return 'أدخل سعر البيع';
+              }
+              final s = double.tryParse(val.trim());
+              if (s == null || s < 0) return 'أدخل رقم صحيح';
+              final p = double.tryParse(_purchasePriceController.text.trim()) ?? 0.0;
+              if (s < p) return 'سعر البيع أقل من الشراء';
+              return null;
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStockRow() {
+    return Row(
+      children: [
+        Expanded(
+          child: TextFormField(
+            controller: _quantityController,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: 'الكمية في المخزن',
+              hintText: '0',
+              isDense: true,
+              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+            ),
+            validator: (val) {
+              if (val != null && val.trim().isNotEmpty && int.tryParse(val.trim()) == null) {
+                return 'أدخل رقم صحيح';
+              }
+              return null;
+            },
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: TextFormField(
+            controller: _minAlertController,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: 'حد التنبيه الأدنى',
+              hintText: '5',
+              isDense: true,
+              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+            ),
+            validator: (val) {
+              if (val != null && val.trim().isNotEmpty && int.tryParse(val.trim()) == null) {
+                return 'أدخل رقم صحيح';
+              }
+              return null;
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNotesField() {
+    return TextFormField(
+      controller: _notesController,
+      maxLines: 1,
+      decoration: const InputDecoration(
+        labelText: 'ملاحظات إضافية (اختياري)',
+        hintText: 'أي تفاصيل أخرى...',
+        prefixIcon: Icon(Icons.notes_outlined, size: 20),
+        isDense: true,
+        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+      ),
+    );
+  }
+
+  Widget _buildActionButtons() {
+    final isEdit = widget.productToEdit != null;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        OutlinedButton(
+          onPressed: () => Navigator.of(context).pop(),
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size(80, 42),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          child: const Text('إلغاء'),
+        ),
+        const SizedBox(width: 12),
+        ElevatedButton.icon(
+          onPressed: _saveProduct,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.PRIMARY_BLUE,
+            foregroundColor: Colors.white,
+            minimumSize: const Size(120, 42),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          icon: const Icon(Icons.save, size: 18),
+          label: Text(
+            isEdit ? 'تحديث الصنف' : 'حفظ الصنف',
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+        ),
+      ],
     );
   }
 }

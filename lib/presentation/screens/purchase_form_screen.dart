@@ -25,9 +25,7 @@ class _PurchaseFormScreenState extends ConsumerState<PurchaseFormScreen> {
 
   // Item inputs
   Product? _selectedProduct;
-  final TextEditingController _quantityController = TextEditingController(
-    text: '1',
-  );
+  final TextEditingController _quantityController = TextEditingController();
   final TextEditingController _unitCostController = TextEditingController();
   final TextEditingController _paidAmountController = TextEditingController();
 
@@ -55,7 +53,7 @@ class _PurchaseFormScreenState extends ConsumerState<PurchaseFormScreen> {
       return;
     }
 
-    final qty = int.tryParse(_quantityController.text.trim()) ?? 0;
+    final qty = int.tryParse(_quantityController.text.trim()) ?? 1;
     final cost = double.tryParse(_unitCostController.text.trim()) ?? 0.0;
 
     if (qty <= 0 || cost <= 0) {
@@ -79,7 +77,7 @@ class _PurchaseFormScreenState extends ConsumerState<PurchaseFormScreen> {
       );
 
       _selectedProduct = null;
-      _quantityController.text = '1';
+      _quantityController.clear();
       _unitCostController.clear();
     });
   }
@@ -420,6 +418,7 @@ class _PurchaseFormScreenState extends ConsumerState<PurchaseFormScreen> {
                         keyboardType: TextInputType.number,
                         decoration: InputDecoration(
                           labelText: 'الكمية الواردة *',
+                          hintText: '1',
                           suffixText: _selectedProduct?.unit ?? 'وحدة',
                           prefixIcon: const Icon(Icons.numbers),
                         ),

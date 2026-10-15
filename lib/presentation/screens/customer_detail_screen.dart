@@ -61,6 +61,7 @@ class CustomerDetailScreen extends ConsumerStatefulWidget {
 class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
   CustomerStatement? _statement;
   bool _isLoading = true;
+  String? _errorMessage;
   String? _storeName;
   String? _storeLogoPath;
 
@@ -148,14 +149,27 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
 
 
   Future<void> _loadStatement() async {
-    setState(() => _isLoading = true);
-    final repo = ref.read(customerRepositoryProvider);
-    final statement = await repo.getCustomerStatement(widget.customerId);
-    if (mounted) {
-      setState(() {
-        _statement = statement;
-        _isLoading = false;
-      });
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+    try {
+      final repo = ref.read(customerRepositoryProvider);
+      final statement = await repo.getCustomerStatement(widget.customerId);
+      if (mounted) {
+        setState(() {
+          _statement = statement;
+          _isLoading = false;
+        });
+      }
+    } catch (e, stack) {
+      debugPrint('Error loading customer statement: $e\n$stack');
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString();
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -206,13 +220,17 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
     }
 
     for (final r in s.returns) {
+      final isCashRefund = r.invoice.cashRefundOut > 0.001 && r.invoice.debtReduction <= 0.001;
+      final returnVal = isCashRefund ? 0.0 : (r.invoice.debtReduction > 0.001 ? r.invoice.debtReduction : r.invoice.returnAmount);
       entries.add(
         _StatementEntry(
           date: r.invoice.createdAt,
           typeOrder: 1,
           typeLabel: 'مرتجع',
-          subtitle: r.invoice.reason,
-          delta: -r.invoice.debtReduction,
+          subtitle: isCashRefund
+              ? 'استرداد نقدي من الخزينة${r.invoice.reason != null && r.invoice.reason!.isNotEmpty ? " • ${r.invoice.reason}" : ""}'
+              : r.invoice.reason,
+          delta: -returnVal,
           displayAmount: r.invoice.returnAmount,
           ret: r,
         ),
@@ -702,6 +720,40 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
       return Scaffold(
         appBar: AppBar(title: const Text('كشف حساب العميل')),
         body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_errorMessage != null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('كشف حساب العميل')),
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline, size: 48, color: AppColors.DANGER_RED),
+              const SizedBox(height: 12),
+              const Text(
+                'تعذر تحميل كشف الحساب',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Text(
+                  _errorMessage!,
+                  style: const TextStyle(fontSize: 12, color: AppColors.TEXT_SECONDARY),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: _loadStatement,
+                icon: const Icon(Icons.refresh),
+                label: const Text('إعادة المحاولة'),
+              ),
+            ],
+          ),
+        ),
       );
     }
 

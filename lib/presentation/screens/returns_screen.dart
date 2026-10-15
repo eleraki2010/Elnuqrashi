@@ -32,11 +32,13 @@ class _ReturnsScreenState extends ConsumerState<ReturnsScreen> {
   String? _selectedSaleInvoiceId;
   final Map<String, int> _selectedItems = {};
   final TextEditingController _reasonController = TextEditingController();
+  String _customerRefundMethod = 'account';
 
   // Purchase Return State
   String? _selectedPurchaseInvoiceId;
   final Map<String, int> _selectedPurchaseItems = {};
   final TextEditingController _purchaseReasonController = TextEditingController();
+  String _purchaseRefundMethod = 'account';
 
   // History Tab Filter ('sales' or 'purchases')
   String _historyFilter = 'sales';
@@ -145,6 +147,21 @@ class _ReturnsScreenState extends ConsumerState<ReturnsScreen> {
   }
 
   Widget _buildNewReturnTab(SaleRepository saleRepo, double scale) {
+    final salesAsync = ref.watch(salesHistoryProvider);
+    final completedInvoices = salesAsync.asData?.value
+            .where((i) => i.status == 'completed')
+            .toList() ??
+        [];
+    SaleInvoice? selectedSaleInvoice;
+    if (_selectedSaleInvoiceId != null) {
+      for (final inv in completedInvoices) {
+        if (inv.id == _selectedSaleInvoiceId) {
+          selectedSaleInvoice = inv;
+          break;
+        }
+      }
+    }
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -165,17 +182,13 @@ class _ReturnsScreenState extends ConsumerState<ReturnsScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  ref.watch(salesHistoryProvider).when(
+                  salesAsync.when(
                     loading: () => const Center(child: CircularProgressIndicator()),
                     error: (error, _) => Text(
                       'حدث خطأ أثناء تحميل الفواتير: $error',
                       style: const TextStyle(color: AppColors.DANGER_RED),
                     ),
-                    data: (invoices) {
-                      final completedInvoices = invoices
-                          .where((i) => i.status == 'completed')
-                          .toList();
-
+                    data: (_) {
                       if (completedInvoices.isEmpty) {
                         return const Text(
                           'لا توجد فواتير مكتملة قابلة للإرجاع بعد.',
@@ -202,6 +215,7 @@ class _ReturnsScreenState extends ConsumerState<ReturnsScreen> {
                           setState(() {
                             _selectedSaleInvoiceId = value;
                             _selectedItems.clear();
+                            _customerRefundMethod = 'account';
                           });
                         },
                       );
@@ -432,7 +446,7 @@ class _ReturnsScreenState extends ConsumerState<ReturnsScreen> {
             ),
           const SizedBox(height: 16),
 
-          // Step 3: Reason and Confirmation
+          // Step 3: Accounting Settlement, Reason and Confirmation
           if (_selectedItems.isNotEmpty)
             Card(
               child: Padding(
@@ -441,17 +455,110 @@ class _ReturnsScreenState extends ConsumerState<ReturnsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'الخطوة 3: سبب المرتجع (اختياري)',
+                      'الخطوة 3: المعالجة المحاسبية وسبب المرتجع',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 15 * scale,
                       ),
                     ),
                     const SizedBox(height: 12),
+                    if (selectedSaleInvoice != null && selectedSaleInvoice.customerId == null)
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppColors.PRIMARY_BLUE.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: AppColors.PRIMARY_BLUE.withValues(alpha: 0.3),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.point_of_sale, color: AppColors.PRIMARY_BLUE),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'فاتورة عميل نقدي (بدون حساب آجل)',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13.5 * scale,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    'سيتم صرف قيمة المرتجع نقدياً من الخزينة تلقائياً وإعادة الأصناف إلى المخزن.',
+                                    style: TextStyle(
+                                      fontSize: 12 * scale,
+                                      color: AppColors.TEXT_SECONDARY,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    else ...[
+                      Text(
+                        'طريقة التسوية المحاسبية مع العميل:',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13.5 * scale,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        child: SegmentedButton<String>(
+                          segments: const [
+                            ButtonSegment<String>(
+                              value: 'account',
+                              label: Text('خصم من حساب العميل'),
+                              icon: Icon(Icons.account_balance_wallet_outlined, size: 18),
+                            ),
+                            ButtonSegment<String>(
+                              value: 'cash',
+                              label: Text('استرداد نقدي من الخزينة'),
+                              icon: Icon(Icons.payments_outlined, size: 18),
+                            ),
+                          ],
+                          selected: {_customerRefundMethod},
+                          onSelectionChanged: (val) {
+                            setState(() => _customerRefundMethod = val.first);
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: AppColors.NEUTRAL_BG,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: AppColors.TEXT_SECONDARY.withValues(alpha: 0.2),
+                          ),
+                        ),
+                        child: Text(
+                          _customerRefundMethod == 'account'
+                              ? '• يُخصم من رصيد العميل الآجل في كشف حسابه. لا يخرج نقد من الخزينة، وتُعاد الأصناف للمخزن.'
+                              : '• يتم صرف المبلغ للعميل نقداً من الخزينة فوراً. لا يتأثر دين العميل، وتُعاد الأصناف للمخزن.',
+                          style: TextStyle(
+                            fontSize: 12 * scale,
+                            color: AppColors.TEXT_SECONDARY,
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 12),
                     TextField(
                       controller: _reasonController,
                       decoration: InputDecoration(
-                        hintText: 'مثال: تالف، غير مطابق، ...',
+                        labelText: 'سبب المرتجع (اختياري)',
+                        hintText: 'مثال: تالف، غير مطابق، خطأ في المقاس...',
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -467,7 +574,7 @@ class _ReturnsScreenState extends ConsumerState<ReturnsScreen> {
                         minimumSize: const Size(double.infinity, 48),
                       ),
                       icon: const Icon(Icons.check),
-                      label: const Text('تأكيد المرتجع'),
+                      label: const Text('تأكيد المرتجع والمعالجة المحاسبية'),
                     ),
                   ],
                 ),
@@ -479,6 +586,8 @@ class _ReturnsScreenState extends ConsumerState<ReturnsScreen> {
   }
 
   Widget _buildNewPurchaseReturnTab(PurchaseRepository purchaseRepo, double scale) {
+    final purchasesAsync = ref.watch(purchasesListProvider);
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -499,7 +608,7 @@ class _ReturnsScreenState extends ConsumerState<ReturnsScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  ref.watch(purchasesListProvider).when(
+                  purchasesAsync.when(
                     loading: () => const Center(child: CircularProgressIndicator()),
                     error: (error, _) => Text(
                       'حدث خطأ أثناء تحميل فواتير الشراء: $error',
@@ -533,6 +642,7 @@ class _ReturnsScreenState extends ConsumerState<ReturnsScreen> {
                           setState(() {
                             _selectedPurchaseInvoiceId = value;
                             _selectedPurchaseItems.clear();
+                            _purchaseRefundMethod = 'account';
                           });
                         },
                       );
@@ -728,7 +838,7 @@ class _ReturnsScreenState extends ConsumerState<ReturnsScreen> {
             ),
           const SizedBox(height: 16),
 
-          // Step 3: Purchase Return Reason & Confirmation
+          // Step 3: Purchase Return Settlement & Reason & Confirmation
           if (_selectedPurchaseItems.isNotEmpty)
             Card(
               child: Padding(
@@ -737,16 +847,68 @@ class _ReturnsScreenState extends ConsumerState<ReturnsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'الخطوة 3: سبب إرجاع البضاعة للمورد (اختياري)',
+                      'الخطوة 3: المعالجة المحاسبية وسبب المرتجع للمورد',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 15 * scale,
                       ),
                     ),
                     const SizedBox(height: 12),
+                    Text(
+                      'طريقة التسوية المحاسبية مع المورد:',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13.5 * scale,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: SegmentedButton<String>(
+                        segments: const [
+                          ButtonSegment<String>(
+                            value: 'account',
+                            label: Text('خصم من مستحقات المورد'),
+                            icon: Icon(Icons.assignment_return_outlined, size: 18),
+                          ),
+                          ButtonSegment<String>(
+                            value: 'cash',
+                            label: Text('استرداد نقدي إلى الخزينة'),
+                            icon: Icon(Icons.savings_outlined, size: 18),
+                          ),
+                        ],
+                        selected: {_purchaseRefundMethod},
+                        onSelectionChanged: (val) {
+                          setState(() => _purchaseRefundMethod = val.first);
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: AppColors.NEUTRAL_BG,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: AppColors.TEXT_SECONDARY.withValues(alpha: 0.2),
+                        ),
+                      ),
+                      child: Text(
+                        _purchaseRefundMethod == 'account'
+                            ? '• يُخصم من رصيد المورد المسجل له لدينا في كشف الحساب. تُخصم البضاعة من المخزن دون دخول سيولة للخزينة.'
+                            : '• يُحصّل المبلغ نقداً ويُسجل كإيراد استرداد بالخزينة لزيادة رصيد الصندوق فوراً. تُخصم البضاعة من المخزن.',
+                        style: TextStyle(
+                          fontSize: 12 * scale,
+                          color: AppColors.TEXT_SECONDARY,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
                     TextField(
                       controller: _purchaseReasonController,
                       decoration: InputDecoration(
+                        labelText: 'سبب إرجاع البضاعة للمورد (اختياري)',
                         hintText: 'مثال: عيوب تصنيع، شحنة تالفة، غير مطابق للمواصفات...',
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
@@ -763,7 +925,7 @@ class _ReturnsScreenState extends ConsumerState<ReturnsScreen> {
                         minimumSize: const Size(double.infinity, 48),
                       ),
                       icon: const Icon(Icons.check),
-                      label: const Text('تأكيد إرجاع البضاعة للمورد وتسوية الحساب'),
+                      label: const Text('تأكيد إرجاع البضاعة للمورد وتسوية الحسابات'),
                     ),
                   ],
                 ),
@@ -886,6 +1048,14 @@ class _ReturnsScreenState extends ConsumerState<ReturnsScreen> {
                         'السبب: ${ret.invoice.reason}',
                         style: TextStyle(fontSize: 12.5 * scale),
                       ),
+                    Text(
+                      'التسوية: ${ret.invoice.debtReduction > 0 ? "خصم من الحساب: ${AppStrings.money(ret.invoice.debtReduction)}" : "استرداد نقدي من الخزينة: ${AppStrings.money(ret.invoice.cashRefundOut)}"}',
+                      style: TextStyle(
+                        fontSize: 12 * scale,
+                        color: AppColors.SUCCESS_GREEN,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     Text(
                       'التاريخ: ${ret.invoice.createdAt.toString().split('.')[0]}',
                       style: TextStyle(
@@ -1050,6 +1220,17 @@ class _ReturnsScreenState extends ConsumerState<ReturnsScreen> {
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   color: AppColors.WARNING_AMBER,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'التسوية المحاسبية: '
+                '${ret.invoice.debtReduction > 0 ? "خصم من الحساب ${AppStrings.money(ret.invoice.debtReduction)}" : ""}'
+                '${ret.invoice.cashRefundOut > 0 ? "استرداد نقدي من الخزينة ${AppStrings.money(ret.invoice.cashRefundOut)}" : ""}',
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.SUCCESS_GREEN,
                 ),
               ),
               const SizedBox(height: 4),
@@ -1336,10 +1517,14 @@ class _ReturnsScreenState extends ConsumerState<ReturnsScreen> {
         createdAt: DateTime.now(),
       );
 
+      final bool isCashRefund =
+          (saleInvoice.customerId == null) || (_customerRefundMethod == 'cash');
+
       await returnRepo.createReturnInvoice(
         invoice: returnInvoice,
         items: returnItems,
         userId: ref.read(authProvider).user?.id,
+        isCashRefund: isCashRefund,
       );
 
       // Refresh all related providers
@@ -1350,6 +1535,7 @@ class _ReturnsScreenState extends ConsumerState<ReturnsScreen> {
         setState(() {
           _selectedSaleInvoiceId = null;
           _selectedItems.clear();
+          _customerRefundMethod = 'account';
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1451,10 +1637,13 @@ class _ReturnsScreenState extends ConsumerState<ReturnsScreen> {
         createdAt: DateTime.now(),
       );
 
+      final bool isCashRefund = _purchaseRefundMethod == 'cash';
+
       await purchaseReturnRepo.createPurchaseReturn(
         invoice: returnInvoice,
         items: returnItems,
         userId: ref.read(authProvider).user?.id,
+        isCashRefund: isCashRefund,
       );
 
       // Refresh all related providers
@@ -1465,6 +1654,7 @@ class _ReturnsScreenState extends ConsumerState<ReturnsScreen> {
         setState(() {
           _selectedPurchaseInvoiceId = null;
           _selectedPurchaseItems.clear();
+          _purchaseRefundMethod = 'account';
         });
 
         ScaffoldMessenger.of(context).showSnackBar(

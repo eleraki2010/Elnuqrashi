@@ -7,6 +7,7 @@ import '../../core/constants/app_constants.dart';
 import '../../data/models/payment.dart';
 import '../../data/models/purchase_invoice.dart';
 import '../../data/repositories/purchase_repository.dart';
+import '../../data/repositories/purchase_return_repository.dart';
 import '../../data/repositories/shop_profile_repository.dart';
 import '../../data/repositories/supplier_repository.dart';
 import '../../providers/app_providers.dart';
@@ -345,6 +346,139 @@ class _SupplierDetailScreenState extends ConsumerState<SupplierDetailScreen> {
               ),
             ],
           ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('إغلاق'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// فتح بيان مرتجع مشتريات: عرض تفاصيل الأصناف المرتجعة والمبلغ.
+  void _openReturnDetails(String returnId) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('تفاصيل بيان: مرتجع مشتريات'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: FutureBuilder<DetailedPurchaseReturn?>(
+            future: PurchaseReturnRepository().getPurchaseReturnWithItems(
+              returnId,
+            ),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (snapshot.hasError) {
+                return Text(
+                  'حدث خطأ أثناء تحميل التفاصيل: ${snapshot.error}',
+                  style: const TextStyle(color: AppColors.DANGER_RED),
+                );
+              }
+              final ret = snapshot.data;
+              if (ret == null) {
+                return const Text('لم يتم العثور على المرتجع');
+              }
+              final dateFormat = DateFormat('yyyy/MM/dd - hh:mm a');
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'التاريخ: ${dateFormat.format(ret.invoice.createdAt)}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.TEXT_SECONDARY,
+                        ),
+                      ),
+                      Text(
+                        'المبلغ: ${AppStrings.money(ret.invoice.returnAmount)}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.WARNING_AMBER,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (ret.invoice.reason != null &&
+                      ret.invoice.reason!.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      'السبب: ${ret.invoice.reason}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.TEXT_SECONDARY,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  const Divider(),
+                  const SizedBox(height: 8),
+                  if (ret.items.isEmpty)
+                    const Text(
+                      'لا توجد أصناف مسجلة على هذا المرتجع',
+                      style: TextStyle(color: AppColors.TEXT_SECONDARY),
+                    )
+                  else ...[
+                    const Text(
+                      'الأصناف المرتجعة:',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 280),
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: ret.items.length,
+                        separatorBuilder: (_, _) =>
+                            const Divider(height: 1, thickness: 0.5),
+                        itemBuilder: (context, index) {
+                          final item = ret.items[index];
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 6),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    item.productName,
+                                    style: const TextStyle(fontSize: 13),
+                                  ),
+                                ),
+                                Text(
+                                  '${item.quantity} × ${item.unitCost.toStringAsFixed(0)}',
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: AppColors.TEXT_SECONDARY,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Text(
+                                  AppStrings.money(item.lineTotal),
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ],
+              );
+            },
+          ),
         ),
         actions: [
           TextButton(
@@ -747,24 +881,38 @@ class _SupplierDetailScreenState extends ConsumerState<SupplierDetailScreen> {
                               horizontal: 16,
                               vertical: 6,
                             ),
-                            onTap: () => isPurchase
-                                ? _openPurchaseDetails(e.referenceId)
-                                : _openPaymentDetails(e.referenceId),
+                            onTap: () {
+                              if (e.isPurchase) {
+                                _openPurchaseDetails(e.referenceId);
+                              } else if (e.isReturn) {
+                                _openReturnDetails(e.referenceId);
+                              } else {
+                                _openPaymentDetails(e.referenceId);
+                              }
+                            },
                             leading: CircleAvatar(
                               backgroundColor: isPurchase
                                   ? AppColors.PRIMARY_BLUE.withValues(
                                       alpha: 0.12,
                                     )
-                                  : AppColors.SUCCESS_GREEN.withValues(
-                                      alpha: 0.12,
-                                    ),
+                                  : (e.isReturn
+                                      ? AppColors.WARNING_AMBER.withValues(
+                                          alpha: 0.12,
+                                        )
+                                      : AppColors.SUCCESS_GREEN.withValues(
+                                          alpha: 0.12,
+                                        )),
                               child: Icon(
                                 isPurchase
                                     ? Icons.inventory_2_outlined
-                                    : Icons.payments_outlined,
+                                    : (e.isReturn
+                                        ? Icons.assignment_return_outlined
+                                        : Icons.payments_outlined),
                                 color: isPurchase
                                     ? AppColors.PRIMARY_BLUE
-                                    : AppColors.SUCCESS_GREEN,
+                                    : (e.isReturn
+                                        ? AppColors.WARNING_AMBER
+                                        : AppColors.SUCCESS_GREEN),
                               ),
                             ),
                             title: Text(

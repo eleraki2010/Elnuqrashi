@@ -146,11 +146,9 @@ class ThermalReceiptPrinter {
   }
 
   /// بناء الوثيقة وفق المقاس الورقي المطلوب من خدمة الطباعة:
-  ///  - عرض حراري (57/80مم): الإيصال الأصلي على اللفة بنفس قواعده
-  ///    (190مم قياسية مع توسيط عمودي إن احتوى، أو ارتفاع ذاتي).
-  ///  - عرض أكبر (A4/...): فاتورة احترافية بمقاس الورقة بالضبط مع
-  ///    ترويسة وتذييل مكررين وتقسيم تلقائي للصفحات الطويلة — حتى لا
-  ///    يظهر الإيصال مقصوصًا أو مشوهًا على ورق ليس لفته.
+  ///  - عرض حراري (57/80مم): الإيصال الأصلي على اللفة بنفس أبعاده ومطابق للتطبيق.
+  ///  - عرض أكبر (A4/تابلت/...): عرض نفس الفاتورة المتطابقة تماماً مع المعروضة
+  ///    على التطبيق في منتصف الصفحة بأبعاد الإيصال الحراري 80مم القياسية.
   static Future<Uint8List> _buildForPaper({
     required SaleInvoice invoice,
     required bool width80mm,
@@ -161,6 +159,8 @@ class ThermalReceiptPrinter {
   }) async {
     final baseFont = await _loadFont('fonts/Cairo-Regular.ttf');
     final boldFont = await _loadFont('fonts/Cairo-Bold.ttf');
+    final logoBytes = await _loadLogoBytes(storeLogoPath);
+    final logo = logoBytes != null ? _logoProvider(logoBytes) : null;
 
     if (_isThermalWidth(requested.width)) {
       final built = await _buildReceipt(
@@ -173,235 +173,48 @@ class ThermalReceiptPrinter {
       return built.bytes;
     }
 
-    // ورقة كبيرة (A4/... حسب اختيار المستخدم): فاتورة احترافية بمقاس
-    // الورقة المطلوب بالضبط — ترويسة وتذييل مكرران في كل صفحة، وجدول
-    // الأصناف يتوزع تلقائياً على الصفحات الطويلة (لا اقتطاع محتوى).
+    // ورقة كبيرة (A4 أو شاشة المعاينة قبل الطباعة على الهاتف/التابلت):
+    // عرض الفاتورة مطابقة تماماً للمظهر داخل التطبيق في منتصف الورقة بعرض 80مم
+    final body = _receiptBody(
+      invoice: invoice,
+      width80mm: width80mm,
+      storeName: storeName,
+      storePhone: storePhone,
+      logo: logo,
+      baseFont: baseFont,
+      boldFont: boldFont,
+    );
+
+    final receiptWidthPt = width80mm ? 80 * PdfPageFormat.mm : 57 * PdfPageFormat.mm;
+
     final doc = pw.Document();
     doc.addPage(
-      pw.MultiPage(
-        pageFormat: PdfPageFormat(
-          requested.width,
-          requested.height,
-          marginAll: 30.0,
-        ),
-        textDirection: pw.TextDirection.rtl,
-        mainAxisAlignment: pw.MainAxisAlignment.center,
-        theme: pw.ThemeData.withFont(base: baseFont, bold: boldFont),
-        header: (ctx) =>
-            _a4Header(invoice, storeName, baseFont, boldFont),
-        footer: (ctx) => pw.Center(
-          child: pw.Text(
-            'صفحة ${ctx.pageNumber}',
-            style: pw.TextStyle(
-              font: baseFont,
-              fontSize: 8,
-              color: PdfColors.grey600,
-            ),
-          ),
-        ),
-        build: (ctx) => [
-          _a4Meta(invoice, baseFont, boldFont),
-          pw.SizedBox(height: 10),
-          _a4ItemsTable(invoice, baseFont, boldFont),
-          pw.SizedBox(height: 10),
-          _a4Totals(invoice, baseFont, boldFont),
-          pw.SizedBox(height: 14),
-          pw.Center(
-            child: pw.Text(
-              'شكراً لتعاملكم معنا',
-              style: pw.TextStyle(font: baseFont, fontSize: 10),
-            ),
-          ),
-          pw.SizedBox(height: 2),
-          pw.Center(
-            child: pw.Text(
-              'نتمنى لكم يوماً سعيداً',
-              style: pw.TextStyle(
-                font: baseFont,
-                fontSize: 8.5,
-                color: PdfColors.grey600,
+      pw.Page(
+        pageFormat: requested,
+        margin: const pw.EdgeInsets.all(16),
+        build: (context) {
+          return pw.Theme(
+            data: pw.ThemeData.withFont(base: baseFont, bold: boldFont),
+            child: pw.Directionality(
+              textDirection: pw.TextDirection.rtl,
+              child: pw.Center(
+                child: pw.Container(
+                  width: receiptWidthPt,
+                  padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                  decoration: pw.BoxDecoration(
+                    color: PdfColors.white,
+                    border: pw.Border.all(color: PdfColors.grey300, width: 0.8),
+                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+                  ),
+                  child: body,
+                ),
               ),
             ),
-          ),
-        ],
+          );
+        },
       ),
     );
     return doc.save();
-  }
-
-  /// ترويسة A4 مكررة في كل صفحة.
-  static pw.Widget _a4Header(
-    SaleInvoice invoice,
-    String? storeName,
-    pw.Font base,
-    pw.Font bold,
-  ) {
-    return pw.Column(
-      children: [
-        pw.Row(
-          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-          children: [
-            pw.Text(
-              storeName?.trim().isEmpty == false
-                  ? storeName!
-                  : AppStrings.STORE_NAME,
-              style: pw.TextStyle(
-                font: bold,
-                fontSize: 13,
-                color: PdfColors.black,
-              ),
-            ),
-            pw.Text(
-              'فاتورة مبيعات رقم ${invoice.invoiceNumber}',
-              style: pw.TextStyle(
-                font: base,
-                fontSize: 10,
-                color: PdfColors.grey700,
-              ),
-            ),
-          ],
-        ),
-        pw.SizedBox(height: 5),
-        pw.Container(
-          height: 0.8,
-          decoration: const pw.BoxDecoration(
-            border: pw.Border(
-              top: pw.BorderSide(width: 0.8, color: PdfColors.black),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// بيانات الفاتورة على A4 داخل صندوق محدد.
-  static pw.Widget _a4Meta(SaleInvoice invoice, pw.Font base, pw.Font bold) {
-    final dateFmt = DateFormat('yyyy/MM/dd - hh:mm a');
-    return pw.Container(
-      width: 430,
-      padding: const pw.EdgeInsets.all(10),
-      decoration: pw.BoxDecoration(
-        border: pw.Border.all(color: PdfColors.black, width: 0.8),
-      ),
-      child: pw.Column(
-        children: [
-          _a4Row('رقم الفاتورة', invoice.invoiceNumber, base),
-          _a4Row('التاريخ', dateFmt.format(invoice.createdAt), base),
-          _a4Row('العميل', invoice.customerName ?? 'عميل نقدي', base),
-          _a4Row('طريقة الدفع', invoice.paymentMethodArabic, base),
-        ],
-      ),
-    );
-  }
-
-  /// جدول الأصناف على A4 بحدود واضحة (يتوزع على الصفحات تلقائياً).
-  static pw.Table _a4ItemsTable(
-    SaleInvoice invoice,
-    pw.Font base,
-    pw.Font bold,
-  ) {
-    return pw.Table(
-      border: pw.TableBorder.all(color: PdfColors.black, width: 0.5),
-      columnWidths: {
-        0: const pw.FixedColumnWidth(210),
-        1: const pw.FixedColumnWidth(60),
-        2: const pw.FixedColumnWidth(80),
-        3: const pw.FixedColumnWidth(80),
-      },
-      children: [
-        pw.TableRow(
-          decoration: const pw.BoxDecoration(color: PdfColors.grey300),
-          children: [
-            _tableCell('الصنف', bold, 10,
-                bold: true, align: pw.Alignment.centerRight),
-            _tableCell('الكمية', bold, 10,
-                bold: true, align: pw.Alignment.center),
-            _tableCell('السعر', bold, 10,
-                bold: true, align: pw.Alignment.center),
-            _tableCell('الإجمالي', bold, 10,
-                bold: true, align: pw.Alignment.centerLeft),
-          ],
-        ),
-        ...invoice.items.map(
-          (item) => pw.TableRow(
-            children: [
-              _tableCell(item.productName ?? 'منتج', base, 10,
-                  align: pw.Alignment.centerRight),
-              _tableCell('${item.quantity}', base, 10,
-                  align: pw.Alignment.center),
-              _tableCell(item.unitPrice.toStringAsFixed(0), base, 10,
-                  align: pw.Alignment.center),
-              _tableCell(item.lineTotal.toStringAsFixed(0), base, 10,
-                  align: pw.Alignment.centerLeft, bold: true),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// الإجماليات على A4.
-  static pw.Widget _a4Totals(SaleInvoice invoice, pw.Font base, pw.Font bold) {
-    return pw.Container(
-      width: 430,
-      child: pw.Column(
-        children: [
-          _a4Row('الإجمالي الفرعي', AppStrings.money(invoice.subtotal), base),
-          if (invoice.discount > 0)
-            _a4Row('الخصم', '-${AppStrings.money(invoice.discount)}', base),
-          if (invoice.tax > 0)
-            _a4Row('الضريبة', AppStrings.money(invoice.tax), base),
-          pw.SizedBox(height: 6),
-          pw.Container(
-            padding: const pw.EdgeInsets.symmetric(vertical: 5),
-            decoration: const pw.BoxDecoration(
-              border: pw.Border(
-                top: pw.BorderSide(width: 0.8),
-                bottom: pw.BorderSide(width: 0.8),
-              ),
-            ),
-            child: pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-              children: [
-                pw.Text(
-                  'الإجمالي',
-                  style: pw.TextStyle(font: bold, fontSize: 12),
-                ),
-                pw.Text(
-                  AppStrings.money(invoice.total),
-                  style: pw.TextStyle(font: bold, fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-          pw.SizedBox(height: 6),
-          _a4Row('المدفوع', AppStrings.money(invoice.paidAmount), base),
-          if (invoice.isChangePositive)
-            _a4Row('الباقي', AppStrings.money(invoice.changeDue), base)
-          else if (invoice.remainingOnCustomer > 0)
-            _a4Row(
-              'المتبقي على العميل',
-              AppStrings.money(invoice.remainingOnCustomer),
-              base,
-            ),
-        ],
-      ),
-    );
-  }
-
-  /// صف «تسمية/قيمة» على A4.
-  static pw.Widget _a4Row(String label, String value, pw.Font font) {
-    return pw.Padding(
-      padding: const pw.EdgeInsets.symmetric(vertical: 2),
-      child: pw.Row(
-        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-        children: [
-          pw.Text(label,
-              style: pw.TextStyle(font: font, fontSize: 10, color: PdfColors.grey700)),
-          pw.Text(value, style: pw.TextStyle(font: font, fontSize: 10)),
-        ],
-      ),
-    );
   }
 
   /// بناء وثيقة الإيصال الحرارية. [fixedPageHeightMm] == null → ارتفاع ذاتي
@@ -456,9 +269,10 @@ class ThermalReceiptPrinter {
     return doc;
   }
 
-  /// محتوى الإيصال (بلا إطار الصفحة): ترويسة المحل + بيانات الفاتورة +
-  /// جدول الأصناف المبيّن بالحدود + الإجماليات + التذييل. يُستخدم لللفة
-  /// الحرارية وللإيصال المتمركز على A4 معًا.
+  /// محتوى الإيصال المتطابق تماماً مع شاشة الفاتورة في التطبيق:
+  /// الشعار بجوار الاسم، ولا ذكر لرقم الفاتورة في الترويسة،
+  /// جدول بنسب احترافية (تكبير الصنف وتصغير الكمية والسعر والإجمالي)،
+  /// وبطاقات بيانات الفاتورة والإجماليات والتذييل.
   static pw.Widget _receiptBody({
     required SaleInvoice invoice,
     required bool width80mm,
@@ -473,148 +287,228 @@ class ThermalReceiptPrinter {
       crossAxisAlignment: pw.CrossAxisAlignment.stretch,
       mainAxisSize: pw.MainAxisSize.min,
       children: [
-        // ترويسة المحل (الشعار بجوار الاسم — لا فوقه)
+        // ترويسة المحل: الشعار بجوار اسم المحل (ولا يكتب رقم الفاتورة هنا)
         pw.Center(
           child: logo == null
               ? pw.Text(
-                  storeName ?? AppStrings.STORE_NAME,
+                  storeName?.trim().isNotEmpty == true
+                      ? storeName!.trim()
+                      : AppStrings.STORE_NAME,
                   textAlign: pw.TextAlign.center,
                   style: pw.TextStyle(
                     font: boldFont,
                     fontSize: width80mm ? 13 : 11,
+                    color: PdfColors.grey900,
                   ),
                 )
               : pw.Row(
                   mainAxisAlignment: pw.MainAxisAlignment.center,
                   mainAxisSize: pw.MainAxisSize.min,
                   children: [
-                    pw.Image(logo, width: 34, height: 34),
-                    pw.SizedBox(width: 6),
+                    pw.Container(
+                      width: width80mm ? 32 : 26,
+                      height: width80mm ? 32 : 26,
+                      child: pw.ClipRRect(
+                        horizontalRadius: 4,
+                        verticalRadius: 4,
+                        child: pw.Image(logo, fit: pw.BoxFit.contain),
+                      ),
+                    ),
+                    pw.SizedBox(width: 8),
                     pw.Text(
-                      storeName ?? AppStrings.STORE_NAME,
+                      storeName?.trim().isNotEmpty == true
+                          ? storeName!.trim()
+                          : AppStrings.STORE_NAME,
                       style: pw.TextStyle(
                         font: boldFont,
                         fontSize: width80mm ? 13 : 11,
+                        color: PdfColors.grey900,
                       ),
                     ),
                   ],
                 ),
         ),
-        if (storePhone != null && storePhone.isNotEmpty) ...[
+        if (storePhone != null && storePhone.trim().isNotEmpty) ...[
           pw.SizedBox(height: 2),
           pw.Center(
             child: pw.Text(
-              'هاتف: $storePhone',
+              'هاتف: ${storePhone.trim()}',
               style: pw.TextStyle(
                 font: baseFont,
                 fontSize: width80mm ? 8 : 7,
+                color: PdfColors.grey700,
               ),
             ),
           ),
         ],
-        pw.SizedBox(height: 4),
+        pw.SizedBox(height: 2.5),
         pw.Center(
           child: pw.Text(
-            'فاتورة مبيعات',
+            invoice.status == 'held' ? 'فاتورة معلقة' : 'فاتورة مبيعات',
             style: pw.TextStyle(
-              font: baseFont,
+              font: boldFont,
               fontSize: width80mm ? 9 : 8,
               color: PdfColors.grey700,
             ),
           ),
         ),
-        pw.SizedBox(height: 6),
+        pw.SizedBox(height: 5),
         _divider(),
-        pw.SizedBox(height: 4),
-        // بيانات الفاتورة
-        pw.Row(
-          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-          children: [
-            pw.Text(
-              'رقم الفاتورة: ${invoice.invoiceNumber}',
-              style: pw.TextStyle(
-                font: boldFont,
-                fontSize: width80mm ? 9 : 8,
+        pw.SizedBox(height: 5),
+
+        // بطاقة بيانات الفاتورة
+        pw.Container(
+          padding: const pw.EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+          decoration: pw.BoxDecoration(
+            color: PdfColors.grey100,
+            borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+            border: pw.Border.all(color: PdfColors.grey300, width: 0.6),
+          ),
+          child: pw.Column(
+            children: [
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text(
+                    'رقم الفاتورة: ${invoice.invoiceNumber}',
+                    style: pw.TextStyle(
+                      font: boldFont,
+                      fontSize: width80mm ? 8.5 : 7.5,
+                      color: PdfColors.grey900,
+                    ),
+                  ),
+                  pw.Container(
+                    padding: const pw.EdgeInsets.symmetric(
+                      horizontal: 5,
+                      vertical: 1.5,
+                    ),
+                    decoration: pw.BoxDecoration(
+                      color: invoice.status == 'completed'
+                          ? PdfColors.green50
+                          : (invoice.status == 'held'
+                              ? PdfColors.amber50
+                              : PdfColors.red50),
+                      border: pw.Border.all(
+                        color: invoice.status == 'completed'
+                            ? PdfColors.green700
+                            : (invoice.status == 'held'
+                                ? PdfColors.amber800
+                                : PdfColors.red700),
+                        width: 0.5,
+                      ),
+                      borderRadius: const pw.BorderRadius.all(
+                        pw.Radius.circular(3),
+                      ),
+                    ),
+                    child: pw.Text(
+                      invoice.statusArabic,
+                      style: pw.TextStyle(
+                        font: boldFont,
+                        fontSize: width80mm ? 7.5 : 6.5,
+                        color: invoice.status == 'completed'
+                            ? PdfColors.green800
+                            : (invoice.status == 'held'
+                                ? PdfColors.amber900
+                                : PdfColors.red800),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ),
-            pw.Container(
-              padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-              decoration: pw.BoxDecoration(
-                border: pw.Border.all(color: PdfColors.black, width: 0.6),
-                borderRadius: pw.BorderRadius.circular(3),
+              pw.SizedBox(height: 3),
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text(
+                    'التاريخ: ${dateFmt.format(invoice.createdAt)}',
+                    style: pw.TextStyle(
+                      font: baseFont,
+                      fontSize: width80mm ? 7.5 : 6.5,
+                      color: PdfColors.grey700,
+                    ),
+                  ),
+                  pw.Text(
+                    'طريقة الدفع: ${invoice.paymentMethodArabic}',
+                    style: pw.TextStyle(
+                      font: baseFont,
+                      fontSize: width80mm ? 7.5 : 6.5,
+                      color: PdfColors.grey700,
+                    ),
+                  ),
+                ],
               ),
-              child: pw.Text(
-                invoice.statusArabic,
-                style: pw.TextStyle(
-                  font: boldFont,
-                  fontSize: width80mm ? 8 : 7,
-                ),
+              pw.SizedBox(height: 3),
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text(
+                    'العميل: ${invoice.customerName ?? 'عميل نقدي'}',
+                    style: pw.TextStyle(
+                      font: boldFont,
+                      fontSize: width80mm ? 8 : 7,
+                      color: PdfColors.grey800,
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-        pw.SizedBox(height: 2),
-        _row('التاريخ', dateFmt.format(invoice.createdAt), baseFont),
-        _row('طريقة الدفع', invoice.paymentMethodArabic, baseFont),
-        _row('العميل', invoice.customerName ?? 'عميل نقدي', baseFont),
-        pw.SizedBox(height: 4),
-        _divider(),
-        pw.SizedBox(height: 4),
-        // جدول الأصناف بإطار وشبكة واضحة مطابق للمظهر في التطبيق:
-        // تكبير خلية الصنف وتصغير الكمية والسعر، والتفاف النصوص بدون اقتصاص
+        pw.SizedBox(height: 5),
+
+        // جدول الأصناف بتنسيق متوازن واحترافي: تكبير خانة الصنف وتصغير الكمية والسعر والإجمالي
         pw.Table(
           border: pw.TableBorder.all(
-            color: PdfColors.black,
+            color: PdfColors.grey400,
             width: 0.5,
           ),
           columnWidths: {
-            0: const pw.FlexColumnWidth(6),
-            1: const pw.FlexColumnWidth(1.8),
-            2: const pw.FlexColumnWidth(2.2),
-            3: const pw.FlexColumnWidth(2.8),
+            0: const pw.FlexColumnWidth(56),
+            1: const pw.FlexColumnWidth(12),
+            2: const pw.FlexColumnWidth(16),
+            3: const pw.FlexColumnWidth(16),
           },
           children: [
             pw.TableRow(
               decoration: const pw.BoxDecoration(
-                color: PdfColors.grey300,
+                color: PdfColors.grey200,
               ),
               children: [
-                _tableCell('الصنف', boldFont, width80mm ? 8.5 : 7.5,
+                _tableCell('الصنف', boldFont, width80mm ? 8 : 7,
                     bold: true, align: pw.Alignment.centerRight),
-                _tableCell('الكمية', boldFont, width80mm ? 8.5 : 7.5,
+                _tableCell('الكمية', boldFont, width80mm ? 8 : 7,
                     bold: true, align: pw.Alignment.center),
-                _tableCell('السعر', boldFont, width80mm ? 8.5 : 7.5,
+                _tableCell('السعر', boldFont, width80mm ? 8 : 7,
                     bold: true, align: pw.Alignment.center),
-                _tableCell('الإجمالي', boldFont, width80mm ? 8.5 : 7.5,
+                _tableCell('الإجمالي', boldFont, width80mm ? 8 : 7,
                     bold: true, align: pw.Alignment.centerLeft),
               ],
             ),
-            // الأصناف (أرقام صحيحة بلا كسور)
             ...invoice.items.map(
               (item) => pw.TableRow(
                 children: [
                   _tableCell(
                     item.productName ?? 'منتج',
                     baseFont,
-                    width80mm ? 8 : 7,
+                    width80mm ? 7.5 : 6.5,
                     align: pw.Alignment.centerRight,
                   ),
                   _tableCell(
                     '${item.quantity}',
                     baseFont,
-                    width80mm ? 8 : 7,
+                    width80mm ? 7.5 : 6.5,
                     align: pw.Alignment.center,
                   ),
                   _tableCell(
                     item.unitPrice.toStringAsFixed(0),
                     baseFont,
-                    width80mm ? 8 : 7,
+                    width80mm ? 7.5 : 6.5,
                     align: pw.Alignment.center,
                   ),
                   _tableCell(
                     item.lineTotal.toStringAsFixed(0),
-                    baseFont,
-                    width80mm ? 8 : 7,
+                    boldFont,
+                    width80mm ? 7.5 : 6.5,
                     align: pw.Alignment.centerLeft,
                     bold: true,
                   ),
@@ -624,78 +518,84 @@ class ThermalReceiptPrinter {
           ],
         ),
         pw.SizedBox(height: 5),
-        // الإجماليات (أرقام صحيحة بلا كسور)
-        _row(
-          'الإجمالي الفرعي',
-          AppStrings.money(invoice.subtotal),
-          baseFont,
-        ),
-        if (invoice.discount > 0)
-          _row(
-            'الخصم',
-            '-${AppStrings.money(invoice.discount)}',
-            baseFont,
-          ),
-        if (invoice.tax > 0)
-          _row('الضريبة', AppStrings.money(invoice.tax), baseFont),
-        pw.SizedBox(height: 3),
+
+        // بطاقة الإجماليات
         pw.Container(
-          padding: const pw.EdgeInsets.symmetric(vertical: 3),
-          decoration: const pw.BoxDecoration(
-            border: pw.Border(
-              top: pw.BorderSide(width: 0.7),
-              bottom: pw.BorderSide(width: 0.7),
-            ),
+          padding: const pw.EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+          decoration: pw.BoxDecoration(
+            color: PdfColors.grey100,
+            borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+            border: pw.Border.all(color: PdfColors.grey300, width: 0.6),
           ),
-          child: pw.Row(
-            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          child: pw.Column(
             children: [
-              _boldText('الإجمالي', boldFont, size: width80mm ? 10 : 9),
-              _boldText(
-                AppStrings.money(invoice.total),
-                boldFont,
-                alignRight: true,
-                size: width80mm ? 10 : 9,
+              _row('الإجمالي الفرعي', AppStrings.money(invoice.subtotal), baseFont, size: width80mm ? 8 : 7),
+              if (invoice.discount > 0)
+                _row('الخصم', '-${AppStrings.money(invoice.discount)}', baseFont, size: width80mm ? 8 : 7, valueColor: PdfColors.red700),
+              if (invoice.tax > 0)
+                _row('الضريبة', AppStrings.money(invoice.tax), baseFont, size: width80mm ? 8 : 7),
+              pw.SizedBox(height: 2),
+              pw.Container(
+                padding: const pw.EdgeInsets.symmetric(vertical: 3),
+                decoration: const pw.BoxDecoration(
+                  border: pw.Border(
+                    top: pw.BorderSide(width: 0.7, color: PdfColors.grey400),
+                    bottom: pw.BorderSide(width: 0.7, color: PdfColors.grey400),
+                  ),
+                ),
+                child: pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  children: [
+                    _boldText('الإجمالي', boldFont, size: width80mm ? 9.5 : 8.5),
+                    _boldText(
+                      AppStrings.money(invoice.total),
+                      boldFont,
+                      alignRight: true,
+                      size: width80mm ? 9.5 : 8.5,
+                    ),
+                  ],
+                ),
               ),
+              pw.SizedBox(height: 2),
+              _row('المدفوع', AppStrings.money(invoice.paidAmount), baseFont, size: width80mm ? 8 : 7),
+              if (invoice.isChangePositive)
+                _row('الباقي', AppStrings.money(invoice.changeDue), baseFont, size: width80mm ? 8 : 7)
+              else if (invoice.remainingOnCustomer > 0)
+                _row(
+                  'المتبقي على العميل',
+                  AppStrings.money(invoice.remainingOnCustomer),
+                  baseFont,
+                  size: width80mm ? 8 : 7,
+                  valueColor: PdfColors.red700,
+                ),
             ],
           ),
         ),
-        pw.SizedBox(height: 3),
-        _row('المدفوع', AppStrings.money(invoice.paidAmount), baseFont),
-        if (invoice.isChangePositive)
-          _row('الباقي', AppStrings.money(invoice.changeDue), baseFont)
-        else if (invoice.remainingOnCustomer > 0)
-          _row(
-            'المتبقي على العميل',
-            AppStrings.money(invoice.remainingOnCustomer),
-            baseFont,
-          ),
-        _row('طريقة الدفع', invoice.paymentMethodArabic, baseFont),
-        pw.SizedBox(height: 8),
-        _divider(),
         pw.SizedBox(height: 6),
+        _divider(),
+        pw.SizedBox(height: 5),
 
-        // سياسة الاسترجاع والضمان (معايير نقاط البيع المحاسبية)
+        // سياسة الاسترجاع
         pw.Center(
           child: pw.Text(
             'البضاعة المباعة ترد وتستبدل خلال 14 يوماً مع أصل الفاتورة',
             textAlign: pw.TextAlign.center,
             style: pw.TextStyle(
               font: baseFont,
-              fontSize: width80mm ? 7.5 : 6.5,
+              fontSize: width80mm ? 7 : 6,
               color: PdfColors.grey700,
             ),
           ),
         ),
-        pw.SizedBox(height: 6),
+        pw.SizedBox(height: 5),
 
-        // باركود الفاتورة للبحث والاسترجاع السريع
+        // باركود الفاتورة
         pw.Center(
           child: pw.BarcodeWidget(
             barcode: pw.Barcode.code128(),
             data: invoice.invoiceNumber,
             width: width80mm ? 120 : 95,
-            height: width80mm ? 26 : 22,
+            height: width80mm ? 24 : 20,
             drawText: false,
           ),
         ),
@@ -710,9 +610,9 @@ class ThermalReceiptPrinter {
             ),
           ),
         ),
-        pw.SizedBox(height: 6),
+        pw.SizedBox(height: 5),
 
-        // عبارة الشكر والترحيب
+        // عبارة الشكر
         pw.Center(
           child: pw.Text(
             'شكراً لتعاملكم معنا ★ نسعد بخدمتكم دائماً',
@@ -720,6 +620,7 @@ class ThermalReceiptPrinter {
             style: pw.TextStyle(
               font: boldFont,
               fontSize: width80mm ? 8.5 : 7.5,
+              color: PdfColors.grey900,
             ),
           ),
         ),
@@ -727,8 +628,7 @@ class ThermalReceiptPrinter {
     );
   }
 
-  /// خلية جدول: نص محاذي (يمين للعناوين العربية، وسط للكميات،
-  /// يسار للمبالغ) بمسافة داخلية موحدة.
+  /// خلية جدول: نص محاذي بمسافة داخلية موحدة
   static pw.Widget _tableCell(
     String text,
     pw.Font font,
@@ -746,8 +646,7 @@ class ThermalReceiptPrinter {
           style: pw.TextStyle(
             font: font,
             fontSize: size,
-            fontWeight:
-                bold ? pw.FontWeight.bold : pw.FontWeight.normal,
+            fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
           ),
         ),
       ),
@@ -758,19 +657,40 @@ class ThermalReceiptPrinter {
     return pw.Container(
       height: 0.5,
       decoration: const pw.BoxDecoration(
-        border: pw.Border(top: pw.BorderSide(width: 0.5)),
+        border: pw.Border(top: pw.BorderSide(width: 0.5, color: PdfColors.grey400)),
       ),
     );
   }
 
-  static pw.Widget _row(String label, String value, pw.Font font) {
+  static pw.Widget _row(
+    String label,
+    String value,
+    pw.Font font, {
+    double size = 8,
+    PdfColor? labelColor,
+    PdfColor? valueColor,
+  }) {
     return pw.Padding(
-      padding: const pw.EdgeInsets.symmetric(vertical: 1),
+      padding: const pw.EdgeInsets.symmetric(vertical: 1.2),
       child: pw.Row(
         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
         children: [
-          pw.Text(label, style: pw.TextStyle(font: font, fontSize: 8)),
-          pw.Text(value, style: pw.TextStyle(font: font, fontSize: 8)),
+          pw.Text(
+            label,
+            style: pw.TextStyle(
+              font: font,
+              fontSize: size,
+              color: labelColor ?? PdfColors.grey700,
+            ),
+          ),
+          pw.Text(
+            value,
+            style: pw.TextStyle(
+              font: font,
+              fontSize: size,
+              color: valueColor ?? PdfColors.grey900,
+            ),
+          ),
         ],
       ),
     );

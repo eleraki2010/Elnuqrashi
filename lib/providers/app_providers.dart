@@ -139,10 +139,18 @@ final dashboardStatsProvider = FutureProvider<TodayStats>((ref) async {
   return await repo.getTodayStats();
 });
 
-// Top Selling Products Provider (last 7 days)
+// Top Selling Products Provider (top 5)
 final topSellingProductsProvider = FutureProvider<List<TopSellingProduct>>((ref) async {
+  ref.watch(salesHistoryProvider);
   final repo = ref.watch(saleRepositoryProvider);
   return await repo.getTopSellingProducts(limit: 5);
+});
+
+// All Top Selling Products Provider (for "عرض المزيد")
+final allTopSellingProductsProvider = FutureProvider<List<TopSellingProduct>>((ref) async {
+  ref.watch(salesHistoryProvider);
+  final repo = ref.watch(saleRepositoryProvider);
+  return await repo.getTopSellingProducts(limit: 50);
 });
 
 // Total Customer Debt Provider

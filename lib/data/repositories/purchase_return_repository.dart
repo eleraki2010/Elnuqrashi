@@ -23,6 +23,7 @@ class PurchaseReturnRepository {
   Future<void> createPurchaseReturn({
     required PurchaseReturnInvoice invoice,
     required List<PurchaseReturnInvoiceItem> items,
+    bool isCashRefund = false,
     String? userId,
   }) async {
     final db = await AppDatabase.instance;
@@ -30,31 +31,16 @@ class PurchaseReturnRepository {
 
     await db.transaction((txn) async {
       // 1. حساب التسوية المحاسبية لمرتجع المشتريات:
-      // المرتجع يخفض أولاً مستحقات المورد (balance_owed) إن كان له دين على المحل،
-      // وما زاد يُعتبر نقداً مسترداً يدخل الخزينة.
-      final suppMaps = await txn.query(
-        'suppliers',
-        columns: ['balance_owed'],
-        where: 'id = ?',
-        whereArgs: [invoice.supplierId],
-        limit: 1,
-      );
-      final currentOwed = (suppMaps.isNotEmpty
-              ? (suppMaps.first['balance_owed'] as num?)?.toDouble()
-              : 0.0) ??
-          0.0;
-
-      double debtReduction = 0.0;
-      if (currentOwed > 0.01 && invoice.returnAmount > 0) {
-        debtReduction = invoice.returnAmount < currentOwed
-            ? invoice.returnAmount
-            : currentOwed;
-      }
-      final cashIn = invoice.returnAmount - debtReduction;
+      // - إذا كان رداً نقدياً (isCashRefund == true):
+      //   المورد يسدد النقد فوراً للخزينة (cashRefundIn = returnAmount, debtReduction = 0)
+      // - إذا كان تسوية على الحساب (isCashRefund == false):
+      //   يُخصم المرتجع بالكامل من رصيد ومستحقات المورد (debtReduction = returnAmount, cashRefundIn = 0)
+      final debtReduction = isCashRefund ? 0.0 : invoice.returnAmount;
+      final cashRefundIn = isCashRefund ? invoice.returnAmount : 0.0;
 
       final returnInvoice = invoice.copyWith(
         debtReduction: debtReduction,
-        cashRefundIn: cashIn,
+        cashRefundIn: cashRefundIn,
       );
 
       // 2. إدراج فاتورة المرتجع
@@ -76,35 +62,35 @@ class PurchaseReturnRepository {
           'created_at': now.toIso8601String(),
         });
 
-        // خصم الكمية من رصيد المنتج
+        // خصم الكمية من رصيد المنتج في المخزن
         await txn.rawUpdate(
           'UPDATE products SET quantity = quantity - ?, updated_at = ? WHERE id = ?',
           [item.quantity, now.toIso8601String(), item.productId],
         );
       }
 
-      // 4. خصم ما سُدّد به المرتجع من مستحقات المورد
-      if (debtReduction > 0.01) {
+      // 4. تسوية حساب المورد أو الخزينة:
+      if (!isCashRefund && debtReduction > 0) {
+        // خصم قيمة المرتجع بالكامل من مستحقات المورد
         await txn.rawUpdate(
           'UPDATE suppliers SET balance_owed = balance_owed - ?, updated_at = ? WHERE id = ?',
           [debtReduction, now.toIso8601String(), invoice.supplierId],
         );
-      }
-
-      // 5. في حال استرداد نقد من المورد، تسجيل سند قبض وارد للخزينة
-      if (cashIn > 0.01) {
+      } else if (isCashRefund && cashRefundIn > 0) {
+        // تسجيل دفعة قبض نقدية واردة للخزينة من المورد
+        final shortId = returnInvoice.id.length > 8 ? returnInvoice.id.substring(0, 8) : returnInvoice.id;
         await txn.insert('payments', {
           'id': _uuid.v4(),
           'party_type': 'supplier',
           'party_id': invoice.supplierId,
-          'amount': cashIn,
+          'amount': cashRefundIn,
           'direction': 'in',
-          'note': 'استرداد نقدي من مرتجع مشتريات (فاتورة #${returnInvoice.id.substring(0, 8)})',
+          'note': 'استرداد نقدي من مرتجع مشتريات للمورد (فاتورة #$shortId)',
           'created_at': now.toIso8601String(),
         });
       }
 
-      // 6. توثيق العملية في سجل التدقيق
+      // 5. توثيق العملية في سجل التدقيق
       await txn.insert('audit_logs', {
         'id': _uuid.v4(),
         'table_name': 'purchase_return_invoices',
@@ -112,10 +98,11 @@ class PurchaseReturnRepository {
         'action': 'create',
         'old_values': null,
         'new_values':
-            '{"return_amount": ${returnInvoice.returnAmount}, "debt_reduction": $debtReduction, "cash_in": $cashIn, "reason": "${returnInvoice.reason}"}',
+            '{"return_amount": ${returnInvoice.returnAmount}, "debt_reduction": $debtReduction, "cash_refund_in": $cashRefundIn, "reason": "${returnInvoice.reason}"}',
         'user_id': userId,
-        'note':
-            'تسجيل مرتجع مشتريات للمورد (خصم مستحقات: ${debtReduction.toStringAsFixed(0)} ج.م، نقد وارد: ${cashIn.toStringAsFixed(0)} ج.م)',
+        'note': isCashRefund
+            ? 'مرتجع مشتريات نقدي (استرداد نقد للخزينة: ${cashRefundIn.toStringAsFixed(0)} ج.م، خصم من المخزون)'
+            : 'مرتجع مشتريات آجل (خصم من رصيد المورد: ${debtReduction.toStringAsFixed(0)} ج.م، خصم من المخزون)',
         'created_at': now.toIso8601String(),
       });
     });
@@ -179,4 +166,40 @@ class PurchaseReturnRepository {
     }
     return result;
   }
+
+  Future<DetailedPurchaseReturn?> getPurchaseReturnWithItems(
+    String returnInvoiceId,
+  ) async {
+    final db = await AppDatabase.instance;
+    final returnMaps = await db.rawQuery('''
+      SELECT pri.*, s.name as supplier_name, pi.id as original_invoice_id
+      FROM purchase_return_invoices pri
+      JOIN suppliers s ON pri.supplier_id = s.id
+      LEFT JOIN purchase_invoices pi ON pri.original_purchase_invoice_id = pi.id
+      WHERE pri.id = ?
+      LIMIT 1
+    ''', [returnInvoiceId]);
+
+    if (returnMaps.isEmpty) return null;
+
+    final m = returnMaps.first;
+    final itemMaps = await db.query(
+      'purchase_return_invoice_items',
+      where: 'return_invoice_id = ?',
+      whereArgs: [returnInvoiceId],
+    );
+
+    final items =
+        itemMaps.map((im) => PurchaseReturnInvoiceItem.fromMap(im)).toList();
+
+    return DetailedPurchaseReturn(
+      invoice: PurchaseReturnInvoice.fromMap(m),
+      originalInvoiceNumber: m['original_invoice_id'] != null
+          ? (m['original_invoice_id'] as String).substring(0, 8)
+          : null,
+      supplierName: (m['supplier_name'] as String?) ?? 'مورد',
+      items: items,
+    );
+  }
 }
+

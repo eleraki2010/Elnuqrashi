@@ -6,21 +6,26 @@ import '../models/payment.dart';
 import '../models/purchase_invoice.dart';
 import '../models/supplier.dart';
 
-/// بيان واحد في كشف حساب المورد (فاتورة شراء أو دفعة سداد) مع
-/// الرصيد الدائري بعد تسجيله.
+import '../models/purchase_return_invoice.dart';
+
+/// بيان واحد في كشف حساب المورد (فاتورة شراء، دفعة سداد، أو مرتجع مشتريات)
+/// مع الرصيد الدائري بعد تسجيله.
 class StatementEntry {
   final DateTime date;
 
-  /// true = فاتورة شراء (مدين — تزيد المستحق)، false = دفعة سداد (دائن).
+  /// true = فاتورة شراء (مدين — تزيد المستحق)، false = دفعة سداد أو مرتجع (دائن — تخفض المستحق).
   final bool isPurchase;
+
+  /// هل البيان مرتجع مشتريات للمورد
+  final bool isReturn;
 
   /// نص البيان للعرض (قالب ثابت)؛ التفاصيل تُفتح من الشاشة.
   final String title;
 
-  /// مبلغ البيان: إجمالي الفاتورة للشراء، مبلغ الدفعة للسداد.
+  /// مبلغ البيان: إجمالي الفاتورة للشراء، مبلغ الدفعة للسداد، مبلغ المرتجع.
   final double amount;
 
-  /// معرّف المصدر (id فاتورة الشراء أو id الدفعة) لفتح التفاصيل.
+  /// معرّف المصدر (id فاتورة الشراء أو id الدفعة أو id المرتجع) لفتح التفاصيل.
   final String referenceId;
 
   double runningBalance;
@@ -28,6 +33,7 @@ class StatementEntry {
   StatementEntry({
     required this.date,
     required this.isPurchase,
+    this.isReturn = false,
     required this.title,
     required this.amount,
     required this.referenceId,
@@ -39,23 +45,27 @@ class SupplierStatement {
   final Supplier supplier;
   final List<PurchaseInvoice> purchases;
   final List<Payment> payments;
+  final List<PurchaseReturnInvoice> returns;
 
   SupplierStatement({
     required this.supplier,
     required this.purchases,
     required this.payments,
+    this.returns = const [],
   });
 
   double get totalPurchases => purchases.fold(0.0, (sum, p) => sum + p.total);
 
   double get totalPayments => payments.fold(0.0, (sum, p) => sum + p.amount);
 
-  /// كشف الحساب الموحد لكل عمليات المورد (شراء + دفعات) مرتباً زمنياً
+  double get totalReturns =>
+      returns.fold(0.0, (sum, r) => sum + r.returnAmount);
+
+  /// كشف الحساب الموحد لكل عمليات المورد (شراء + دفعات + مرتجعات) مرتباً زمنياً
   /// مع رصيد دائري بعد كل بيان.
   ///
   /// الرصيد الافتتاحي = الرصيد الحالي − مجموع تأثير العمليات، فينتهي
-  /// الكشف بالضبط على رصيد المورد المسجَّل (حتى لو كان يملك رصيداً
-  /// تاريخياً سابقاً لهذه العمليات).
+  /// الكشف بالضبط على رصيد المورد المسجَّل.
   List<StatementEntry> buildEntries() {
     final entries = <StatementEntry>[];
     for (final p in purchases) {
@@ -86,6 +96,25 @@ class SupplierStatement {
         ),
       );
     }
+    for (final r in returns) {
+      final isCashRefund = r.cashRefundIn > 0.001;
+      final returnVal = isCashRefund ? 0.0 : (r.debtReduction > 0.001 ? r.debtReduction : r.returnAmount);
+      entries.add(
+        StatementEntry(
+          date: r.createdAt,
+          isPurchase: false,
+          isReturn: true,
+          title: isCashRefund
+              ? 'مرتجع مشتريات (استرداد نقدي للخزينة)${r.reason != null && r.reason!.trim().isNotEmpty ? " — ${r.reason!.trim()}" : ""}'
+              : (r.reason != null && r.reason!.trim().isNotEmpty)
+                  ? 'مرتجع مشتريات للمورد — ${r.reason!.trim()}'
+                  : 'مرتجع مشتريات للمورد',
+          amount: returnVal,
+          referenceId: r.id,
+          runningBalance: 0,
+        ),
+      );
+    }
     entries.sort((a, b) => a.date.compareTo(b.date));
 
     final effect = entries.fold(
@@ -108,8 +137,12 @@ class SupplierStatement {
     }
     var running = 0.0;
     for (final e in entries) {
-      running += e.isPurchase ? e.amount : -e.amount;
-      e.runningBalance = running;
+      if (e.referenceId == 'opening_balance') {
+        running = e.runningBalance;
+      } else {
+        running += e.isPurchase ? e.amount : -e.amount;
+        e.runningBalance = running;
+      }
     }
     return entries;
   }
@@ -248,10 +281,20 @@ class SupplierRepository {
     );
     final payments = paymentMaps.map((m) => Payment.fromMap(m)).toList();
 
+    final returnMaps = await db.query(
+      'purchase_return_invoices',
+      where: 'supplier_id = ?',
+      whereArgs: [supplierId],
+      orderBy: 'created_at DESC',
+    );
+    final returns =
+        returnMaps.map((m) => PurchaseReturnInvoice.fromMap(m)).toList();
+
     return SupplierStatement(
       supplier: supplier,
       purchases: purchases,
       payments: payments,
+      returns: returns,
     );
   }
 }
