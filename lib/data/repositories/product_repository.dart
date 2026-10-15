@@ -279,4 +279,195 @@ class ProductRepository {
       });
     });
   }
+
+  /// تطبيق جرد المخزون الفعلي محاسبياً بصورة دقيقة وموحدة:
+  /// 1. تحديث أرصدة المنتجات في جدول products لتطابق الكمية الفعلية.
+  /// 2. تسجيل حركة مخزنية رسمية (stock_movement) لكل صنف تغير رصيده بنوع 'count'.
+  /// 3. في حال وجود عجز (الفعلي أقل من المسجل): احتساب قيمة خسارة العجز بسعر الشراء
+  ///    وإثباتها كمصروف تشغيلي في جدول expenses تحت فئة 'عجز وفروقات جرد' لضمان دقة الأرباح والميزانية.
+  /// 4. توثيق كافة التعديلات في سجل الرقابة والتدقيق (audit_logs).
+  /// 5. كل هذه العمليات تُنفذ داخل معاملة ذرية موحدة (Database Transaction) لضمان سلامة الدفاتر.
+  Future<InventoryCountResult> applyInventoryCount({
+    required List<InventoryCountEntry> entries,
+    bool recordShortageAsExpense = true,
+    String? userId,
+  }) async {
+    final db = await AppDatabase.instance;
+    final now = DateTime.now();
+    const uuid = Uuid();
+    final batchId = uuid.v4();
+
+    int adjustedCount = 0;
+    int shortageItemsCount = 0;
+    int surplusItemsCount = 0;
+    int totalShortageQty = 0;
+    int totalSurplusQty = 0;
+    double totalShortageValue = 0.0;
+    double totalSurplusValue = 0.0;
+
+    await db.transaction((txn) async {
+      for (final entry in entries) {
+        final productMaps = await txn.query(
+          'products',
+          where: 'id = ?',
+          whereArgs: [entry.productId],
+          limit: 1,
+        );
+        if (productMaps.isEmpty) continue;
+        final product = Product.fromMap(productMaps.first);
+        final diff = entry.actualQuantity - product.quantity;
+        if (diff == 0) continue;
+
+        adjustedCount++;
+        if (diff < 0) {
+          final shortageQty = diff.abs();
+          final shortageCost = shortageQty * product.purchasePrice;
+          shortageItemsCount++;
+          totalShortageQty += shortageQty;
+          totalShortageValue += shortageCost;
+
+          // 1. تحديث رصيد الصنف الفعلي
+          await txn.rawUpdate(
+            'UPDATE products SET quantity = ?, updated_at = ? WHERE id = ?',
+            [entry.actualQuantity, now.toIso8601String(), product.id],
+          );
+
+          // 2. حركة مخزنية سالبة للجرد
+          await txn.insert('stock_movements', {
+            'id': uuid.v4(),
+            'product_id': product.id,
+            'type': 'count',
+            'quantity_change': diff,
+            'reference_id': batchId,
+            'note':
+                'عجز جرد مخزني: مسجل ${product.quantity} فعلي ${entry.actualQuantity} (عجز $shortageQty ${product.unit}) بتكلفة ${shortageCost.toStringAsFixed(2)} ج.م',
+            'created_at': now.toIso8601String(),
+          });
+
+          // 3. سجل تدقيق
+          await txn.insert('audit_logs', {
+            'id': uuid.v4(),
+            'table_name': 'products',
+            'record_id': product.id,
+            'action': 'inventory_count_shortage',
+            'old_values': '{"quantity": ${product.quantity}}',
+            'new_values':
+                '{"actual_quantity": ${entry.actualQuantity}, "difference": $diff, "shortage_cost": $shortageCost}',
+            'user_id': userId,
+            'note':
+                'تسوية عجز جرد لصنف "${product.name}" بنقص $shortageQty ${product.unit} (تكلفة $shortageCost ج.م)',
+            'created_at': now.toIso8601String(),
+          });
+        } else {
+          final surplusQty = diff;
+          final surplusCost = surplusQty * product.purchasePrice;
+          surplusItemsCount++;
+          totalSurplusQty += surplusQty;
+          totalSurplusValue += surplusCost;
+
+          // 1. تحديث رصيد الصنف الفعلي
+          await txn.rawUpdate(
+            'UPDATE products SET quantity = ?, updated_at = ? WHERE id = ?',
+            [entry.actualQuantity, now.toIso8601String(), product.id],
+          );
+
+          // 2. حركة مخزنية موجبة للجرد
+          await txn.insert('stock_movements', {
+            'id': uuid.v4(),
+            'product_id': product.id,
+            'type': 'count',
+            'quantity_change': diff,
+            'reference_id': batchId,
+            'note':
+                'فائض جرد مخزني: مسجل ${product.quantity} فعلي ${entry.actualQuantity} (زيادة $surplusQty ${product.unit}) بقيمة ${surplusCost.toStringAsFixed(2)} ج.م',
+            'created_at': now.toIso8601String(),
+          });
+
+          // 3. سجل تدقيق
+          await txn.insert('audit_logs', {
+            'id': uuid.v4(),
+            'table_name': 'products',
+            'record_id': product.id,
+            'action': 'inventory_count_surplus',
+            'old_values': '{"quantity": ${product.quantity}}',
+            'new_values':
+                '{"actual_quantity": ${entry.actualQuantity}, "difference": $diff, "surplus_value": $surplusCost}',
+            'user_id': userId,
+            'note':
+                'تسوية زيادة وفائض جرد لصنف "${product.name}" بزيادة $surplusQty ${product.unit}',
+            'created_at': now.toIso8601String(),
+          });
+        }
+      }
+
+      // 4. إثبات محاسبي إجمالي للعجز كمصروف تشغيلي (عجز وفروقات جرد)
+      if (recordShortageAsExpense && totalShortageValue > 0) {
+        final expenseId = uuid.v4();
+        await txn.insert('expenses', {
+          'id': expenseId,
+          'title':
+              'تسوية عجز جرد مخزني ($shortageItemsCount أصناف - عجز $totalShortageQty قطعة)',
+          'amount': totalShortageValue,
+          'category': 'عجز وفروقات جرد',
+          'created_at': now.toIso8601String(),
+        });
+
+        await txn.insert('audit_logs', {
+          'id': uuid.v4(),
+          'table_name': 'expenses',
+          'record_id': expenseId,
+          'action': 'create',
+          'old_values': null,
+          'new_values':
+              '{"title": "تسوية عجز جرد مخزني", "amount": $totalShortageValue, "category": "عجز وفروقات جرد"}',
+          'user_id': userId,
+          'note':
+              'إثبات مصروف عجز جرد مخزني بقيمة ${totalShortageValue.toStringAsFixed(2)} ج.م',
+          'created_at': now.toIso8601String(),
+        });
+      }
+    });
+
+    return InventoryCountResult(
+      adjustedItemsCount: adjustedCount,
+      shortageItemsCount: shortageItemsCount,
+      surplusItemsCount: surplusItemsCount,
+      totalShortageQty: totalShortageQty,
+      totalSurplusQty: totalSurplusQty,
+      totalShortageValue: totalShortageValue,
+      totalSurplusValue: totalSurplusValue,
+    );
+  }
+}
+
+/// مدخل جرد لصنف فردي
+class InventoryCountEntry {
+  final String productId;
+  final int actualQuantity;
+
+  InventoryCountEntry({
+    required this.productId,
+    required this.actualQuantity,
+  });
+}
+
+/// نتيجة تسوية الجرد المخزني محاسبياً
+class InventoryCountResult {
+  final int adjustedItemsCount;
+  final int shortageItemsCount;
+  final int surplusItemsCount;
+  final int totalShortageQty;
+  final int totalSurplusQty;
+  final double totalShortageValue;
+  final double totalSurplusValue;
+
+  InventoryCountResult({
+    required this.adjustedItemsCount,
+    required this.shortageItemsCount,
+    required this.surplusItemsCount,
+    required this.totalShortageQty,
+    required this.totalSurplusQty,
+    required this.totalShortageValue,
+    required this.totalSurplusValue,
+  });
 }

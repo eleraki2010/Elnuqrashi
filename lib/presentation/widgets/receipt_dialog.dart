@@ -261,23 +261,23 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
                             cells: const [
                               _GridCell(
                                 'الصنف',
-                                flex: 56,
+                                flex: 46,
                                 align: TextAlign.start,
                               ),
                               _GridCell(
                                 'الكمية',
-                                flex: 12,
+                                flex: 18,
                                 align: TextAlign.center,
                               ),
                               _GridCell(
                                 'السعر',
-                                flex: 16,
+                                flex: 18,
                                 align: TextAlign.center,
                               ),
                               _GridCell(
                                 'الإجمالي',
-                                flex: 16,
-                                align: TextAlign.end,
+                                flex: 18,
+                                align: TextAlign.center,
                               ),
                             ],
                           ),
@@ -287,23 +287,27 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
                               cells: [
                                 _GridCell(
                                   invoice.items[i].productName ?? 'منتج',
-                                  flex: 56,
+                                  flex: 46,
                                   align: TextAlign.start,
                                 ),
                                 _GridCell(
                                   '${invoice.items[i].quantity}',
-                                  flex: 12,
+                                  flex: 18,
                                   align: TextAlign.center,
                                 ),
                                 _GridCell(
-                                  invoice.items[i].unitPrice.toStringAsFixed(0),
-                                  flex: 16,
+                                  invoice.items[i].unitPrice % 1 == 0
+                                      ? invoice.items[i].unitPrice.toInt().toString()
+                                      : invoice.items[i].unitPrice.toStringAsFixed(2),
+                                  flex: 18,
                                   align: TextAlign.center,
                                 ),
                                 _GridCell(
-                                  invoice.items[i].lineTotal.toStringAsFixed(0),
-                                  flex: 16,
-                                  align: TextAlign.end,
+                                  invoice.items[i].lineTotal % 1 == 0
+                                      ? invoice.items[i].lineTotal.toInt().toString()
+                                      : invoice.items[i].lineTotal.toStringAsFixed(2),
+                                  flex: 18,
+                                  align: TextAlign.center,
                                   bold: true,
                                 ),
                               ],
@@ -601,24 +605,30 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
           Expanded(
             flex: c.flex,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
               decoration: BoxDecoration(
                 color: isHeader ? _headerBg : (zebra ? _zebraBg : Colors.white),
                 border: Border.all(color: _gridLine, width: 0.5),
               ),
-              child: Text(
-                c.text,
-                textAlign: c.align,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: isHeader ? 11.5 : 12,
-                  fontWeight: isHeader || c.bold
-                      ? FontWeight.bold
-                      : FontWeight.normal,
-                  color: isHeader
-                      ? const Color(0xFF1E293B)
-                      : const Color(0xFF334155),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: c.align == TextAlign.start
+                    ? Alignment.centerRight
+                    : (c.align == TextAlign.end
+                        ? Alignment.centerLeft
+                        : Alignment.center),
+                child: Text(
+                  c.text,
+                  textAlign: c.align,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: isHeader || c.bold
+                        ? FontWeight.bold
+                        : FontWeight.normal,
+                    color: isHeader
+                        ? const Color(0xFF1E293B)
+                        : const Color(0xFF334155),
+                  ),
                 ),
               ),
             ),

@@ -8,6 +8,7 @@ import '../../data/models/sale_invoice.dart';
 import '../../providers/app_providers.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/data_refresh_service.dart';
+import '../../providers/phase2_providers.dart';
 import '../widgets/max_width_container.dart';
 import '../widgets/receipt_dialog.dart';
 
@@ -214,6 +215,7 @@ class SalesHistoryScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final salesAsync = ref.watch(salesHistoryProvider);
+    final customersAsync = ref.watch(customersListProvider);
     final dateFormat = DateFormat('yyyy/MM/dd - hh:mm a');
     // عامل تكبير حسب عرض المحتوى: يكبّر السجلات على التابلت بوضوح.
     final scale = ResponsiveScope.scaleOf(context);
@@ -326,9 +328,22 @@ class SalesHistoryScreen extends ConsumerWidget {
                                 ),
                                 child: Builder(
                                   builder: (context) {
-                                    final customerText = inv.customerName?.isNotEmpty == true
-                                        ? inv.customerName!
-                                        : 'عميل نقدي';
+                                    final customerText = () {
+                                      if (inv.customerName?.trim().isNotEmpty == true) {
+                                        return inv.customerName!.trim();
+                                      }
+                                      if (inv.customerId != null) {
+                                        final found = customersAsync.asData?.value
+                                            .where((c) => c.id == inv.customerId)
+                                            .firstOrNull;
+                                        if (found != null && found.name.trim().isNotEmpty) {
+                                          return found.name.trim();
+                                        }
+                                      }
+                                      return inv.paymentMethod == 'credit'
+                                          ? 'عميل آجل'
+                                          : 'عميل نقدي';
+                                    }();
 
                                     // عرض موحد موجز وأنيق في سطرين فقط
                                     return Column(

@@ -59,10 +59,11 @@ class _POSScreenState extends ConsumerState<POSScreen> {
     if (cart.paymentMethod == 'credit' && cart.customerId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('يرجى اختيار عميل للبيع الآجل'),
+          content: Text('يرجى تحديد العميل لإتمام الفاتورة الآجلة وتسجيلها على حسابه'),
           backgroundColor: AppColors.DANGER_RED,
         ),
       );
+      _showCustomerSelectionDialog(context);
       return;
     }
 
@@ -78,7 +79,7 @@ class _POSScreenState extends ConsumerState<POSScreen> {
 
     final isPaidInFull = effectivePaid >= cart.total;
     if (!isPaidInFull && (cart.paymentMethod == 'cash' || cart.paymentMethod == 'split') && cart.customerId == null) {
-      final confirm = await showDialog<bool>(
+      final chooseCustomer = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
           title: const Row(
@@ -89,7 +90,7 @@ class _POSScreenState extends ConsumerState<POSScreen> {
             ],
           ),
           content: Text(
-            'المبلغ المدفوع (${AppStrings.money(effectivePaid)}) أقل من إجمالي الفاتورة (${AppStrings.money(cart.total)}).\nهل تريد متابعة البيع كآجل وتسجيل المتبقي؟',
+            'المبلغ المدفوع (${AppStrings.money(effectivePaid)}) أقل من إجمالي الفاتورة (${AppStrings.money(cart.total)}).\nلتسجيل المتبقي كدين آجل، يرجى اختيار العميل أولاً.',
           ),
           actions: [
             TextButton(
@@ -102,13 +103,16 @@ class _POSScreenState extends ConsumerState<POSScreen> {
                 backgroundColor: AppColors.PRIMARY_BLUE,
                 foregroundColor: Colors.white,
               ),
-              child: const Text('متابعة'),
+              child: const Text('اختيار عميل'),
             ),
           ],
         ),
       );
 
-      if (confirm == null || !confirm) return;
+      if (chooseCustomer == true && mounted) {
+        _showCustomerSelectionDialog(context);
+      }
+      return;
     }
 
     try {
@@ -262,7 +266,7 @@ class _POSScreenState extends ConsumerState<POSScreen> {
                             ),
                           ),
                     onTap: () {
-                      cartNotifier.setCustomerId(customer.id);
+                      cartNotifier.setCustomerId(customer.id, customerName: customer.name);
                       Navigator.of(ctx).pop();
                     },
                   );
@@ -277,7 +281,7 @@ class _POSScreenState extends ConsumerState<POSScreen> {
           if (currentCustomerId != null)
             TextButton(
               onPressed: () {
-                cartNotifier.setCustomerId(null);
+                cartNotifier.setCustomerId(null, customerName: null);
                 Navigator.of(ctx).pop();
               },
               child: const Text(
@@ -1602,7 +1606,12 @@ class _POSScreenState extends ConsumerState<POSScreen> {
                     label: 'آجل',
                     icon: Icons.credit_card_outlined,
                     isSelected: cart.paymentMethod == 'credit',
-                    onTap: () => cartNotifier.setPaymentMethod('credit'),
+                    onTap: () {
+                      cartNotifier.setPaymentMethod('credit');
+                      if (cart.customerId == null) {
+                        _showCustomerSelectionDialog(context);
+                      }
+                    },
                   ),
                 ),
               ],

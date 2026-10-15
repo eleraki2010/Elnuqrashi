@@ -21,6 +21,8 @@ class CartItem {
   double get lineTotal => quantity * unitPrice;
 }
 
+const Object _sentinel = Object();
+
 class CartState {
   final List<CartItem> items;
   final double discount;
@@ -30,6 +32,7 @@ class CartState {
   final double splitWalletAmount;
   final String paymentMethod; // cash, wallet, split, credit
   final String? customerId;
+  final String? customerName;
 
   CartState({
     this.items = const [],
@@ -40,6 +43,7 @@ class CartState {
     this.splitWalletAmount = 0.0,
     this.paymentMethod = 'cash',
     this.customerId,
+    this.customerName,
   });
 
   double get subtotal => items.fold(0.0, (sum, item) => sum + item.lineTotal);
@@ -63,7 +67,8 @@ class CartState {
     double? splitCashAmount,
     double? splitWalletAmount,
     String? paymentMethod,
-    String? customerId,
+    Object? customerId = _sentinel,
+    Object? customerName = _sentinel,
   }) {
     return CartState(
       items: items ?? this.items,
@@ -73,7 +78,8 @@ class CartState {
       splitCashAmount: splitCashAmount ?? this.splitCashAmount,
       splitWalletAmount: splitWalletAmount ?? this.splitWalletAmount,
       paymentMethod: paymentMethod ?? this.paymentMethod,
-      customerId: customerId ?? this.customerId,
+      customerId: customerId == _sentinel ? this.customerId : (customerId as String?),
+      customerName: customerName == _sentinel ? this.customerName : (customerName as String?),
     );
   }
 }
@@ -196,8 +202,8 @@ class CartNotifier extends Notifier<CartState> {
     );
   }
 
-  void setCustomerId(String? customerId) {
-    state = state.copyWith(customerId: customerId);
+  void setCustomerId(String? customerId, {String? customerName}) {
+    state = state.copyWith(customerId: customerId, customerName: customerName);
   }
 
    void clearCart() {
@@ -270,6 +276,7 @@ class CartNotifier extends Notifier<CartState> {
       id: invoiceId,
       invoiceNumber: invoiceNumber,
       customerId: state.customerId,
+      customerName: state.customerName,
       cashierId: cashierId,
       items: invoiceItems,
       subtotal: state.subtotal,

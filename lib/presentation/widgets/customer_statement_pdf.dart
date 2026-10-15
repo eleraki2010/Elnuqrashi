@@ -465,10 +465,10 @@ class CustomerStatementPdf {
                     pw.Table(
                       border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.4),
                       columnWidths: {
-                        0: const pw.FlexColumnWidth(5),
+                        0: const pw.FlexColumnWidth(4.6),
                         1: const pw.FlexColumnWidth(1.8),
-                        2: const pw.FlexColumnWidth(2),
-                        3: const pw.FlexColumnWidth(2.2),
+                        2: const pw.FlexColumnWidth(1.8),
+                        3: const pw.FlexColumnWidth(1.8),
                       },
                       children: [
                         pw.TableRow(
@@ -527,10 +527,10 @@ class CustomerStatementPdf {
                     pw.Table(
                       border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.4),
                       columnWidths: {
-                        0: const pw.FlexColumnWidth(5),
+                        0: const pw.FlexColumnWidth(4.6),
                         1: const pw.FlexColumnWidth(1.8),
-                        2: const pw.FlexColumnWidth(2),
-                        3: const pw.FlexColumnWidth(2.2),
+                        2: const pw.FlexColumnWidth(1.8),
+                        3: const pw.FlexColumnWidth(1.8),
                       },
                       children: [
                         pw.TableRow(
@@ -666,7 +666,11 @@ class CustomerStatementPdf {
       fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
       color: color ?? PdfColors.black,
     );
-    final t = pw.Text(text, style: style);
+    final t = pw.FittedBox(
+      fit: pw.BoxFit.scaleDown,
+      alignment: align ?? pw.Alignment.centerRight,
+      child: pw.Text(text, style: style),
+    );
     if (align == null) {
       return pw.Padding(padding: const pw.EdgeInsets.all(5), child: t);
     }

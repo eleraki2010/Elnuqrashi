@@ -86,8 +86,8 @@ class TopSellingProduct {
 
   factory TopSellingProduct.fromMap(Map<String, dynamic> map) {
     return TopSellingProduct(
-      productId: map['product_id'] as String,
-      productName: map['product_name'] as String,
+      productId: (map['product_id'] ?? '').toString(),
+      productName: (map['product_name'] ?? 'منتج غير محدد').toString(),
       totalQuantity: (map['total_quantity'] as num?)?.toDouble() ?? 0.0,
       totalRevenue: (map['total_revenue'] as num?)?.toDouble() ?? 0.0,
       totalProfit: (map['total_profit'] as num?)?.toDouble() ?? 0.0,
@@ -184,10 +184,12 @@ class SaleRepository {
 
   Future<List<SaleInvoice>> getAllSaleInvoices() async {
     final db = await AppDatabase.instance;
-    final List<Map<String, dynamic>> maps = await db.query(
-      'sale_invoices',
-      orderBy: 'created_at DESC',
-    );
+    final List<Map<String, dynamic>> maps = await db.rawQuery('''
+      SELECT si.*, c.name as customer_name
+      FROM sale_invoices si
+      LEFT JOIN customers c ON si.customer_id = c.id
+      ORDER BY si.created_at DESC
+    ''');
     return maps.map((m) => SaleInvoice.fromMap(m)).toList();
   }
 
@@ -445,7 +447,7 @@ class SaleRepository {
     final db = await AppDatabase.instance;
     final maps = await db.rawQuery('''
       SELECT sii.product_id,
-             COALESCE(p.name, sii.product_name) as product_name,
+             COALESCE(p.name, 'منتج غير محدد') as product_name,
              SUM(sii.quantity) as total_quantity,
              SUM(sii.line_total) as total_revenue,
              SUM(sii.line_total - (sii.quantity * COALESCE(sii.unit_cost, p.purchase_price, 0.0))) as total_profit
@@ -453,7 +455,7 @@ class SaleRepository {
       JOIN sale_invoices si ON sii.invoice_id = si.id
       LEFT JOIN products p ON sii.product_id = p.id
       WHERE si.status = 'completed'
-      GROUP BY sii.product_id
+      GROUP BY sii.product_id, p.name
       ORDER BY total_quantity DESC
       LIMIT ?
     ''', [limit]);
@@ -637,22 +639,22 @@ class SaleRepository {
   Future<List<SaleInvoice>> getInvoicesByStatus(String status) async {
     final db = await AppDatabase.instance;
 
-    final maps = await db.query(
-      'sale_invoices',
-      where: 'status = ?',
-      whereArgs: [status],
-      orderBy: 'created_at DESC',
-    );
+    final maps = await db.rawQuery('''
+      SELECT si.*, c.name as customer_name
+      FROM sale_invoices si
+      LEFT JOIN customers c ON si.customer_id = c.id
+      WHERE si.status = ?
+      ORDER BY si.created_at DESC
+    ''', [status]);
 
-    // مهم: يجب جلب عناصر كل فاتورة، وإلا تُحمَّل الفاتورة المعلّقة فارغة
-    // فلا يمكن استكمالها في شاشة البيع (regression سابق).
     final invoices = <SaleInvoice>[];
     for (final m in maps) {
-      final itemMaps = await db.query(
-        'sale_invoice_items',
-        where: 'invoice_id = ?',
-        whereArgs: [m['id']],
-      );
+      final itemMaps = await db.rawQuery('''
+        SELECT sii.*, p.name as product_name
+        FROM sale_invoice_items sii
+        LEFT JOIN products p ON p.id = sii.product_id
+        WHERE sii.invoice_id = ?
+      ''', [m['id']]);
       final items =
           itemMaps.map((im) => SaleInvoiceItem.fromMap(im)).toList();
       invoices.add(SaleInvoice.fromMap(m, items: items));
@@ -661,41 +663,11 @@ class SaleRepository {
   }
 
   Future<List<SaleInvoice>> getAllSalesInvoices() async {
-    final db = await AppDatabase.instance;
-    final maps = await db.query(
-      'sale_invoices',
-      orderBy: 'created_at DESC',
-    );
-    return maps.map((m) => SaleInvoice.fromMap(m)).toList();
+    return getAllSaleInvoices();
   }
 
   Future<SaleInvoice?> getInvoiceById(String invoiceId) async {
-    final db = await AppDatabase.instance;
-    final maps = await db.query(
-      'sale_invoices',
-      where: 'id = ?',
-      whereArgs: [invoiceId],
-    );
-    if (maps.isEmpty) return null;
-
-    final invoice = SaleInvoice.fromMap(maps.first);
-
-    // Get items — مع اسم المنتج (product_name حقل عرض فقط غير محفوظ في
-    // جدول العناصر): بدون JOIN تظهر productName null وتنكسر الشاشات
-    // التي تعرضها (كشاشة المرتجعات تحديداً كانت تنهار على السطر
-    // "(item as dynamic).productName as String").
-    final itemMaps = await db.rawQuery(
-      '''
-      SELECT sii.*, p.name as product_name
-      FROM sale_invoice_items sii
-      LEFT JOIN products p ON p.id = sii.product_id
-      WHERE sii.invoice_id = ?
-      ''',
-      [invoiceId],
-    );
-
-    final items = itemMaps.map((m) => SaleInvoiceItem.fromMap(m)).toList();
-    return invoice.copyWith(items: items);
+    return getSaleInvoiceWithItems(invoiceId);
   }
 
   Future<SaleInvoice?> getSaleInvoiceById(String invoiceId) async {

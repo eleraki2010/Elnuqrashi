@@ -643,20 +643,27 @@ class DashboardScreen extends ConsumerWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    Icon(icon, size: 20, color: iconColor),
-                    const SizedBox(width: 8),
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.PRIMARY_BLUE_DARK,
+                Expanded(
+                  child: Row(
+                    children: [
+                      Icon(icon, size: 20, color: iconColor),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.PRIMARY_BLUE_DARK,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
+                const SizedBox(width: 8),
                 TextButton.icon(
                   onPressed: onShowMore,
                   style: TextButton.styleFrom(
@@ -664,7 +671,7 @@ class DashboardScreen extends ConsumerWidget {
                     foregroundColor: AppColors.PRIMARY_BLUE,
                   ),
                   icon: const Text(
-                    'إظهار المزيد',
+                    'المزيد',
                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                   ),
                   label: const Icon(Icons.arrow_forward_ios, size: 12),
