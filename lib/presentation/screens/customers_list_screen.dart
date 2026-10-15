@@ -6,6 +6,7 @@ import '../../core/constants/app_constants.dart';
 import '../../core/responsive/responsive_scope.dart';
 import '../../data/models/customer.dart';
 import '../../providers/app_providers.dart';
+import '../../providers/data_refresh_service.dart';
 import '../../providers/phase2_providers.dart';
 import '../widgets/max_width_container.dart';
 import 'customer_detail_screen.dart';
@@ -140,7 +141,7 @@ class CustomersListScreen extends ConsumerWidget {
                 await repo.insertCustomer(newCustomer);
               }
 
-              ref.invalidate(customersListProvider);
+              refreshAfterCustomerChange(ref);
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
@@ -185,7 +186,7 @@ class CustomersListScreen extends ConsumerWidget {
               final repo = ref.read(customerRepositoryProvider);
               try {
                 await repo.deleteCustomer(customer.id);
-                ref.invalidate(customersListProvider);
+                refreshAfterCustomerChange(ref);
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('تم حذف العميل بنجاح')),

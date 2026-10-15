@@ -7,8 +7,8 @@ import 'package:alnokrashy_pos/core/constants/app_constants.dart';
 import '../../data/models/product.dart';
 import '../../data/models/purchase_invoice.dart';
 import '../../data/models/purchase_invoice_item.dart';
-import '../../providers/app_providers.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/data_refresh_service.dart';
 import '../../providers/phase2_providers.dart';
 import '../widgets/product_search_dialog.dart';
 
@@ -143,14 +143,7 @@ class _PurchaseFormScreenState extends ConsumerState<PurchaseFormScreen> {
     );
 
     // Refresh affected providers
-    ref.invalidate(purchasesListProvider);
-    ref.invalidate(productListProvider);
-    ref.invalidate(stockAlertsProvider);
-    ref.invalidate(lowStockCountProvider);
-    ref.invalidate(suppliersListProvider);
-    // الدفعة للمورد والبضاعة الواردة تظهر في لوحة القيادة وسجل المدفوعات.
-    ref.invalidate(dashboardStatsProvider);
-    ref.invalidate(paymentsProvider);
+    refreshAfterPurchase(ref);
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(

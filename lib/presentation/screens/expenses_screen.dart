@@ -8,6 +8,7 @@ import '../../data/models/expense.dart';
 import '../../data/repositories/expense_repository.dart';
 import '../../providers/app_providers.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/data_refresh_service.dart';
 import '../widgets/max_width_container.dart';
 
 class ExpensesScreen extends ConsumerStatefulWidget {
@@ -504,9 +505,8 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                         );
                       }
 
-                      // إعادة كل العمليات الحسابية (الإجماليات واللوحة).
-                      ref.invalidate(expensesListProvider);
-                      ref.invalidate(dashboardStatsProvider);
+                      // إعادة كل العمليات الحسابية (الإجماليات واللوحة والخزينة).
+                      refreshAfterExpense(ref);
 
                       if (mounted) {
                         setState(() {});
@@ -630,8 +630,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
       await ref
           .read(expenseRepositoryProvider)
           .deleteExpense(expense.id, userId: ref.read(authProvider).user?.id);
-      ref.invalidate(expensesListProvider);
-      ref.invalidate(dashboardStatsProvider);
+      refreshAfterExpense(ref);
 
       if (mounted) {
         setState(() {});

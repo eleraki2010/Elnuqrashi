@@ -6,6 +6,7 @@ import '../../data/models/product.dart';
 import '../../data/repositories/product_repository.dart';
 import '../../providers/app_providers.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/data_refresh_service.dart';
 import '../widgets/max_width_container.dart';
 import '../widgets/product_search_dialog.dart';
 
@@ -705,10 +706,10 @@ class _StockSummaryScreenState extends ConsumerState<StockSummaryScreen> {
                                 recordAsExpense: recordAsExpense,
                                 userId: ref.read(authProvider).user?.id,
                               );
-                          ref.invalidate(productListProvider);
-                          ref.invalidate(stockSummaryProvider);
-                          ref.invalidate(expensesListProvider);
-                          ref.invalidate(shopBalanceProvider);
+                          refreshAfterProductChange(ref);
+                          if (recordAsExpense) {
+                            refreshAfterExpense(ref);
+                          }
 
                           if (ctx.mounted) {
                             Navigator.of(ctx).pop();

@@ -16,6 +16,7 @@ import '../../data/repositories/return_repository.dart';
 import '../../data/repositories/sale_repository.dart';
 import '../../providers/app_providers.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/data_refresh_service.dart';
 import '../../providers/phase2_providers.dart';
 import '../widgets/max_width_container.dart';
 
@@ -164,20 +165,13 @@ class _ReturnsScreenState extends ConsumerState<ReturnsScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  FutureBuilder<List<SaleInvoice>>(
-                    future: saleRepo.getAllSalesInvoices(),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
-                      if (snapshot.hasError) {
-                        return Text(
-                          'حدث خطأ أثناء تحميل الفواتير: ${snapshot.error}',
-                          style: const TextStyle(color: AppColors.DANGER_RED),
-                        );
-                      }
-
-                      final invoices = snapshot.data ?? const <SaleInvoice>[];
+                  ref.watch(salesHistoryProvider).when(
+                    loading: () => const Center(child: CircularProgressIndicator()),
+                    error: (error, _) => Text(
+                      'حدث خطأ أثناء تحميل الفواتير: $error',
+                      style: const TextStyle(color: AppColors.DANGER_RED),
+                    ),
+                    data: (invoices) {
                       final completedInvoices = invoices
                           .where((i) => i.status == 'completed')
                           .toList();
@@ -505,20 +499,13 @@ class _ReturnsScreenState extends ConsumerState<ReturnsScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  FutureBuilder<List<PurchaseInvoice>>(
-                    future: purchaseRepo.getAllPurchaseInvoices(),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
-                      if (snapshot.hasError) {
-                        return Text(
-                          'حدث خطأ أثناء تحميل فواتير الشراء: ${snapshot.error}',
-                          style: const TextStyle(color: AppColors.DANGER_RED),
-                        );
-                      }
-
-                      final invoices = snapshot.data ?? const <PurchaseInvoice>[];
+                  ref.watch(purchasesListProvider).when(
+                    loading: () => const Center(child: CircularProgressIndicator()),
+                    error: (error, _) => Text(
+                      'حدث خطأ أثناء تحميل فواتير الشراء: $error',
+                      style: const TextStyle(color: AppColors.DANGER_RED),
+                    ),
+                    data: (invoices) {
                       if (invoices.isEmpty) {
                         return const Text(
                           'لا توجد فواتير شراء مسجلة بعد.',
@@ -1355,13 +1342,8 @@ class _ReturnsScreenState extends ConsumerState<ReturnsScreen> {
         userId: ref.read(authProvider).user?.id,
       );
 
-      // Refresh
-      ref.invalidate(productListProvider);
-      ref.invalidate(salesHistoryProvider);
-      ref.invalidate(dashboardStatsProvider);
-      ref.invalidate(customersListProvider);
-      ref.invalidate(shopBalanceProvider);
-      ref.invalidate(paymentsProvider);
+      // Refresh all related providers
+      refreshAfterReturn(ref);
 
       if (mounted) {
         _reasonController.clear();
@@ -1475,13 +1457,8 @@ class _ReturnsScreenState extends ConsumerState<ReturnsScreen> {
         userId: ref.read(authProvider).user?.id,
       );
 
-      // Refresh providers
-      ref.invalidate(productListProvider);
-      ref.invalidate(stockSummaryProvider);
-      ref.invalidate(suppliersListProvider);
-      ref.invalidate(shopBalanceProvider);
-      ref.invalidate(paymentsProvider);
-      ref.invalidate(dashboardStatsProvider);
+      // Refresh all related providers
+      refreshAfterReturn(ref);
 
       if (mounted) {
         _purchaseReasonController.clear();

@@ -12,6 +12,7 @@ import '../../data/repositories/customer_repository.dart';
 import '../../data/repositories/shop_profile_repository.dart';
 import '../../providers/app_providers.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/data_refresh_service.dart';
 import '../../providers/phase2_providers.dart';
 import '../widgets/customer_statement_pdf.dart';
 import '../widgets/max_width_container.dart';
@@ -320,10 +321,7 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
                 );
 
                 // تحديث القوائم والإحصائيات لتنعكس الدفعة فوراً في كل الشاشات.
-                ref.invalidate(customersListProvider);
-                ref.invalidate(paymentsProvider);
-                ref.invalidate(dashboardStatsProvider);
-                ref.invalidate(shopBalanceProvider);
+                refreshAfterPayment(ref);
                 await _loadStatement();
 
                 if (mounted) {
@@ -430,7 +428,7 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
       await ref
           .read(customerRepositoryProvider)
           .updateCustomerPaymentDueDate(widget.customerId, dueDate);
-      ref.invalidate(customersListProvider);
+      refreshAfterCustomerChange(ref);
       await _loadStatement();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -457,7 +455,15 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
 
   Future<void> _sendWhatsAppReminder() async {
     final c = _statement?.customer;
-    if (c == null || c.phone == null || c.phone!.isEmpty) return;
+    if (c == null) return;
+    if (c.phone == null || c.phone!.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('لا يوجد رقم هاتف مسجل لهذا العميل لإرسال تذكير عبر واتساب'),
+        ),
+      );
+      return;
+    }
 
     try {
       final opened = await WhatsAppReminderService.sendDebtReminder(
@@ -469,7 +475,7 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
       if (!opened) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('تعذّر فتح واتساب. تأكد من تثبيت التطبيق.'),
+            content: Text('تعذّر فتح تطبيق واتساب. تأكد من تثبيت التطبيق أو توفر متصفح.'),
           ),
         );
       }
@@ -685,6 +691,11 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // استماع تلقائي لأي تغيير في بيانات العملاء أو المبيعات أو الدفعات لإعادة التحميل فوراً
+    ref.listen(customersListProvider, (_, _) => _loadStatement());
+    ref.listen(salesHistoryProvider, (_, _) => _loadStatement());
+    ref.listen(paymentsProvider, (_, _) => _loadStatement());
+
     final dateFormat = DateFormat('yyyy/MM/dd - hh:mm a');
 
     if (_isLoading) {
@@ -985,14 +996,7 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
                                   width: 1.2,
                                 ),
                               ),
-                              onPressed:
-                                  (c.phone != null &&
-                                      c.phone!.isNotEmpty &&
-                                      WhatsAppReminderService.isValidWhatsAppNumber(
-                                        c.phone!,
-                                      ))
-                                  ? () => _sendWhatsAppReminder()
-                                  : null,
+                              onPressed: _sendWhatsAppReminder,
                               icon: const Icon(Icons.chat_outlined, size: 16),
                               label: const Text(
                                 'تذكير بالواتساب',

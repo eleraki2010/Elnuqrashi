@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../providers/app_providers.dart';
+import '../../providers/data_refresh_service.dart';
 import '../widgets/max_width_container.dart';
 
 class InventoryCountScreen extends ConsumerStatefulWidget {
@@ -308,8 +309,8 @@ class _InventoryCountScreenState extends ConsumerState<InventoryCountScreen> {
         }
       }
 
-      // Refresh products
-      ref.invalidate(productListProvider);
+      // Refresh products and inventory
+      refreshAfterProductChange(ref);
 
       if (!mounted) return;
 

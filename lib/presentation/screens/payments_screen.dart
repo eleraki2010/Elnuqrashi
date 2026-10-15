@@ -9,6 +9,7 @@ import '../../data/models/customer.dart';
 import '../../data/models/supplier.dart';
 import '../../providers/app_providers.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/data_refresh_service.dart';
 import '../../providers/phase2_providers.dart';
 import '../widgets/max_width_container.dart';
 
@@ -587,13 +588,8 @@ class _PaymentsScreenState extends ConsumerState<PaymentsScreen> {
       }
 
       // تحديث كل المزودات المتأثرة بالدفعة (الأرصدة والإحصائيات والخزينة
-      // وقائمة المتأخرين عن السداد).
-      ref.invalidate(paymentsProvider);
-      ref.invalidate(customersListProvider);
-      ref.invalidate(suppliersListProvider);
-      ref.invalidate(dashboardStatsProvider);
-      ref.invalidate(shopBalanceProvider);
-      ref.invalidate(overdueCustomersProvider);
+      // وقائمة المتأخرين عن السداد والديون).
+      refreshAfterPayment(ref);
 
       if (mounted) {
         // إعادة بناء ملخص اليوم ليعكس الدفعة الجديدة.
@@ -709,8 +705,8 @@ class _PaymentsScreenState extends ConsumerState<PaymentsScreen> {
                       );
                 }
 
-                ref.invalidate(customersListProvider);
-                ref.invalidate(suppliersListProvider);
+                refreshAfterCustomerChange(ref);
+                refreshAfterSupplierChange(ref);
                 onAdded();
 
                 if (mounted) {

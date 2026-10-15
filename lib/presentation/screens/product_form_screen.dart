@@ -10,6 +10,7 @@ import '../../core/constants/app_constants.dart';
 import '../../data/models/category.dart';
 import '../../data/models/product.dart';
 import '../../providers/app_providers.dart';
+import '../../providers/data_refresh_service.dart';
 import '../widgets/product_image_view.dart';
 import 'barcode_scanner_screen.dart';
 
@@ -175,9 +176,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       await repo.insertProduct(product);
     }
 
-    ref.invalidate(productListProvider);
-    ref.invalidate(stockAlertsProvider);
-    ref.invalidate(lowStockCountProvider);
+    refreshAfterProductChange(ref);
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(

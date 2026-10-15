@@ -11,19 +11,31 @@ import '../constants/app_constants.dart';
 class WhatsAppReminderService {
   WhatsAppReminderService._();
 
-  /// تنسيق رقم الهاتف ليبدأ بـ 2 (مصر) بدون + أو مسافات.
-  /// الرقم المصري مثلاً 01012345678 يصبح 201012345678.
+  /// تحويل الأرقام المشرقية والفارسية (٠-٩) إلى أرقام غربية (0-9)
+  static String convertIndicDigits(String input) {
+    const easternArabic = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+    const persian = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+    const western = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+    var result = input;
+    for (int i = 0; i < 10; i++) {
+      result = result.replaceAll(easternArabic[i], western[i]);
+      result = result.replaceAll(persian[i], western[i]);
+    }
+    return result;
+  }
+
+  /// تنسيق رقم الهاتف ليبدأ بـ 2 (مصر) بدون + أو مسافات، مع دعم الأرقام المكتوبة بلوحة مفاتيح عربية.
+  /// الرقم المصري مثلاً 01012345678 أو ٠١٠١٢٣٤٥٦٧٨ يصبح 201012345678.
   static String normalizeEgyptianPhone(String phone) {
-    var cleaned = phone.replaceAll(RegExp(r'[^\d]'), '');
+    var cleaned = convertIndicDigits(phone).replaceAll(RegExp(r'[^\d]'), '');
     if (cleaned.startsWith('00')) {
       cleaned = cleaned.substring(2);
-    }
-    if (cleaned.startsWith('+')) {
-      cleaned = cleaned.substring(1);
     }
     // الأرقام المحلية المصرية تبدأ بـ 01 ويتوقعها واتساب بصيغة 201...
     if (cleaned.length == 11 && cleaned.startsWith('01')) {
       cleaned = '2$cleaned';
+    } else if (cleaned.length == 10 && cleaned.startsWith('1')) {
+      cleaned = '20$cleaned';
     }
     return cleaned;
   }
@@ -46,7 +58,7 @@ class WhatsAppReminderService {
         'شكراً لتعاملكم معنا 🙏';
   }
 
-  /// فتح واتساب برسالة تذكير بالدين. يُرجع true إذا فُتح التطبيق بنجاح.
+  /// فتح واتساب برسالة تذكير بالدين. يُرجع true إذا فُتح التطبيق أو الرابط بنجاح.
   static Future<bool> sendDebtReminder({
     required String customerName,
     required String phone,
@@ -63,14 +75,37 @@ class WhatsAppReminderService {
     );
     final encodedMessage = Uri.encodeComponent(message);
 
-    // نجرّب تطبيق واتساب أولاً، ثم الويب كاحتياطي.
+    // الروابط المختلفة بترتيب الأفضلية: التطبيق المباشر -> wa.me -> api.whatsapp.com
     final appUri = Uri.parse(
         'whatsapp://send?phone=$normalized&text=$encodedMessage');
     final webUri = Uri.parse('https://wa.me/$normalized?text=$encodedMessage');
+    final apiUri = Uri.parse(
+        'https://api.whatsapp.com/send?phone=$normalized&text=$encodedMessage');
 
-    if (await canLaunchUrl(appUri)) {
-      return launchUrl(appUri, mode: LaunchMode.externalApplication);
+    try {
+      if (await canLaunchUrl(appUri)) {
+        return await launchUrl(appUri, mode: LaunchMode.externalApplication);
+      }
+    } catch (_) {}
+
+    try {
+      if (await canLaunchUrl(webUri)) {
+        return await launchUrl(webUri, mode: LaunchMode.externalApplication);
+      }
+    } catch (_) {}
+
+    try {
+      return await launchUrl(appUri, mode: LaunchMode.externalApplication);
+    } catch (_) {
+      try {
+        return await launchUrl(webUri, mode: LaunchMode.externalApplication);
+      } catch (_) {
+        try {
+          return await launchUrl(apiUri, mode: LaunchMode.externalApplication);
+        } catch (_) {
+          return false;
+        }
+      }
     }
-    return launchUrl(webUri, mode: LaunchMode.externalApplication);
   }
 }

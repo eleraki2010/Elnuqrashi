@@ -11,6 +11,7 @@ import '../../data/repositories/shop_profile_repository.dart';
 import '../../data/repositories/supplier_repository.dart';
 import '../../providers/app_providers.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/data_refresh_service.dart';
 import '../../providers/phase2_providers.dart';
 import '../widgets/max_width_container.dart';
 import '../widgets/supplier_statement_pdf.dart';
@@ -427,9 +428,7 @@ class _SupplierDetailScreenState extends ConsumerState<SupplierDetailScreen> {
                 userId: ref.read(authProvider).user?.id,
               );
 
-              ref.invalidate(suppliersListProvider);
-              ref.invalidate(paymentsProvider);
-              ref.invalidate(dashboardStatsProvider);
+              refreshAfterPayment(ref);
               await _loadStatement();
 
               if (mounted) {
@@ -452,6 +451,11 @@ class _SupplierDetailScreenState extends ConsumerState<SupplierDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // استماع تلقائي لأي تحديث في الموردين أو المشتريات أو الدفعات لإعادة التحميل فوراً
+    ref.listen(suppliersListProvider, (_, _) => _loadStatement());
+    ref.listen(purchasesListProvider, (_, _) => _loadStatement());
+    ref.listen(paymentsProvider, (_, _) => _loadStatement());
+
     final dateFormat = DateFormat('yyyy/MM/dd - hh:mm a');
 
     if (_isLoading) {

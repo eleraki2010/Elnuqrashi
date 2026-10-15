@@ -7,7 +7,7 @@ import '../../core/responsive/responsive_scope.dart';
 import '../../data/models/sale_invoice.dart';
 import '../../providers/app_providers.dart';
 import '../../providers/auth_provider.dart';
-import '../../providers/phase2_providers.dart';
+import '../../providers/data_refresh_service.dart';
 import '../widgets/max_width_container.dart';
 import '../widgets/receipt_dialog.dart';
 
@@ -58,11 +58,7 @@ class SalesHistoryScreen extends ConsumerWidget {
               final userId = ref.read(authProvider).user?.id;
               try {
                 await repo.cancelSaleInvoice(invoice.id, userId: userId);
-                ref.invalidate(salesHistoryProvider);
-                ref.invalidate(productListProvider);
-                ref.invalidate(stockAlertsProvider);
-                ref.invalidate(lowStockCountProvider);
-                ref.invalidate(dashboardStatsProvider);
+                refreshAfterSale(ref);
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
@@ -120,8 +116,7 @@ class SalesHistoryScreen extends ConsumerWidget {
               final userId = ref.read(authProvider).user?.id;
               try {
                 await repo.restoreSaleInvoice(invoice.id, userId: userId);
-                ref.invalidate(salesHistoryProvider);
-                ref.invalidate(dashboardStatsProvider);
+                refreshAfterSale(ref);
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
@@ -186,12 +181,7 @@ class SalesHistoryScreen extends ConsumerWidget {
               final userId = ref.read(authProvider).user?.id;
               try {
                 await repo.deleteSaleInvoice(invoice.id, userId: userId);
-                ref.invalidate(salesHistoryProvider);
-                ref.invalidate(productListProvider);
-                ref.invalidate(stockAlertsProvider);
-                ref.invalidate(lowStockCountProvider);
-                ref.invalidate(dashboardStatsProvider);
-                ref.invalidate(customersListProvider);
+                refreshAfterSale(ref);
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
@@ -331,231 +321,26 @@ class SalesHistoryScreen extends ConsumerWidget {
                               onTap: () => _showInvoiceDetails(context, ref, inv),
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 10,
+                                  horizontal: 14,
+                                  vertical: 7,
                                 ),
-                                child: LayoutBuilder(
-                                  builder: (context, constraints) {
-                                    final isWide = constraints.maxWidth >= 680;
+                                child: Builder(
+                                  builder: (context) {
                                     final customerText = inv.customerName?.isNotEmpty == true
                                         ? inv.customerName!
                                         : 'عميل نقدي';
 
-                                    if (isWide) {
-                                      // عرض عريض (شاشات الكمبيوتر والتابلت بالعرض)
-                                      return Row(
-                                        crossAxisAlignment: CrossAxisAlignment.center,
-                                        children: [
-                                          CircleAvatar(
-                                            radius: 18,
-                                            backgroundColor: statusColor.withValues(alpha: 0.12),
-                                            child: Icon(
-                                              isCompleted
-                                                  ? Icons.check_circle_outline
-                                                  : isHeld
-                                                  ? Icons.pause_circle_outlined
-                                                  : Icons.cancel_outlined,
-                                              size: 20,
-                                              color: statusColor,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          // بيانات الفاتورة الأساسية
-                                          Expanded(
-                                            flex: 4,
-                                            child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                Row(
-                                                  children: [
-                                                    Text(
-                                                      inv.invoiceNumber,
-                                                      style: const TextStyle(
-                                                        fontWeight: FontWeight.bold,
-                                                        fontSize: 14.5,
-                                                        color: AppColors.PRIMARY_BLUE_DARK,
-                                                      ),
-                                                    ),
-                                                    const SizedBox(width: 8),
-                                                    Container(
-                                                      padding: const EdgeInsets.symmetric(
-                                                        horizontal: 7,
-                                                        vertical: 2,
-                                                      ),
-                                                      decoration: BoxDecoration(
-                                                        color: statusColor.withValues(alpha: 0.12),
-                                                        borderRadius: BorderRadius.circular(4),
-                                                      ),
-                                                      child: Text(
-                                                        inv.statusArabic,
-                                                        style: TextStyle(
-                                                          fontSize: 11,
-                                                          fontWeight: FontWeight.bold,
-                                                          color: statusColor,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                                const SizedBox(height: 4),
-                                                Row(
-                                                  children: [
-                                                    const Icon(
-                                                      Icons.person_outline,
-                                                      size: 14,
-                                                      color: AppColors.TEXT_SECONDARY,
-                                                    ),
-                                                    const SizedBox(width: 4),
-                                                    Flexible(
-                                                      child: Text(
-                                                        customerText,
-                                                        maxLines: 1,
-                                                        overflow: TextOverflow.ellipsis,
-                                                        style: const TextStyle(
-                                                          fontSize: 12,
-                                                          color: AppColors.TEXT_SECONDARY,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    const SizedBox(width: 12),
-                                                    const Icon(
-                                                      Icons.schedule,
-                                                      size: 14,
-                                                      color: AppColors.TEXT_SECONDARY,
-                                                    ),
-                                                    const SizedBox(width: 4),
-                                                    Text(
-                                                      dateFormat.format(inv.createdAt),
-                                                      style: const TextStyle(
-                                                        fontSize: 12,
-                                                        color: AppColors.TEXT_SECONDARY,
-                                                      ),
-                                                    ),
-                                                    const SizedBox(width: 12),
-                                                    Text(
-                                                      'الدفع: ${inv.paymentMethodArabic}',
-                                                      style: const TextStyle(
-                                                        fontSize: 12,
-                                                        color: AppColors.TEXT_SECONDARY,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          // المبالغ المالية
-                                          Column(
-                                            crossAxisAlignment: CrossAxisAlignment.end,
-                                            children: [
-                                              Text(
-                                                AppStrings.money(inv.total),
-                                                style: const TextStyle(
-                                                  fontSize: 15,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: AppColors.PRIMARY_BLUE,
-                                                ),
-                                              ),
-                                              Text(
-                                                'المدفوع: ${AppStrings.money(inv.paidAmount)}',
-                                                style: const TextStyle(
-                                                  fontSize: 11.5,
-                                                  color: AppColors.TEXT_SECONDARY,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(width: 16),
-                                          // أزرار العمليات
-                                          OutlinedButton.icon(
-                                            style: OutlinedButton.styleFrom(
-                                              padding: const EdgeInsets.symmetric(
-                                                horizontal: 10,
-                                                vertical: 6,
-                                              ),
-                                              minimumSize: const Size(0, 34),
-                                            ),
-                                            onPressed: () => _showInvoiceDetails(context, ref, inv),
-                                            icon: const Icon(Icons.receipt, size: 15),
-                                            label: const Text(
-                                              'عرض الفاتورة',
-                                              style: TextStyle(fontSize: 12),
-                                            ),
-                                          ),
-                                          if (isCompleted) ...[
-                                            const SizedBox(width: 6),
-                                            IconButton(
-                                              tooltip: 'إلغاء الفاتورة',
-                                              icon: const Icon(
-                                                Icons.cancel_outlined,
-                                                size: 20,
-                                                color: AppColors.DANGER_RED,
-                                              ),
-                                              onPressed: () => _confirmCancelInvoice(context, ref, inv),
-                                            ),
-                                          ],
-                                          if (inv.status == 'cancelled') ...[
-                                            const SizedBox(width: 6),
-                                            IconButton(
-                                              tooltip: 'استرجاع الفاتورة الملغاة',
-                                              icon: const Icon(
-                                                Icons.restore,
-                                                size: 20,
-                                                color: AppColors.SUCCESS_GREEN,
-                                              ),
-                                              onPressed: () => _confirmRestoreInvoice(context, ref, inv),
-                                            ),
-                                          ],
-                                          const SizedBox(width: 4),
-                                          IconButton(
-                                            tooltip: inv.status == 'held'
-                                                ? 'حذف الفاتورة المعلّقة'
-                                                : 'حذف الفاتورة',
-                                            icon: const Icon(
-                                              Icons.delete_outline,
-                                              size: 20,
-                                              color: AppColors.DANGER_RED,
-                                            ),
-                                            onPressed: () => _confirmDeleteInvoice(context, ref, inv),
-                                          ),
-                                        ],
-                                      );
-                                    }
-
-                                    // عرض متجاوب للشاشات المتوسطة أو الضيقة (بدون أي اقتصاص)
+                                    // عرض موحد موجز وأنيق في سطرين فقط
                                     return Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisSize: MainAxisSize.min,
+                                      crossAxisAlignment: CrossAxisAlignment.stretch,
                                       children: [
-                                        // السطر 1: أيقونة + رقم الفاتورة + شارة الحالة + الإجمالي
+                                        // السطر 1: شارة الحالة + رقم الفاتورة + العميل | الإجمالي
                                         Row(
                                           children: [
-                                            CircleAvatar(
-                                              radius: 16,
-                                              backgroundColor: statusColor.withValues(alpha: 0.12),
-                                              child: Icon(
-                                                isCompleted
-                                                    ? Icons.check_circle_outline
-                                                    : isHeld
-                                                    ? Icons.pause_circle_outlined
-                                                    : Icons.cancel_outlined,
-                                                size: 18,
-                                                color: statusColor,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Text(
-                                              inv.invoiceNumber,
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 14,
-                                                color: AppColors.PRIMARY_BLUE_DARK,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 6),
                                             Container(
                                               padding: const EdgeInsets.symmetric(
-                                                horizontal: 6,
+                                                horizontal: 7,
                                                 vertical: 2,
                                               ),
                                               decoration: BoxDecoration(
@@ -571,7 +356,43 @@ class SalesHistoryScreen extends ConsumerWidget {
                                                 ),
                                               ),
                                             ),
-                                            const Spacer(),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              inv.invoiceNumber,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 13.5,
+                                                color: AppColors.PRIMARY_BLUE_DARK,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            const Text(
+                                              '•',
+                                              style: TextStyle(
+                                                color: Color(0xFF94A3B8),
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            const Icon(
+                                              Icons.person_outline,
+                                              size: 14,
+                                              color: AppColors.TEXT_SECONDARY,
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Expanded(
+                                              child: Text(
+                                                customerText,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(
+                                                  fontSize: 12.5,
+                                                  fontWeight: FontWeight.w500,
+                                                  color: AppColors.TEXT_PRIMARY,
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
                                             Text(
                                               AppStrings.money(inv.total),
                                               style: const TextStyle(
@@ -582,85 +403,68 @@ class SalesHistoryScreen extends ConsumerWidget {
                                             ),
                                           ],
                                         ),
-                                        const SizedBox(height: 6),
-                                        // السطر 2: العميل + التاريخ + طريقة الدفع + المدفوع
-                                        Wrap(
-                                          spacing: 12,
-                                          runSpacing: 4,
-                                          crossAxisAlignment: WrapCrossAlignment.center,
+                                        const SizedBox(height: 4),
+                                        // السطر 2: التاريخ والوقت + طريقة الدفع + المدفوع/المتبقي | أزرار الإجراءات السريعة
+                                        Row(
                                           children: [
-                                            Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                const Icon(
-                                                  Icons.person_outline,
-                                                  size: 14,
-                                                  color: AppColors.TEXT_SECONDARY,
-                                                ),
-                                                const SizedBox(width: 4),
-                                                Text(
-                                                  customerText,
-                                                  style: const TextStyle(
-                                                    fontSize: 12,
-                                                    color: AppColors.TEXT_SECONDARY,
-                                                  ),
-                                                ),
-                                              ],
+                                            const Icon(
+                                              Icons.schedule,
+                                              size: 13,
+                                              color: AppColors.TEXT_SECONDARY,
                                             ),
-                                            Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                const Icon(
-                                                  Icons.schedule,
-                                                  size: 14,
-                                                  color: AppColors.TEXT_SECONDARY,
-                                                ),
-                                                const SizedBox(width: 4),
-                                                Text(
-                                                  dateFormat.format(inv.createdAt),
-                                                  style: const TextStyle(
-                                                    fontSize: 12,
-                                                    color: AppColors.TEXT_SECONDARY,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
+                                            const SizedBox(width: 4),
                                             Text(
-                                              'طريقة الدفع: ${inv.paymentMethodArabic}',
+                                              dateFormat.format(inv.createdAt),
                                               style: const TextStyle(
-                                                fontSize: 12,
+                                                fontSize: 11.5,
                                                 color: AppColors.TEXT_SECONDARY,
                                               ),
                                             ),
-                                            Text(
-                                              'المدفوع: ${AppStrings.money(inv.paidAmount)}',
-                                              style: const TextStyle(
+                                            const SizedBox(width: 8),
+                                            const Text(
+                                              '•',
+                                              style: TextStyle(
+                                                color: Color(0xFF94A3B8),
                                                 fontSize: 12,
-                                                fontWeight: FontWeight.w600,
-                                                color: AppColors.TEXT_PRIMARY,
                                               ),
                                             ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 8),
-                                        // السطر 3: أزرار العمليات
-                                        Row(
-                                          mainAxisAlignment: MainAxisAlignment.end,
-                                          children: [
-                                            OutlinedButton.icon(
-                                              style: OutlinedButton.styleFrom(
-                                                padding: const EdgeInsets.symmetric(
-                                                  horizontal: 10,
-                                                  vertical: 4,
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              inv.paymentMethodArabic,
+                                              style: const TextStyle(
+                                                fontSize: 11.5,
+                                                color: AppColors.TEXT_SECONDARY,
+                                              ),
+                                            ),
+                                            if (inv.remainingOnCustomer > 0.005) ...[
+                                              const SizedBox(width: 6),
+                                              Text(
+                                                '(متبقي: ${AppStrings.money(inv.remainingOnCustomer)})',
+                                                style: const TextStyle(
+                                                  fontSize: 11.5,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: AppColors.DANGER_RED,
                                                 ),
-                                                minimumSize: const Size(0, 32),
                                               ),
+                                            ] else if (inv.paidAmount > 0.005 && inv.paidAmount != inv.total) ...[
+                                              const SizedBox(width: 6),
+                                              Text(
+                                                '(المدفوع: ${AppStrings.money(inv.paidAmount)})',
+                                                style: const TextStyle(
+                                                  fontSize: 11.5,
+                                                  color: AppColors.TEXT_SECONDARY,
+                                                ),
+                                              ),
+                                            ],
+                                            const Spacer(),
+                                            // أزرار العمليات المصغرة في نهاية السطر الثاني
+                                            IconButton(
+                                              tooltip: 'عرض الفاتورة والطباعة',
+                                              icon: const Icon(Icons.receipt_long_outlined, size: 18),
+                                              visualDensity: VisualDensity.compact,
+                                              padding: const EdgeInsets.all(4),
+                                              constraints: const BoxConstraints(),
                                               onPressed: () => _showInvoiceDetails(context, ref, inv),
-                                              icon: const Icon(Icons.receipt, size: 15),
-                                              label: const Text(
-                                                'عرض الفاتورة',
-                                                style: TextStyle(fontSize: 11.5),
-                                              ),
                                             ),
                                             if (isCompleted) ...[
                                               const SizedBox(width: 6),
@@ -668,9 +472,12 @@ class SalesHistoryScreen extends ConsumerWidget {
                                                 tooltip: 'إلغاء الفاتورة',
                                                 icon: const Icon(
                                                   Icons.cancel_outlined,
-                                                  size: 20,
+                                                  size: 18,
                                                   color: AppColors.DANGER_RED,
                                                 ),
+                                                visualDensity: VisualDensity.compact,
+                                                padding: const EdgeInsets.all(4),
+                                                constraints: const BoxConstraints(),
                                                 onPressed: () => _confirmCancelInvoice(context, ref, inv),
                                               ),
                                             ],
@@ -680,22 +487,28 @@ class SalesHistoryScreen extends ConsumerWidget {
                                                 tooltip: 'استرجاع الفاتورة الملغاة',
                                                 icon: const Icon(
                                                   Icons.restore,
-                                                  size: 20,
+                                                  size: 18,
                                                   color: AppColors.SUCCESS_GREEN,
                                                 ),
+                                                visualDensity: VisualDensity.compact,
+                                                padding: const EdgeInsets.all(4),
+                                                constraints: const BoxConstraints(),
                                                 onPressed: () => _confirmRestoreInvoice(context, ref, inv),
                                               ),
                                             ],
-                                            const SizedBox(width: 4),
+                                            const SizedBox(width: 6),
                                             IconButton(
                                               tooltip: inv.status == 'held'
                                                   ? 'حذف الفاتورة المعلّقة'
                                                   : 'حذف الفاتورة',
                                               icon: const Icon(
                                                 Icons.delete_outline,
-                                                size: 20,
+                                                size: 18,
                                                 color: AppColors.DANGER_RED,
                                               ),
+                                              visualDensity: VisualDensity.compact,
+                                              padding: const EdgeInsets.all(4),
+                                              constraints: const BoxConstraints(),
                                               onPressed: () => _confirmDeleteInvoice(context, ref, inv),
                                             ),
                                           ],

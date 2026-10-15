@@ -55,3 +55,5 @@ build/
 .dart_frog/
 # Web
 web/
+.gradle/
+

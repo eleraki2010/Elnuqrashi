@@ -312,11 +312,12 @@ class ThermalReceiptPrinter {
         pw.TableRow(
           decoration: const pw.BoxDecoration(color: PdfColors.grey300),
           children: [
-            _tableCell('الصنف', bold, 10, bold: true),
+            _tableCell('الصنف', bold, 10,
+                bold: true, align: pw.Alignment.centerRight),
             _tableCell('الكمية', bold, 10,
                 bold: true, align: pw.Alignment.center),
             _tableCell('السعر', bold, 10,
-                bold: true, align: pw.Alignment.centerLeft),
+                bold: true, align: pw.Alignment.center),
             _tableCell('الإجمالي', bold, 10,
                 bold: true, align: pw.Alignment.centerLeft),
           ],
@@ -324,13 +325,14 @@ class ThermalReceiptPrinter {
         ...invoice.items.map(
           (item) => pw.TableRow(
             children: [
-              _tableCell(item.productName ?? 'منتج', base, 10),
+              _tableCell(item.productName ?? 'منتج', base, 10,
+                  align: pw.Alignment.centerRight),
               _tableCell('${item.quantity}', base, 10,
                   align: pw.Alignment.center),
               _tableCell(item.unitPrice.toStringAsFixed(0), base, 10,
-                  align: pw.Alignment.centerLeft),
+                  align: pw.Alignment.center),
               _tableCell(item.lineTotal.toStringAsFixed(0), base, 10,
-                  align: pw.Alignment.centerLeft),
+                  align: pw.Alignment.centerLeft, bold: true),
             ],
           ),
         ),
@@ -525,24 +527,51 @@ class ThermalReceiptPrinter {
         _divider(),
         pw.SizedBox(height: 4),
         // بيانات الفاتورة
-        _row('رقم الفاتورة', invoice.invoiceNumber, baseFont),
+        pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          children: [
+            pw.Text(
+              'رقم الفاتورة: ${invoice.invoiceNumber}',
+              style: pw.TextStyle(
+                font: boldFont,
+                fontSize: width80mm ? 9 : 8,
+              ),
+            ),
+            pw.Container(
+              padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+              decoration: pw.BoxDecoration(
+                border: pw.Border.all(color: PdfColors.black, width: 0.6),
+                borderRadius: pw.BorderRadius.circular(3),
+              ),
+              child: pw.Text(
+                invoice.statusArabic,
+                style: pw.TextStyle(
+                  font: boldFont,
+                  fontSize: width80mm ? 8 : 7,
+                ),
+              ),
+            ),
+          ],
+        ),
+        pw.SizedBox(height: 2),
         _row('التاريخ', dateFmt.format(invoice.createdAt), baseFont),
+        _row('طريقة الدفع', invoice.paymentMethodArabic, baseFont),
         _row('العميل', invoice.customerName ?? 'عميل نقدي', baseFont),
+        pw.SizedBox(height: 4),
         _divider(),
         pw.SizedBox(height: 4),
-        // جدول الأصناف بإطار وحدود واضحة (تنسيق احترافي مطابق
-        // للفواتير في برامج نقاط البيع): صف عناوين مُظلَل،
-        // كل صنف في خلية، والكمية وسط عمودها والأسعار يسارها.
+        // جدول الأصناف بإطار وشبكة واضحة مطابق للمظهر في التطبيق:
+        // تكبير خلية الصنف وتصغير الكمية والسعر، والتفاف النصوص بدون اقتصاص
         pw.Table(
           border: pw.TableBorder.all(
             color: PdfColors.black,
-            width: 0.45,
+            width: 0.5,
           ),
           columnWidths: {
-            0: const pw.FlexColumnWidth(5),
-            1: const pw.FlexColumnWidth(2),
-            2: const pw.FlexColumnWidth(3),
-            3: const pw.FlexColumnWidth(3),
+            0: const pw.FlexColumnWidth(6),
+            1: const pw.FlexColumnWidth(1.8),
+            2: const pw.FlexColumnWidth(2.2),
+            3: const pw.FlexColumnWidth(2.8),
           },
           children: [
             pw.TableRow(
@@ -550,18 +579,14 @@ class ThermalReceiptPrinter {
                 color: PdfColors.grey300,
               ),
               children: [
-                _tableCell('الصنف', boldFont, width80mm ? 8 : 7,
-                    bold: true),
-                _tableCell('الكمية', boldFont, width80mm ? 8 : 7,
+                _tableCell('الصنف', boldFont, width80mm ? 8.5 : 7.5,
+                    bold: true, align: pw.Alignment.centerRight),
+                _tableCell('الكمية', boldFont, width80mm ? 8.5 : 7.5,
                     bold: true, align: pw.Alignment.center),
-                _tableCell(
-                    'السعر', boldFont, width80mm ? 8 : 7,
-                    bold: true,
-                    align: pw.Alignment.centerLeft),
-                _tableCell(
-                    'الإجمالي', boldFont, width80mm ? 8 : 7,
-                    bold: true,
-                    align: pw.Alignment.centerLeft),
+                _tableCell('السعر', boldFont, width80mm ? 8.5 : 7.5,
+                    bold: true, align: pw.Alignment.center),
+                _tableCell('الإجمالي', boldFont, width80mm ? 8.5 : 7.5,
+                    bold: true, align: pw.Alignment.centerLeft),
               ],
             ),
             // الأصناف (أرقام صحيحة بلا كسور)
@@ -569,24 +594,30 @@ class ThermalReceiptPrinter {
               (item) => pw.TableRow(
                 children: [
                   _tableCell(
-                      item.productName ?? 'منتج',
-                      baseFont,
-                      width80mm ? 8 : 7),
+                    item.productName ?? 'منتج',
+                    baseFont,
+                    width80mm ? 8 : 7,
+                    align: pw.Alignment.centerRight,
+                  ),
                   _tableCell(
-                      '${item.quantity}',
-                      baseFont,
-                      width80mm ? 8 : 7,
-                      align: pw.Alignment.center),
+                    '${item.quantity}',
+                    baseFont,
+                    width80mm ? 8 : 7,
+                    align: pw.Alignment.center,
+                  ),
                   _tableCell(
-                      item.unitPrice.toStringAsFixed(0),
-                      baseFont,
-                      width80mm ? 8 : 7,
-                      align: pw.Alignment.centerLeft),
+                    item.unitPrice.toStringAsFixed(0),
+                    baseFont,
+                    width80mm ? 8 : 7,
+                    align: pw.Alignment.center,
+                  ),
                   _tableCell(
-                      item.lineTotal.toStringAsFixed(0),
-                      baseFont,
-                      width80mm ? 8 : 7,
-                      align: pw.Alignment.centerLeft),
+                    item.lineTotal.toStringAsFixed(0),
+                    baseFont,
+                    width80mm ? 8 : 7,
+                    align: pw.Alignment.centerLeft,
+                    bold: true,
+                  ),
                 ],
               ),
             ),
@@ -706,11 +737,12 @@ class ThermalReceiptPrinter {
     pw.Alignment align = pw.Alignment.centerRight,
   }) {
     return pw.Padding(
-      padding: const pw.EdgeInsets.symmetric(horizontal: 3, vertical: 2),
+      padding: const pw.EdgeInsets.symmetric(horizontal: 3, vertical: 2.5),
       child: pw.Align(
         alignment: align,
         child: pw.Text(
           text,
+          softWrap: true,
           style: pw.TextStyle(
             font: font,
             fontSize: size,
@@ -808,7 +840,7 @@ class ThermalReceiptPrinter {
     );
   }
 
-  /// مشاركة الإيصال كـ PDF.
+  /// مشاركة الإيصال كصورة كاملة (PNG)، مع بديل PDF عند الحاجة.
   static Future<void> shareReceipt({
     required SaleInvoice invoice,
     required bool width80mm,
@@ -816,16 +848,28 @@ class ThermalReceiptPrinter {
     String? storePhone,
     String? storeLogoPath,
   }) async {
-    final bytes = await buildReceiptPdf(
+    final pdfBytes = await buildReceiptPdf(
       invoice: invoice,
       width80mm: width80mm,
       storeName: storeName,
       storePhone: storePhone,
       storeLogoPath: storeLogoPath,
     );
-    await Printing.sharePdf(
-      bytes: bytes,
-      filename: 'فاتورة_${invoice.invoiceNumber}.pdf',
-    );
+    try {
+      // تحويل الإيصال إلى صورة كاملة عالية الدقة لمشاركتها كصورة مطابقة لما يظهر بالتطبيق
+      final rasterStream = Printing.raster(pdfBytes, pages: [0], dpi: 200);
+      final page = await rasterStream.first;
+      final imageBytes = await page.toPng();
+      await Printing.sharePdf(
+        bytes: imageBytes,
+        filename: 'فاتورة_${invoice.invoiceNumber}.png',
+      );
+    } catch (_) {
+      // بديل آمن: مشاركة ملف PDF إذا تعذر التحويل لصورة على المنصة
+      await Printing.sharePdf(
+        bytes: pdfBytes,
+        filename: 'فاتورة_${invoice.invoiceNumber}.pdf',
+      );
+    }
   }
 }

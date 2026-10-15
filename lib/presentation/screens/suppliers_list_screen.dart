@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../data/models/supplier.dart';
+import '../../providers/data_refresh_service.dart';
 import '../../providers/phase2_providers.dart';
 import '../widgets/max_width_container.dart';
 import 'supplier_detail_screen.dart';
@@ -138,7 +139,7 @@ class SuppliersListScreen extends ConsumerWidget {
                 await repo.insertSupplier(newSupplier);
               }
 
-              ref.invalidate(suppliersListProvider);
+              refreshAfterSupplierChange(ref);
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
@@ -182,7 +183,7 @@ class SuppliersListScreen extends ConsumerWidget {
               Navigator.of(ctx).pop();
               final repo = ref.read(supplierRepositoryProvider);
               await repo.deleteSupplier(supplier.id);
-              ref.invalidate(suppliersListProvider);
+              refreshAfterSupplierChange(ref);
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('تم حذف المورد بنجاح')),

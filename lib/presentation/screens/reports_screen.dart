@@ -6,6 +6,7 @@ import '../../core/constants/app_constants.dart';
 import '../../core/responsive/responsive_scope.dart';
 import '../../data/repositories/report_repository.dart';
 import '../../data/repositories/shop_profile_repository.dart';
+import '../../providers/app_providers.dart';
 import '../../providers/phase2_providers.dart';
 import '../widgets/max_width_container.dart';
 import '../widgets/report_pdf_generator.dart';
@@ -290,6 +291,28 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> with SingleTicker
 
   @override
   Widget build(BuildContext context) {
+    // إعادة تحميل التقارير تلقائياً عند تسجيل أو تعديل أي مبيعات، مصروفات، مشتريات، أو دفعات
+    ref.listen(salesHistoryProvider, (_, _) {
+      _loadDailyReport();
+      _loadMonthlyReport();
+      _loadCustomReport();
+    });
+    ref.listen(expensesListProvider, (_, _) {
+      _loadDailyReport();
+      _loadMonthlyReport();
+      _loadCustomReport();
+    });
+    ref.listen(purchasesListProvider, (_, _) {
+      _loadDailyReport();
+      _loadMonthlyReport();
+      _loadCustomReport();
+    });
+    ref.listen(paymentsProvider, (_, _) {
+      _loadDailyReport();
+      _loadMonthlyReport();
+      _loadCustomReport();
+    });
+
     final dateFormat = DateFormat('yyyy/MM/dd');
 
     return Scaffold(

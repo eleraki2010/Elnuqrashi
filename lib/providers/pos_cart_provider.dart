@@ -5,6 +5,7 @@ import '../data/models/sale_invoice.dart';
 import '../data/models/sale_invoice_item.dart';
 import 'package:alnokrashy_pos/core/constants/app_constants.dart';
 import 'app_providers.dart';
+import 'data_refresh_service.dart';
 
 class CartItem {
   final Product product;
@@ -227,6 +228,7 @@ class CartNotifier extends Notifier<CartState> {
       items: invoice.items,
     );
     _latestSaleInvoice = invoice;
+    refreshAfterSale(ref);
   }
 
   void clear() => clearCart();
