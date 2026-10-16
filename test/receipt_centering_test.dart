@@ -48,7 +48,7 @@ void main() {
     );
   }
 
-  testWidgets('short receipt is centered on a fixed 190mm page',
+  testWidgets('short receipt has compact dynamic height matching content',
       (tester) async {
     // تحميل خطوط الأصول يحتاج وقتاً حقيقياً (runAsync).
     final bytes = await tester.runAsync<List<int>>(() async {
@@ -58,9 +58,10 @@ void main() {
       );
     });
     final (width, height) = mediaBox(bytes!);
-    // عرض لفة 80mm وارتفاع الصفحة القياسية 190mm (المحتوى في وسطها).
+    // عرض لفة 80mm وارتفاع ديناميكي مقتضب يتناسب مع الصنفين (دون مط أو مساحات بيضاء فارغة)
     expect(width, closeTo(80 * PdfPageFormat.mm, 0.5));
-    expect(height, closeTo(190 * PdfPageFormat.mm, 0.5));
+    expect(height, lessThan(190 * PdfPageFormat.mm));
+    expect(height, greaterThan(80 * PdfPageFormat.mm));
   });
 
   testWidgets('long receipt keeps auto height instead of clipping',
@@ -72,7 +73,7 @@ void main() {
       );
     });
     final (width, height) = mediaBox(bytes!);
-    // المحتوى أطول من 190mm → الارتفاع الذاتي (لا يُقصّ أي جزء).
+    // المحتوى أطول من 190mm → يتمدد الارتفاع تلقائياً دون أي اقتصاص
     expect(height, greaterThan(190 * PdfPageFormat.mm + 1));
     expect(width, closeTo(80 * PdfPageFormat.mm, 0.5));
   });

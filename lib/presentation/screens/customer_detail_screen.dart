@@ -61,6 +61,7 @@ class CustomerDetailScreen extends ConsumerStatefulWidget {
 class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
   CustomerStatement? _statement;
   bool _isLoading = true;
+  bool _isFetching = false;
   String? _errorMessage;
   String? _storeName;
   String? _storeLogoPath;
@@ -68,7 +69,7 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _loadStatement();
+    _loadStatement(showInitialSpinner: true);
     _loadStoreInfo();
   }
 
@@ -147,12 +148,15 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
     }
   }
 
-
-  Future<void> _loadStatement() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+  Future<void> _loadStatement({bool showInitialSpinner = false}) async {
+    if (_isFetching) return;
+    _isFetching = true;
+    if (showInitialSpinner || _statement == null) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
     try {
       final repo = ref.read(customerRepositoryProvider);
       final statement = await repo.getCustomerStatement(widget.customerId);
@@ -160,6 +164,7 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
         setState(() {
           _statement = statement;
           _isLoading = false;
+          _errorMessage = null;
         });
       }
     } catch (e, stack) {
@@ -170,6 +175,8 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
           _isLoading = false;
         });
       }
+    } finally {
+      _isFetching = false;
     }
   }
 
@@ -786,7 +793,7 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
           IconButton(
             icon: const Icon(Icons.share),
             onPressed: _shareStatement,
-            tooltip: 'مشاركة كشف الحساب (PDF)',
+            tooltip: 'مشاركة كشف الحساب كصورة',
           ),
           IconButton(
             icon: const Icon(Icons.print),

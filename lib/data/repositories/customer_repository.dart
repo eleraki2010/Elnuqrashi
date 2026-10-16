@@ -6,7 +6,6 @@ import '../models/customer.dart';
 import '../models/payment.dart';
 import '../models/return_invoice.dart';
 import '../models/sale_invoice.dart';
-import '../models/sale_invoice_item.dart';
 
 /// مرتجع ضمن كشف حساب العميل مع طريقة دفع الفاتورة الأصلية
 /// (لمعرفة أثره على دين العميل: فقط مرتجع الآجل يخصم من الحساب).
@@ -235,21 +234,7 @@ class CustomerRepository {
       whereArgs: [customerId],
       orderBy: 'created_at ASC',
     );
-    final invoices = <SaleInvoice>[];
-    for (final m in invoiceMaps) {
-      final inv = SaleInvoice.fromMap(m);
-      final itemMaps = await db.rawQuery(
-        '''
-        SELECT sii.*, p.name as product_name
-        FROM sale_invoice_items sii
-        LEFT JOIN products p ON p.id = sii.product_id
-        WHERE sii.invoice_id = ?
-        ''',
-        [inv.id],
-      );
-      final items = itemMaps.map((im) => SaleInvoiceItem.fromMap(im)).toList();
-      invoices.add(inv.copyWith(items: items));
-    }
+    final invoices = invoiceMaps.map((m) => SaleInvoice.fromMap(m)).toList();
 
     final paymentMaps = await db.query(
       'payments',
@@ -271,20 +256,10 @@ class CustomerRepository {
       ''',
       [customerId],
     );
-    final returns = <StatementReturn>[];
-    for (final m in returnMaps) {
-      final ret = ReturnInvoice.fromMap(m);
-      final itemMaps = await db.query(
-        'return_invoice_items',
-        where: 'return_invoice_id = ?',
-        whereArgs: [ret.id],
-      );
-      final items = itemMaps.map((im) => ReturnInvoiceItem.fromMap(im)).toList();
-      returns.add(StatementReturn(
-        invoice: ret.copyWith(items: items),
-        originalPaymentMethod: m['original_payment_method'] as String?,
-      ));
-    }
+    final returns = returnMaps.map((m) => StatementReturn(
+      invoice: ReturnInvoice.fromMap(m),
+      originalPaymentMethod: m['original_payment_method'] as String?,
+    )).toList();
 
     return CustomerStatement(
       customer: customer,

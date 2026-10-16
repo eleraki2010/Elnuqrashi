@@ -4,9 +4,9 @@ import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:intl/intl.dart';
-import 'package:printing/printing.dart';
 
 import '../../core/constants/app_constants.dart';
+import '../../core/services/document_share_service.dart';
 import '../../core/services/printer_settings_service.dart';
 import '../../data/repositories/customer_repository.dart';
 
@@ -426,144 +426,72 @@ class CustomerStatementPdf {
           ),
           pw.SizedBox(height: 16),
 
-          // قسم تفاصيل العمليات المسجلة (الأصناف والبنود لكل فاتورة ومرتجع وسداد)
-          if (s.invoices.any((inv) => inv.items.isNotEmpty) ||
-              s.returns.any((r) => r.invoice.items.isNotEmpty)) ...[
-            pw.Text(
-              'تفاصيل بنود العمليات المسجلة للعميل:',
-              style: pw.TextStyle(font: boldFont, fontSize: 12),
-            ),
-            pw.SizedBox(height: 6),
-            ...s.invoices.where((inv) => inv.items.isNotEmpty).map(
-              (inv) => pw.Container(
-                margin: const pw.EdgeInsets.only(bottom: 10),
-                decoration: pw.BoxDecoration(
-                  border: pw.Border.all(color: PdfColors.grey400, width: 0.5),
-                  borderRadius: pw.BorderRadius.circular(4),
-                ),
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-                  children: [
-                    // ترويسة الفاتورة المصغرة
-                    pw.Container(
-                      padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      color: PdfColors.grey100,
-                      child: pw.Row(
-                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                        children: [
-                          pw.Text(
-                            'فاتورة بيع #${inv.invoiceNumber} (${inv.statusArabic}) — ${dateFmt.format(inv.createdAt)}',
-                            style: pw.TextStyle(font: boldFont, fontSize: 9.5),
-                          ),
-                          pw.Text(
-                            'الدفع: ${inv.paymentMethodArabic} | الإجمالي: ${AppStrings.money(inv.total)} | المدفوع: ${AppStrings.money(inv.paidAmount)}',
-                            style: pw.TextStyle(font: baseFont, fontSize: 9),
-                          ),
-                        ],
-                      ),
+          pw.SizedBox(height: 16),
+
+          // ملاحظات وتوقيعات كشف الحساب الرسمية (بتصميم محاسبي قياسي)
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(
+                    'ملاحظات واعتماد:',
+                    style: pw.TextStyle(font: boldFont, fontSize: 10, color: PdfColors.grey800),
+                  ),
+                  pw.SizedBox(height: 4),
+                  pw.Text(
+                    '• يعتبر هذا الكشف بياناً رسمياً بالرصيد المستحق حتى تاريخه.',
+                    style: pw.TextStyle(font: baseFont, fontSize: 8.5, color: PdfColors.grey700),
+                  ),
+                  pw.Text(
+                    '• يُرجى مراجعة الحساب وإخطارنا بأي ملاحظات خلال 7 أيام من تاريخه.',
+                    style: pw.TextStyle(font: baseFont, fontSize: 8.5, color: PdfColors.grey700),
+                  ),
+                ],
+              ),
+              pw.Row(
+                children: [
+                  pw.Container(
+                    width: 130,
+                    padding: const pw.EdgeInsets.all(8),
+                    decoration: pw.BoxDecoration(
+                      border: pw.Border.all(color: PdfColors.grey400, width: 0.5),
+                      borderRadius: pw.BorderRadius.circular(4),
                     ),
-                    // جدول أصناف الفاتورة
-                    pw.Table(
-                      border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.4),
-                      columnWidths: {
-                        0: const pw.FlexColumnWidth(4.6),
-                        1: const pw.FlexColumnWidth(1.8),
-                        2: const pw.FlexColumnWidth(1.8),
-                        3: const pw.FlexColumnWidth(1.8),
-                      },
+                    child: pw.Column(
                       children: [
-                        pw.TableRow(
-                          decoration: const pw.BoxDecoration(color: PdfColors.grey200),
-                          children: [
-                            _cell('الصنف', bold: true, font: boldFont),
-                            _cell('الكمية', bold: true, align: pw.Alignment.center, font: boldFont),
-                            _cell('السعر', bold: true, align: pw.Alignment.center, font: boldFont),
-                            _cell('الإجمالي', bold: true, align: pw.Alignment.centerLeft, font: boldFont),
-                          ],
-                        ),
-                        ...inv.items.map(
-                          (item) => pw.TableRow(
-                            children: [
-                              _cell(item.productName ?? 'منتج', font: baseFont),
-                              _cell('${item.quantity}', align: pw.Alignment.center, font: baseFont),
-                              _cell(item.unitPrice.toStringAsFixed(0), align: pw.Alignment.center, font: baseFont),
-                              _cell(item.lineTotal.toStringAsFixed(0), align: pw.Alignment.centerLeft, bold: true, font: baseFont),
-                            ],
-                          ),
-                        ),
+                        pw.Text('توقيع المحاسب / الإدارة', style: pw.TextStyle(font: boldFont, fontSize: 9)),
+                        pw.SizedBox(height: 32),
+                        pw.Divider(thickness: 0.5, color: PdfColors.grey400),
                       ],
                     ),
-                  ],
-                ),
-              ),
-            ),
-            // المرتجعات بتفاصيل أصنافها إن وُجدت
-            ...s.returns.where((r) => r.invoice.items.isNotEmpty).map(
-              (r) => pw.Container(
-                margin: const pw.EdgeInsets.only(bottom: 10),
-                decoration: pw.BoxDecoration(
-                  border: pw.Border.all(color: PdfColors.orange300, width: 0.5),
-                  borderRadius: pw.BorderRadius.circular(4),
-                ),
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-                  children: [
-                    pw.Container(
-                      padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      color: PdfColors.orange50,
-                      child: pw.Row(
-                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                        children: [
-                          pw.Text(
-                            'مرتجع من فاتورة #${invoiceNumbers[r.invoice.originalSaleInvoiceId] ?? "—"} — ${dateFmt.format(r.invoice.createdAt)}',
-                            style: pw.TextStyle(font: boldFont, fontSize: 9.5),
-                          ),
-                          pw.Text(
-                            'قيمة المرتجع: ${AppStrings.money(r.invoice.returnAmount)} | الخصم من الحساب: ${AppStrings.money(r.invoice.debtReduction)}',
-                            style: pw.TextStyle(font: baseFont, fontSize: 9),
-                          ),
-                        ],
-                      ),
+                  ),
+                  pw.SizedBox(width: 12),
+                  pw.Container(
+                    width: 130,
+                    padding: const pw.EdgeInsets.all(8),
+                    decoration: pw.BoxDecoration(
+                      border: pw.Border.all(color: PdfColors.grey400, width: 0.5),
+                      borderRadius: pw.BorderRadius.circular(4),
                     ),
-                    pw.Table(
-                      border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.4),
-                      columnWidths: {
-                        0: const pw.FlexColumnWidth(4.6),
-                        1: const pw.FlexColumnWidth(1.8),
-                        2: const pw.FlexColumnWidth(1.8),
-                        3: const pw.FlexColumnWidth(1.8),
-                      },
+                    child: pw.Column(
                       children: [
-                        pw.TableRow(
-                          decoration: const pw.BoxDecoration(color: PdfColors.grey200),
-                          children: [
-                            _cell('الصنف المرتجع', bold: true, font: boldFont),
-                            _cell('الكمية', bold: true, align: pw.Alignment.center, font: boldFont),
-                            _cell('السعر', bold: true, align: pw.Alignment.center, font: boldFont),
-                            _cell('الإجمالي', bold: true, align: pw.Alignment.centerLeft, font: boldFont),
-                          ],
-                        ),
-                        ...r.invoice.items.map(
-                          (item) => pw.TableRow(
-                            children: [
-                              _cell(item.productName, font: baseFont),
-                              _cell('${item.quantity}', align: pw.Alignment.center, font: baseFont),
-                              _cell(item.unitPrice.toStringAsFixed(0), align: pw.Alignment.center, font: baseFont),
-                              _cell(item.lineTotal.toStringAsFixed(0), align: pw.Alignment.centerLeft, bold: true, font: baseFont),
-                            ],
-                          ),
-                        ),
+                        pw.Text('توقيع العميل / المستلم', style: pw.TextStyle(font: boldFont, fontSize: 9)),
+                        pw.SizedBox(height: 32),
+                        pw.Divider(thickness: 0.5, color: PdfColors.grey400),
                       ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ),
-          ],
-          pw.SizedBox(height: 12),
+            ],
+          ),
+          pw.SizedBox(height: 14),
           pw.Center(
             child: pw.Text(
-              'شكراً لتعاملكم معنا ★ نسعد بخدمتكم دائماً',
+              'شكراً لتعاملكم معنا — نسعد بخدمتكم دائماً',
               style: pw.TextStyle(
                 font: baseFont,
                 fontSize: 9,
@@ -595,7 +523,7 @@ class CustomerStatementPdf {
     );
   }
 
-  /// مشاركة كشف الحساب كـ PDF.
+  /// مشاركة كشف الحساب كصورة عالية الدقة (PNG) لتطبيقات التواصل (واتساب، فيسبوك، إلخ).
   static Future<void> shareStatement({
     required CustomerStatement statement,
     String? storeName,
@@ -606,9 +534,9 @@ class CustomerStatementPdf {
       storeName: storeName,
       storeLogoPath: storeLogoPath,
     );
-    await Printing.sharePdf(
-      bytes: bytes,
-      filename: 'كشف_حساب_${statement.customer.name}.pdf',
+    await DocumentShareService.sharePdfAsImage(
+      pdfBytes: bytes,
+      filename: 'كشف_حساب_${statement.customer.name}',
     );
   }
 
@@ -660,24 +588,18 @@ class CustomerStatementPdf {
     pw.Alignment? align,
     dynamic color,
     pw.Font? font,
+    double fontSize = 8.5,
   }) {
     final style = pw.TextStyle(
       font: font,
-      fontSize: 8.5,
+      fontSize: fontSize,
       fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
       color: color ?? PdfColors.black,
     );
-    final t = pw.FittedBox(
-      fit: pw.BoxFit.scaleDown,
-      alignment: align ?? pw.Alignment.centerRight,
-      child: pw.Text(text, style: style),
-    );
-    if (align == null) {
-      return pw.Padding(padding: const pw.EdgeInsets.all(5), child: t);
-    }
+    final t = pw.Text(text.isEmpty ? ' ' : text, style: style);
     return pw.Padding(
-      padding: const pw.EdgeInsets.all(5),
-      child: pw.Align(alignment: align, child: t),
+      padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 4),
+      child: align != null ? pw.Align(alignment: align, child: t) : t,
     );
   }
 }

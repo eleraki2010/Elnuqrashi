@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -21,6 +22,7 @@ class ReportsScreen extends ConsumerStatefulWidget {
 
 class _ReportsScreenState extends ConsumerState<ReportsScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  Timer? _debounceTimer;
 
   // Daily tab state
   DateTime _selectedDate = DateTime.now();
@@ -49,12 +51,25 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> with SingleTicker
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _tabController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadDailyReport() async {
-    setState(() => _dailyLoading = true);
+  void _onDataChanged() {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 350), () {
+      if (!mounted) return;
+      _loadDailyReport(silent: true);
+      _loadMonthlyReport(silent: true);
+      _loadCustomReport(silent: true);
+    });
+  }
+
+  Future<void> _loadDailyReport({bool silent = false}) async {
+    if (!silent || _dailyReport == null) {
+      setState(() => _dailyLoading = true);
+    }
     final repo = ref.read(reportRepositoryProvider);
     final report = await repo.getDailyReport(_selectedDate);
     if (mounted) {
@@ -65,8 +80,10 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> with SingleTicker
     }
   }
 
-  Future<void> _loadMonthlyReport() async {
-    setState(() => _monthlyLoading = true);
+  Future<void> _loadMonthlyReport({bool silent = false}) async {
+    if (!silent || _monthlyReport == null) {
+      setState(() => _monthlyLoading = true);
+    }
     final repo = ref.read(reportRepositoryProvider);
     final report = await repo.getMonthlyReport(_selectedMonth.year, _selectedMonth.month);
     if (mounted) {
@@ -77,8 +94,10 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> with SingleTicker
     }
   }
 
-  Future<void> _loadCustomReport() async {
-    setState(() => _customLoading = true);
+  Future<void> _loadCustomReport({bool silent = false}) async {
+    if (!silent || _customReport == null) {
+      setState(() => _customLoading = true);
+    }
     final repo = ref.read(reportRepositoryProvider);
     final report = await repo.getReportForRange(_startDate, _endDate);
     if (mounted) {
@@ -291,27 +310,11 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> with SingleTicker
 
   @override
   Widget build(BuildContext context) {
-    // إعادة تحميل التقارير تلقائياً عند تسجيل أو تعديل أي مبيعات، مصروفات، مشتريات، أو دفعات
-    ref.listen(salesHistoryProvider, (_, _) {
-      _loadDailyReport();
-      _loadMonthlyReport();
-      _loadCustomReport();
-    });
-    ref.listen(expensesListProvider, (_, _) {
-      _loadDailyReport();
-      _loadMonthlyReport();
-      _loadCustomReport();
-    });
-    ref.listen(purchasesListProvider, (_, _) {
-      _loadDailyReport();
-      _loadMonthlyReport();
-      _loadCustomReport();
-    });
-    ref.listen(paymentsProvider, (_, _) {
-      _loadDailyReport();
-      _loadMonthlyReport();
-      _loadCustomReport();
-    });
+    // إعادة تحميل التقارير تلقائياً بشكل هادئ مع منع التكرار عند تسجيل أو تعديل أي مبيعات، مصروفات، مشتريات، أو دفعات
+    ref.listen(salesHistoryProvider, (_, _) => _onDataChanged());
+    ref.listen(expensesListProvider, (_, _) => _onDataChanged());
+    ref.listen(purchasesListProvider, (_, _) => _onDataChanged());
+    ref.listen(paymentsProvider, (_, _) => _onDataChanged());
 
     final dateFormat = DateFormat('yyyy/MM/dd');
 
@@ -335,9 +338,9 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> with SingleTicker
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.picture_as_pdf_outlined),
+                  icon: const Icon(Icons.share),
                   color: AppColors.PRIMARY_BLUE,
-                  tooltip: 'تصدير كـ PDF',
+                  tooltip: 'مشاركة التقرير كصورة',
                       onPressed: () {
                         final report = _getCurrentActiveReport();
                         if (report != null) {

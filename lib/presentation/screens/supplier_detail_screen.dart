@@ -30,13 +30,14 @@ class SupplierDetailScreen extends ConsumerStatefulWidget {
 class _SupplierDetailScreenState extends ConsumerState<SupplierDetailScreen> {
   SupplierStatement? _statement;
   bool _isLoading = true;
+  bool _isFetching = false;
   String? _storeName;
   String? _storeLogoPath;
 
   @override
   void initState() {
     super.initState();
-    _loadStatement();
+    _loadStatement(showInitialSpinner: true);
     _loadStoreInfo();
   }
 
@@ -63,15 +64,23 @@ class _SupplierDetailScreenState extends ConsumerState<SupplierDetailScreen> {
     }
   }
 
-  Future<void> _loadStatement() async {
-    setState(() => _isLoading = true);
-    final repo = ref.read(supplierRepositoryProvider);
-    final statement = await repo.getSupplierStatement(widget.supplierId);
-    if (mounted) {
-      setState(() {
-        _statement = statement;
-        _isLoading = false;
-      });
+  Future<void> _loadStatement({bool showInitialSpinner = false}) async {
+    if (_isFetching) return;
+    _isFetching = true;
+    if (showInitialSpinner || _statement == null) {
+      setState(() => _isLoading = true);
+    }
+    try {
+      final repo = ref.read(supplierRepositoryProvider);
+      final statement = await repo.getSupplierStatement(widget.supplierId);
+      if (mounted) {
+        setState(() {
+          _statement = statement;
+          _isLoading = false;
+        });
+      }
+    } finally {
+      _isFetching = false;
     }
   }
 
@@ -620,7 +629,7 @@ class _SupplierDetailScreenState extends ConsumerState<SupplierDetailScreen> {
           IconButton(
             icon: const Icon(Icons.share),
             onPressed: _shareStatement,
-            tooltip: 'مشاركة كشف الحساب (PDF)',
+            tooltip: 'مشاركة كشف الحساب كصورة',
           ),
           IconButton(
             icon: const Icon(Icons.print),

@@ -4,9 +4,9 @@ import 'dart:typed_data';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:pdf/pdf.dart';
 import 'package:intl/intl.dart';
-import 'package:printing/printing.dart';
 
 import '../../core/constants/app_constants.dart';
+import '../../core/services/document_share_service.dart';
 import '../../data/repositories/report_repository.dart';
 
 class ReportPdfGenerator {
@@ -211,9 +211,9 @@ class ReportPdfGenerator {
     );
 
     final bytes = await doc.save();
-    await Printing.sharePdf(
-      bytes: bytes,
-      filename: 'تقرير_${dateFmt.format(startDate)}.pdf',
+    await DocumentShareService.sharePdfAsImage(
+      pdfBytes: bytes,
+      filename: 'تقرير_${dateFmt.format(startDate)}',
     );
   }
 

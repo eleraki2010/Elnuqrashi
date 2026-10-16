@@ -81,11 +81,11 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
         borderRadius: BorderRadius.circular(16),
       ),
       child: Container(
-        width: 440,
+        width: _width80mm ? 360 : 310,
         constraints: BoxConstraints(
-          maxHeight: MediaQuery.sizeOf(context).height * 0.90,
+          maxHeight: MediaQuery.sizeOf(context).height * 0.88,
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -143,8 +143,8 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
             const SizedBox(height: 8),
             const Divider(thickness: 0.8, height: 1, color: Color(0xFFE2E8F0)),
 
-            // محتوى الفاتورة القابل للتمرير
-            Expanded(
+            // محتوى الفاتورة القابل للتمرير بنسبة متناسقة دون مط
+            Flexible(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Column(
@@ -259,7 +259,7 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
                             cells: const [
                               _GridCell(
                                 'الصنف',
-                                flex: 46,
+                                flex: 44,
                                 align: TextAlign.start,
                               ),
                               _GridCell(
@@ -269,12 +269,12 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
                               ),
                               _GridCell(
                                 'السعر',
-                                flex: 18,
+                                flex: 19,
                                 align: TextAlign.center,
                               ),
                               _GridCell(
                                 'الإجمالي',
-                                flex: 18,
+                                flex: 19,
                                 align: TextAlign.center,
                               ),
                             ],
@@ -285,7 +285,7 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
                               cells: [
                                 _GridCell(
                                   invoice.items[i].productName ?? 'منتج',
-                                  flex: 46,
+                                  flex: 44,
                                   align: TextAlign.start,
                                 ),
                                 _GridCell(
@@ -297,14 +297,14 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
                                   invoice.items[i].unitPrice % 1 == 0
                                       ? invoice.items[i].unitPrice.toInt().toString()
                                       : invoice.items[i].unitPrice.toStringAsFixed(2),
-                                  flex: 18,
+                                  flex: 19,
                                   align: TextAlign.center,
                                 ),
                                 _GridCell(
                                   invoice.items[i].lineTotal % 1 == 0
                                       ? invoice.items[i].lineTotal.toInt().toString()
                                       : invoice.items[i].lineTotal.toStringAsFixed(2),
-                                  flex: 18,
+                                  flex: 19,
                                   align: TextAlign.center,
                                   bold: true,
                                 ),
@@ -491,6 +491,27 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
                         color: Color(0xFF334155),
                       ),
                     ),
+                    const SizedBox(height: 8),
+
+                    // باركود الفاتورة المطابق للطباعة
+                    Column(
+                      children: [
+                        CustomPaint(
+                          size: Size(_width80mm ? 120 : 100, 22),
+                          painter: _BarcodePainter(),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          invoice.invoiceNumber,
+                          style: const TextStyle(
+                            fontSize: 10,
+                            letterSpacing: 1.2,
+                            color: Color(0xFF64748B),
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -572,12 +593,15 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
                   child: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 9),
-                      backgroundColor: AppColors.PRIMARY_BLUE,
+                      backgroundColor: AppColors.SUCCESS_GREEN,
                       foregroundColor: Colors.white,
                     ),
                     onPressed: _printReceipt,
                     icon: const Icon(Icons.print, size: 15),
-                    label: const Text('طباعة'),
+                    label: const Text(
+                      'طباعة الفاتورة',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                   ),
                 ),
               ],
@@ -644,8 +668,32 @@ class _GridCell {
 
   const _GridCell(
     this.text, {
-    this.flex = 1,
-    this.align = TextAlign.center,
-    this.bold = false,
-  });
+      this.flex = 1,
+      this.align = TextAlign.center,
+      this.bold = false,
+    });
+}
+
+/// رسم باركود شريطي نظيف ودقيق يحاكي Code128 كما يظهر في إيصال الكاشير المطبوع.
+class _BarcodePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFF1E293B)
+      ..strokeCap = StrokeCap.square;
+
+    const pattern = [2, 1, 3, 1, 1, 2, 1, 3, 2, 1, 1, 2, 3, 1, 2, 1, 1, 3, 1, 2, 2, 1, 1, 3, 2];
+    double x = 4.0;
+    final step = (size.width - 8) / (pattern.length * 1.55);
+    for (int i = 0; i < pattern.length; i++) {
+      final w = pattern[i] * 0.75;
+      paint.strokeWidth = w;
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+      x += step * (pattern[i] > 1 ? 1.4 : 1.0) + 1.1;
+      if (x > size.width - 4) break;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
