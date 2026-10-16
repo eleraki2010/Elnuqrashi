@@ -686,33 +686,35 @@ class _PrinterSettingsSectionState extends State<_PrinterSettingsSection> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('إضافة طابعة شبكة يدوياً (IP)'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'أدخل اسم الطابعة وعنوان IP الخاص بها على الشبكة المحلية (مثل 192.168.1.100 أو tcp://192.168.1.100:9100):',
-              style: TextStyle(fontSize: 12.5, color: AppColors.TEXT_SECONDARY),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: nameCtrl,
-              decoration: const InputDecoration(
-                labelText: 'اسم الطابعة *',
-                hintText: 'مثال: طابعة كاشير 1',
-                prefixIcon: Icon(Icons.badge_outlined),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'أدخل اسم الطابعة وعنوان IP الخاص بها على الشبكة المحلية (مثل 192.168.1.100 أو tcp://192.168.1.100:9100):',
+                style: TextStyle(fontSize: 12.5, color: AppColors.TEXT_SECONDARY),
               ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: urlCtrl,
-              decoration: const InputDecoration(
-                labelText: 'عنوان IP أو مسار الطابعة *',
-                hintText: 'مثال: tcp://192.168.1.100:9100',
-                prefixIcon: Icon(Icons.lan_outlined),
+              const SizedBox(height: 16),
+              TextField(
+                controller: nameCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'اسم الطابعة *',
+                  hintText: 'مثال: طابعة كاشير 1',
+                  prefixIcon: Icon(Icons.badge_outlined),
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 12),
+              TextField(
+                controller: urlCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'عنوان IP أو مسار الطابعة *',
+                  hintText: 'مثال: tcp://192.168.1.100:9100',
+                  prefixIcon: Icon(Icons.lan_outlined),
+                ),
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(

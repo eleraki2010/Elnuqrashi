@@ -746,47 +746,49 @@ class _InventoryCountScreenState extends ConsumerState<InventoryCountScreen> {
             Text('تأكيد تسوية جرد المخزون'),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'سيتم تطبيق التسوية المحاسبية والمخزنية التالية:',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 10),
-            Text('• عدد الأصناف التي سيتم تعديل رصيدها: $modifiedCount صنف'),
-            if (shortageCount > 0) ...[
-              const SizedBox(height: 4),
-              Text(
-                '• عجز جرد: $shortageCount أصناف بخسارة تقديرية ${AppStrings.money(totalShortageLoss)}',
-                style: const TextStyle(
-                  color: AppColors.DANGER_RED,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 2),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               const Text(
-                '  (سيتم إثبات العجز تلقائياً كمصروف تشغيلي "عجز وفروقات جرد" لدقة الأرباح والميزانية)',
-                style: TextStyle(fontSize: 11.5, color: AppColors.TEXT_SECONDARY),
+                'سيتم تطبيق التسوية المحاسبية والمخزنية التالية:',
+                style: TextStyle(fontWeight: FontWeight.bold),
               ),
-            ],
-            if (surplusCount > 0) ...[
-              const SizedBox(height: 4),
-              Text(
-                '• فائض جرد: $surplusCount أصناف بقيمة زيادة ${AppStrings.money(totalSurplusGain)}',
-                style: const TextStyle(
-                  color: AppColors.SUCCESS_GREEN,
-                  fontWeight: FontWeight.bold,
+              const SizedBox(height: 10),
+              Text('• عدد الأصناف التي سيتم تعديل رصيدها: $modifiedCount صنف'),
+              if (shortageCount > 0) ...[
+                const SizedBox(height: 4),
+                Text(
+                  '• عجز جرد: $shortageCount أصناف بخسارة تقديرية ${AppStrings.money(totalShortageLoss)}',
+                  style: const TextStyle(
+                    color: AppColors.DANGER_RED,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
+                const SizedBox(height: 2),
+                const Text(
+                  '  (سيتم إثبات العجز تلقائياً كمصروف تشغيلي "عجز وفروقات جرد" لدقة الأرباح والميزانية)',
+                  style: TextStyle(fontSize: 11.5, color: AppColors.TEXT_SECONDARY),
+                ),
+              ],
+              if (surplusCount > 0) ...[
+                const SizedBox(height: 4),
+                Text(
+                  '• فائض جرد: $surplusCount أصناف بقيمة زيادة ${AppStrings.money(totalSurplusGain)}',
+                  style: const TextStyle(
+                    color: AppColors.SUCCESS_GREEN,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 12),
+              const Text(
+                'هل تريد اعتماد الجرد وتحديث المخزون والدفاتر الآن؟',
+                style: TextStyle(fontWeight: FontWeight.w600),
               ),
             ],
-            const SizedBox(height: 12),
-            const Text(
-              'هل تريد اعتماد الجرد وتحديث المخزون والدفاتر الآن؟',
-              style: TextStyle(fontWeight: FontWeight.w600),
-            ),
-          ],
+          ),
         ),
         actions: [
           TextButton(
@@ -862,31 +864,33 @@ class _InventoryCountScreenState extends ConsumerState<InventoryCountScreen> {
               Text('تم اعتماد الجرد بنجاح'),
             ],
           ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('✓ تم تعديل أرصدة ${result.adjustedItemsCount} صنف بالمخزن.'),
-              if (result.shortageItemsCount > 0) ...[
-                const SizedBox(height: 6),
-                Text(
-                  '✓ تم تسجيل عجز ${result.totalShortageQty} قطعة (بخسارة ${AppStrings.money(result.totalShortageValue)}) كمصروف تشغيلي "عجز وفروقات جرد".',
-                  style: const TextStyle(color: AppColors.DANGER_RED),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('✓ تم تعديل أرصدة ${result.adjustedItemsCount} صنف بالمخزن.'),
+                if (result.shortageItemsCount > 0) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    '✓ تم تسجيل عجز ${result.totalShortageQty} قطعة (بخسارة ${AppStrings.money(result.totalShortageValue)}) كمصروف تشغيلي "عجز وفروقات جرد".',
+                    style: const TextStyle(color: AppColors.DANGER_RED),
+                  ),
+                ],
+                if (result.surplusItemsCount > 0) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    '✓ تم تسجيل زيادة وفائض ${result.totalSurplusQty} قطعة (بقيمة ${AppStrings.money(result.totalSurplusValue)}).',
+                    style: const TextStyle(color: AppColors.SUCCESS_GREEN),
+                  ),
+                ],
+                const SizedBox(height: 10),
+                const Text(
+                  'تم توثيق كافة الحركات في سجل الرقابة وتحديث رصيد المخزن الفعلي لحظياً.',
+                  style: TextStyle(fontSize: 12, color: AppColors.TEXT_SECONDARY),
                 ),
               ],
-              if (result.surplusItemsCount > 0) ...[
-                const SizedBox(height: 6),
-                Text(
-                  '✓ تم تسجيل زيادة وفائض ${result.totalSurplusQty} قطعة (بقيمة ${AppStrings.money(result.totalSurplusValue)}).',
-                  style: const TextStyle(color: AppColors.SUCCESS_GREEN),
-                ),
-              ],
-              const SizedBox(height: 10),
-              const Text(
-                'تم توثيق كافة الحركات في سجل الرقابة وتحديث رصيد المخزن الفعلي لحظياً.',
-                style: TextStyle(fontSize: 12, color: AppColors.TEXT_SECONDARY),
-              ),
-            ],
+            ),
           ),
           actions: [
             ElevatedButton(

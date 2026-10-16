@@ -202,98 +202,163 @@ class _POSScreenState extends ConsumerState<POSScreen> {
     final cartNotifier = ref.read(cartProvider.notifier);
     final currentCustomerId = ref.read(cartProvider).customerId;
 
+    final searchController = TextEditingController();
     showDialog<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.person_search, color: AppColors.PRIMARY_BLUE),
-            SizedBox(width: 8),
-            Text('اختر عميلاً للفاتورة'),
-          ],
-        ),
-        content: SizedBox(
-          width: 440,
-          height: 400,
-          child: customersAsync.when(
-            data: (customers) {
-              if (customers.isEmpty) {
-                return const Center(
-                  child: Text('لا يوجد عملاء مسجلون حالياً.'),
-                );
-              }
-              return ListView.separated(
-                itemCount: customers.length,
-                separatorBuilder: (_, _) => const Divider(height: 1),
-                itemBuilder: (context, index) {
-                  final customer = customers[index];
-                  final isSelected = customer.id == currentCustomerId;
-                  return ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: isSelected
-                          ? AppColors.PRIMARY_BLUE
-                          : AppColors.NEUTRAL_BG,
-                      child: Icon(
-                        Icons.person,
-                        color: isSelected ? Colors.white : AppColors.TEXT_PRIMARY,
-                      ),
-                    ),
-                    title: Text(
-                      customer.name,
-                      style: TextStyle(
-                        fontWeight:
-                            isSelected ? FontWeight.bold : FontWeight.w500,
-                      ),
-                    ),
-                    subtitle: Text(
-                      customer.phone ?? 'بدون هاتف',
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                    trailing: customer.hasDebt
-                        ? Text(
-                            'مديونية: ${AppStrings.money(customer.balanceDue)}',
-                            style: const TextStyle(
-                              color: AppColors.DANGER_RED,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          )
-                        : const Text(
-                            'لا توجد ديون',
-                            style: TextStyle(
-                              color: AppColors.SUCCESS_GREEN,
-                              fontSize: 12,
-                            ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          return AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.person_search, color: AppColors.PRIMARY_BLUE),
+                SizedBox(width: 8),
+                Text('اختر عميلاً للفاتورة'),
+              ],
+            ),
+            content: SizedBox(
+              width: 440,
+              height: 440,
+              child: customersAsync.when(
+                data: (allCustomers) {
+                  final query = searchController.text.trim().toLowerCase();
+                  final customers = query.isEmpty
+                      ? allCustomers
+                      : allCustomers.where((c) {
+                          final matchName =
+                              c.name.toLowerCase().contains(query);
+                          final matchPhone =
+                              c.phone?.toLowerCase().contains(query) ?? false;
+                          return matchName || matchPhone;
+                        }).toList();
+
+                  return Column(
+                    children: [
+                      TextField(
+                        controller: searchController,
+                        autofocus: true,
+                        onChanged: (_) => setDialogState(() {}),
+                        decoration: InputDecoration(
+                          hintText: 'ابحث باسم العميل أو رقم الهاتف...',
+                          prefixIcon: const Icon(Icons.search, size: 20),
+                          suffixIcon: searchController.text.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear, size: 18),
+                                  onPressed: () {
+                                    searchController.clear();
+                                    setDialogState(() {});
+                                  },
+                                )
+                              : null,
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 10,
                           ),
-                    onTap: () {
-                      cartNotifier.setCustomerId(customer.id, customerName: customer.name);
-                      Navigator.of(ctx).pop();
-                    },
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Expanded(
+                        child: customers.isEmpty
+                            ? Center(
+                                child: Text(
+                                  query.isEmpty
+                                      ? 'لا يوجد عملاء مسجلون حالياً.'
+                                      : 'لا يوجد عميل يطابق بحثك.',
+                                  style: const TextStyle(
+                                    color: AppColors.TEXT_SECONDARY,
+                                  ),
+                                ),
+                              )
+                            : ListView.separated(
+                                itemCount: customers.length,
+                                separatorBuilder: (_, _) =>
+                                    const Divider(height: 1),
+                                itemBuilder: (context, index) {
+                                  final customer = customers[index];
+                                  final isSelected =
+                                      customer.id == currentCustomerId;
+                                  return ListTile(
+                                    dense: true,
+                                    leading: CircleAvatar(
+                                      radius: 18,
+                                      backgroundColor: isSelected
+                                          ? AppColors.PRIMARY_BLUE
+                                          : AppColors.NEUTRAL_BG,
+                                      child: Icon(
+                                        Icons.person,
+                                        size: 18,
+                                        color: isSelected
+                                            ? Colors.white
+                                            : AppColors.TEXT_PRIMARY,
+                                      ),
+                                    ),
+                                    title: Text(
+                                      customer.name,
+                                      style: TextStyle(
+                                        fontWeight: isSelected
+                                            ? FontWeight.bold
+                                            : FontWeight.w500,
+                                      ),
+                                    ),
+                                    subtitle: Text(
+                                      customer.phone ?? 'بدون هاتف',
+                                      style: const TextStyle(fontSize: 12),
+                                    ),
+                                    trailing: customer.hasDebt
+                                        ? Text(
+                                            'مديونية: ${AppStrings.money(customer.balanceDue)}',
+                                            style: const TextStyle(
+                                              color: AppColors.DANGER_RED,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          )
+                                        : const Text(
+                                            'لا توجد ديون',
+                                            style: TextStyle(
+                                              color: AppColors.SUCCESS_GREEN,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                    onTap: () {
+                                      cartNotifier.setCustomerId(customer.id,
+                                          customerName: customer.name);
+                                      Navigator.of(ctx).pop();
+                                    },
+                                  );
+                                },
+                              ),
+                      ),
+                    ],
                   );
                 },
-              );
-            },
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(child: Text('خطأ: $e')),
-          ),
-        ),
-        actions: [
-          if (currentCustomerId != null)
-            TextButton(
-              onPressed: () {
-                cartNotifier.setCustomerId(null, customerName: null);
-                Navigator.of(ctx).pop();
-              },
-              child: const Text(
-                'إلغاء التحديد',
-                style: TextStyle(color: AppColors.DANGER_RED),
+                loading: () =>
+                    const Center(child: CircularProgressIndicator()),
+                error: (e, _) => Center(child: Text('خطأ: $e')),
               ),
             ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('إغلاق'),
-          ),
-        ],
+            actions: [
+              if (currentCustomerId != null)
+                TextButton(
+                  onPressed: () {
+                    cartNotifier.setCustomerId(null, customerName: null);
+                    Navigator.of(ctx).pop();
+                  },
+                  child: const Text(
+                    'إلغاء التحديد',
+                    style: TextStyle(color: AppColors.DANGER_RED),
+                  ),
+                ),
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('إغلاق'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

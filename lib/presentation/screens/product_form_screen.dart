@@ -12,6 +12,7 @@ import '../../data/models/product.dart';
 import '../../providers/app_providers.dart';
 import '../../providers/data_refresh_service.dart';
 import '../widgets/product_image_view.dart';
+import '../widgets/searchable_dropdown.dart';
 import 'barcode_scanner_screen.dart';
 
 class ProductFormScreen extends ConsumerStatefulWidget {
@@ -466,18 +467,15 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
               if (_selectedCategoryId == null && categories.isNotEmpty) {
                 _selectedCategoryId = categories.first.id;
               }
-              return DropdownButtonFormField<String>(
-                initialValue: _selectedCategoryId,
-                decoration: const InputDecoration(
-                  labelText: 'التصنيف *',
-                  prefixIcon: Icon(Icons.category_outlined, size: 20),
-                  isDense: true,
-                  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                ),
+              return SearchableDropdownFormField<String>(
+                value: _selectedCategoryId,
+                labelText: 'التصنيف *',
+                prefixIcon: const Icon(Icons.category_outlined, size: 20),
+                searchHint: 'ابحث عن تصنيف...',
                 items: categories.map((cat) {
-                  return DropdownMenuItem(
+                  return SearchableDropdownItem<String>(
                     value: cat.id,
-                    child: Text(cat.name, style: const TextStyle(fontSize: 13)),
+                    label: cat.name,
                   );
                 }).toList(),
                 onChanged: (val) {
@@ -541,17 +539,14 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
         const SizedBox(width: 8),
         Expanded(
           flex: 2,
-          child: DropdownButtonFormField<String>(
-            initialValue: _selectedUnit,
-            decoration: const InputDecoration(
-              labelText: 'الوحدة *',
-              isDense: true,
-              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-            ),
+          child: SearchableDropdownFormField<String>(
+            value: _selectedUnit,
+            labelText: 'الوحدة *',
+            searchHint: 'ابحث عن وحدة...',
             items: _units.map((unit) {
-              return DropdownMenuItem(
+              return SearchableDropdownItem<String>(
                 value: unit,
-                child: Text(unit, style: const TextStyle(fontSize: 13)),
+                label: unit,
               );
             }).toList(),
             onChanged: (val) {

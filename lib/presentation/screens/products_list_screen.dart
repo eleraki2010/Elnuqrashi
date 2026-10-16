@@ -6,6 +6,7 @@ import '../../core/responsive/responsive_scope.dart';
 import '../../providers/app_providers.dart';
 import '../../widgets/product_card.dart';
 import '../../widgets/max_width_container.dart';
+import '../widgets/searchable_dropdown.dart';
 import 'product_form_screen.dart';
 
 class ProductsListScreen extends ConsumerStatefulWidget {
@@ -120,37 +121,24 @@ class _ProductsListScreenState extends ConsumerState<ProductsListScreen> {
                   flex: 2,
                   child: categoriesAsync.when(
                     data: (categories) {
-                      final filteredCategories = selectedCategory == null
-                          ? categories
-                          : categories.where((c) =>
-                              c.id == selectedCategory).toList();
-                       return DropdownButtonFormField<String>(
-                         decoration: InputDecoration(
-                           labelText: 'تصنيف',
-                           prefixIcon: Icon(Icons.category, size: 20 * scale),
-                           border: const OutlineInputBorder(),
-                           contentPadding: EdgeInsets.symmetric(
-                             horizontal: ResponsiveUtils.scaledSpacing(
-                                 12.0, contentWidth),
-                             vertical: ResponsiveUtils.scaledSpacing(
-                                 10.0, contentWidth),
-                           ),
-                         ),
-                         initialValue: selectedCategory,
-                        items: [
-                          const DropdownMenuItem<String>(
-                            value: null,
-                            child: Text('الكل')),
-                          ...filteredCategories.map((category) =>
-                              DropdownMenuItem<String>(
-                                value: category.id,
-                                child: Text(category.name))),
-                        ],
+                      return SearchableDropdownFormField<String>(
+                        value: selectedCategory,
+                        labelText: 'تصنيف',
+                        prefixIcon: Icon(Icons.category, size: 20 * scale),
+                        searchHint: 'ابحث عن تصنيف...',
+                        items: categories
+                            .map(
+                              (c) => SearchableDropdownItem<String>(
+                                value: c.id,
+                                label: c.name,
+                              ),
+                            )
+                            .toList(),
                         onChanged: (value) {
-                          ref.read(selectedCategoryFilterProvider.notifier).setCategory(value);
+                          ref
+                              .read(selectedCategoryFilterProvider.notifier)
+                              .setCategory(value);
                         },
-                        isExpanded: true,
-                        dropdownColor: AppColors.NEUTRAL_SURFACE,
                       );
                     },
                     loading: () => const Center(

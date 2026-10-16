@@ -187,31 +187,139 @@ class BackupService {
     await setCustomBackupDirectory(null);
   }
 
-  /// عرض قائمة ملفات النسخ الاحتياطي الموجودة بالمجلد الفعلي مرتبة من الأحدث للأقدم.
-  static Future<List<File>> listLocalBackupFiles() async {
-    try {
-      final dirPath = await getEffectiveBackupDirectoryPath();
-      final dir = Directory(dirPath);
-      if (!dir.existsSync()) return [];
+  /// قائمة بجميع المجلدات المحتملة التي قد تحتوي على نسخ احتياطية على التابلت أو الكمبيوتر
+  static Future<List<String>> getAllCandidateBackupDirectories() async {
+    final dirs = <String>{};
 
-      final entities = dir.listSync();
-      final files = <File>[];
-      for (final e in entities) {
-        if (e is File && e.path.toLowerCase().endsWith('.json')) {
-          files.add(e);
-        }
+    // 1. المجلد المخصص أو الافتراضي المعتمد
+    try {
+      final effective = await getEffectiveBackupDirectoryPath();
+      dirs.add(effective);
+    } catch (_) {}
+
+    if (!kIsWeb && Platform.isAndroid) {
+      // 2. مجلدات التنزيلات العامة الشائعة على أندرويد
+      final downloadPaths = [
+        '/storage/emulated/0/Download',
+        '/storage/emulated/0/Downloads',
+        '/sdcard/Download',
+        '/sdcard/Downloads',
+      ];
+      for (final dp in downloadPaths) {
+        dirs.add(p.join(dp, defaultFolderName));
+        dirs.add(dp);
       }
-      files.sort((a, b) {
-        try {
-          return b.lastModifiedSync().compareTo(a.lastModifiedSync());
-        } catch (_) {
-          return 0;
+
+      // 3. مجلدات المستندات العامة الشائعة
+      final docPaths = [
+        '/storage/emulated/0/Documents',
+        '/sdcard/Documents',
+      ];
+      for (final dp in docPaths) {
+        dirs.add(p.join(dp, defaultFolderName));
+        dirs.add(dp);
+      }
+
+      // 4. مسار الـ External Storage
+      try {
+        final ext = await getExternalStorageDirectory();
+        if (ext != null) {
+          dirs.add(p.join(ext.path, defaultFolderName));
+          dirs.add(ext.path);
+          final parts = ext.path.split('/Android');
+          if (parts.isNotEmpty) {
+            dirs.add(p.join(parts[0], 'Download', defaultFolderName));
+            dirs.add(p.join(parts[0], 'Documents', defaultFolderName));
+            dirs.add(p.join(parts[0], 'Download'));
+            dirs.add(p.join(parts[0], 'Documents'));
+          }
         }
-      });
-      return files;
-    } catch (e) {
-      debugPrint('Error listing local backup files: $e');
-      return [];
+      } catch (_) {}
+    }
+
+    // 5. مجلد المستندات والتنزيلات لنظام التشغيل
+    try {
+      final docDir = await getApplicationDocumentsDirectory();
+      dirs.add(p.join(docDir.path, defaultFolderName));
+      dirs.add(docDir.path);
+    } catch (_) {}
+
+    try {
+      final dlDir = await getDownloadsDirectory();
+      if (dlDir != null) {
+        dirs.add(p.join(dlDir.path, defaultFolderName));
+        dirs.add(dlDir.path);
+      }
+    } catch (_) {}
+
+    return dirs.toList();
+  }
+
+  /// عرض قائمة ملفات النسخ الاحتياطي الموجودة بجميع المجلدات المحتملة مرتبة من الأحدث للأقدم.
+  static Future<List<File>> listLocalBackupFiles() async {
+    final candidateDirs = await getAllCandidateBackupDirectories();
+    final foundFilesMap = <String, File>{};
+
+    for (final dirPath in candidateDirs) {
+      try {
+        final dir = Directory(dirPath);
+        if (!await dir.exists()) continue;
+
+        await for (final e in dir.list()) {
+          if (e is File) {
+            final name = p.basename(e.path).toLowerCase();
+            if (name.endsWith('.json') &&
+                (name.contains('backup') ||
+                    name.contains('alnokrashy') ||
+                    name.contains('elnuqrashi') ||
+                    name.startsWith('202') ||
+                    name.startsWith('bak_'))) {
+              foundFilesMap[e.path] = e;
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('Skip inaccessible dir $dirPath: $e');
+      }
+    }
+
+    final files = foundFilesMap.values.toList();
+    files.sort((a, b) {
+      try {
+        return b.lastModifiedSync().compareTo(a.lastModifiedSync());
+      } catch (_) {
+        return 0;
+      }
+    });
+    return files;
+  }
+
+  /// البحث عن أحدث ملف نسخة احتياطية صالح على التابلت عبر كافة المجلدات
+  static Future<File?> findLatestBackupFile() async {
+    final files = await listLocalBackupFiles();
+    for (final file in files) {
+      try {
+        if (!await file.exists() || await file.length() == 0) continue;
+        return file;
+      } catch (_) {}
+    }
+    return null;
+  }
+
+  /// فحص ما إذا كانت قاعدة البيانات الحالية فارغة (تثبيت جديد أو بعد إعادة التهيئة)
+  static Future<bool> isDatabaseEmpty() async {
+    try {
+      final db = await AppDatabase.instance;
+      final total = Sqflite.firstIntValue(
+            await db.rawQuery(
+              'SELECT (SELECT COUNT(*) FROM products) + '
+              '(SELECT COUNT(*) FROM sale_invoices) + '
+              '(SELECT COUNT(*) FROM customers) AS total_count',
+            ),
+          ) ?? 0;
+      return total == 0;
+    } catch (_) {
+      return false;
     }
   }
 
@@ -276,13 +384,23 @@ class BackupService {
       throw const FormatException('الملف المحدد فارغ — ربما تعذر حفظه مسبقاً.');
     }
 
-    final json = jsonDecode(utf8.decode(bytes));
+    var str = utf8.decode(bytes);
+    if (str.startsWith('\uFEFF')) {
+      str = str.substring(1);
+    }
+    final json = jsonDecode(str);
     if (json is! Map<String, dynamic>) {
       throw const FormatException('ملف النسخة الاحتياطية غير صالح');
     }
 
     final meta = json['_meta'];
-    if (meta is! Map || meta['app'] != 'alnokrashy_pos') {
+    final isValidApp = meta is Map &&
+        (meta['app'] == 'alnokrashy_pos' || meta['app'] == 'elnuqrashi_pos');
+    final hasStoreTables = json['products'] is List ||
+        json['sale_invoices'] is List ||
+        json['categories'] is List;
+
+    if (!isValidApp && !hasStoreTables) {
       throw const FormatException(
           'الملف المختار ليس نسخة احتياطية صالحة لتطبيق النقراشي');
     }
@@ -294,38 +412,58 @@ class BackupService {
   /// استرجاع نسخة احتياطية من ملف يختاره المستخدم عبر متصفح الملفات.
   static Future<bool> restoreFromBackupFile({String? initialDirectory}) async {
     final initDir = initialDirectory ?? await getEffectiveBackupDirectoryPath();
-    final result = await FilePicker.platform.pickFiles(
-      dialogTitle: 'اختر ملف النسخة الاحتياطية',
-      type: FileType.custom,
-      allowedExtensions: ['json'],
-      initialDirectory: Directory(initDir).existsSync() ? initDir : null,
-      withData: true,
-      lockParentWindow: true,
-    );
+
+    FilePickerResult? result;
+    try {
+      result = await FilePicker.platform.pickFiles(
+        dialogTitle: 'اختر ملف النسخة الاحتياطية',
+        type: FileType.custom,
+        allowedExtensions: ['json'],
+        initialDirectory: Directory(initDir).existsSync() ? initDir : null,
+        withData: true,
+        lockParentWindow: true,
+      );
+    } catch (_) {
+      // بديل إذا لم يدعم نظام أندرويد نوع الملف المخصص
+      result = await FilePicker.platform.pickFiles(
+        dialogTitle: 'اختر ملف النسخة الاحتياطية',
+        type: FileType.any,
+        withData: true,
+        lockParentWindow: true,
+      );
+    }
+
     if (result == null || result.files.isEmpty) return false;
 
     final file = result.files.single;
-    if (file.bytes == null && file.path == null) return false;
-
-    List<int> bytes;
-    if (file.bytes != null) {
-      bytes = file.bytes!;
-    } else {
-      bytes = await File(file.path!).readAsBytes();
+    List<int>? bytes = file.bytes;
+    if (bytes == null && file.path != null) {
+      try {
+        bytes = await File(file.path!).readAsBytes();
+      } catch (_) {}
     }
 
-    if (bytes.isEmpty) {
-      throw const FormatException('الملف المختار فارغ — ربما فشل حفظه مسبقاً.');
+    if (bytes == null || bytes.isEmpty) {
+      throw const FormatException('تعذّر قراءة الملف المختار — تأكد من صحة الملف.');
     }
 
-    final json = jsonDecode(utf8.decode(bytes));
+    var str = utf8.decode(bytes);
+    if (str.startsWith('\uFEFF')) {
+      str = str.substring(1);
+    }
+    final json = jsonDecode(str);
     if (json is! Map<String, dynamic>) {
       throw const FormatException('ملف النسخة الاحتياطية غير صالح');
     }
 
-    // التأكد من أن الملف نسخة احتياطية لتطبيقنا فعلاً قبل مسح البيانات الحالية.
     final meta = json['_meta'];
-    if (meta is! Map || meta['app'] != 'alnokrashy_pos') {
+    final isValidApp = meta is Map &&
+        (meta['app'] == 'alnokrashy_pos' || meta['app'] == 'elnuqrashi_pos');
+    final hasStoreTables = json['products'] is List ||
+        json['sale_invoices'] is List ||
+        json['categories'] is List;
+
+    if (!isValidApp && !hasStoreTables) {
       throw const FormatException(
           'الملف المختار ليس نسخة احتياطية صالحة لتطبيق النقراشي');
     }

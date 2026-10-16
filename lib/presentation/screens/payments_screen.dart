@@ -12,6 +12,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/data_refresh_service.dart';
 import '../../providers/phase2_providers.dart';
 import '../widgets/max_width_container.dart';
+import '../widgets/searchable_dropdown.dart';
 
 /// شاشة المدفوعات: تحصيلات العملاء (داخل) ومدفوعات الموردين (خارج)
 /// مع ملخص يومي وإمكانية تسجيل دفعة جديدة مباشرة.
@@ -321,10 +322,11 @@ class _PaymentsScreenState extends ConsumerState<PaymentsScreen> {
         builder: (ctx, setDialogState) {
           return AlertDialog(
             title: const Text('تسجيل دفعة جديدة'),
-            content: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+            content: SingleChildScrollView(
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // نوع الطرف
@@ -422,39 +424,38 @@ class _PaymentsScreenState extends ConsumerState<PaymentsScreen> {
                          mainAxisSize: MainAxisSize.min,
                          crossAxisAlignment: CrossAxisAlignment.start,
                          children: [
-                           DropdownButtonFormField<String>(
+                           SearchableDropdownFormField<String>(
                              key: ValueKey('payment_party_$partyType'),
-                             initialValue: selectedPartyId,
-                             decoration: const InputDecoration(
-                               labelText: 'اختر الطرف *',
-                               border: OutlineInputBorder(),
-                             ),
-                             items: parties.map<DropdownMenuItem<String>>((p) {
+                             value: selectedPartyId,
+                             labelText: 'اختر الطرف *',
+                             searchHint: 'ابحث بالاسم...',
+                             items: parties.map<SearchableDropdownItem<String>>((p) {
                                final name = p.name as String;
                                final id = p.id as String;
-                               String subtitle = '';
+                               String? subtitle;
                                if (p is Customer) {
                                  final b = p.balanceDue;
                                  if (b > 0.01) {
                                    subtitle =
-                                       ' (عليه ${b.toStringAsFixed(0)} ${AppStrings.CURRENCY})';
+                                       'عليه ${b.toStringAsFixed(0)} ${AppStrings.CURRENCY}';
                                  } else if (b < -0.01) {
                                    subtitle =
-                                       ' (رصيد مسبق ${(-b).toStringAsFixed(0)} ${AppStrings.CURRENCY})';
+                                       'رصيد مسبق ${(-b).toStringAsFixed(0)} ${AppStrings.CURRENCY}';
                                  }
                                } else if (p is Supplier) {
                                  final o = p.balanceOwed;
                                  if (o > 0.01) {
                                    subtitle =
-                                       ' (مستحق له ${o.toStringAsFixed(0)} ${AppStrings.CURRENCY})';
+                                       'مستحق له ${o.toStringAsFixed(0)} ${AppStrings.CURRENCY}';
                                  } else if (o < -0.01) {
                                    subtitle =
-                                       ' (سداد زائد ${(-o).toStringAsFixed(0)} ${AppStrings.CURRENCY})';
+                                       'سداد زائد ${(-o).toStringAsFixed(0)} ${AppStrings.CURRENCY}';
                                  }
                                }
-                               return DropdownMenuItem<String>(
+                               return SearchableDropdownItem<String>(
                                  value: id,
-                                 child: Text('$name$subtitle'),
+                                 label: name,
+                                 subtitle: subtitle,
                                );
                              }).toList(),
                              onChanged: (value) => setDialogState(
@@ -528,7 +529,8 @@ class _PaymentsScreenState extends ConsumerState<PaymentsScreen> {
                  ],
               ),
             ),
-            actions: [
+          ),
+          actions: [
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(),
                 child: const Text('إلغاء'),
@@ -628,37 +630,39 @@ class _PaymentsScreenState extends ConsumerState<PaymentsScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(isCustomer ? 'إضافة عميل سريع' : 'إضافة مورد سريع'),
-        content: Form(
-          key: formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: nameController,
-                autofocus: true,
-                decoration: InputDecoration(
-                  labelText: isCustomer ? 'اسم العميل *' : 'اسم المورد *',
-                  prefixIcon: const Icon(Icons.person_outline),
-                  border: const OutlineInputBorder(),
+        content: SingleChildScrollView(
+          child: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: nameController,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    labelText: isCustomer ? 'اسم العميل *' : 'اسم المورد *',
+                    prefixIcon: const Icon(Icons.person_outline),
+                    border: const OutlineInputBorder(),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'يرجى إدخال الاسم';
+                    }
+                    return null;
+                  },
                 ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'يرجى إدخال الاسم';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: phoneController,
-                keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(
-                  labelText: 'رقم الهاتف (اختياري)',
-                  prefixIcon: Icon(Icons.phone_outlined),
-                  border: OutlineInputBorder(),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: phoneController,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(
+                    labelText: 'رقم الهاتف (اختياري)',
+                    prefixIcon: Icon(Icons.phone_outlined),
+                    border: OutlineInputBorder(),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
         actions: [

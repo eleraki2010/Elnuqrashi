@@ -506,41 +506,43 @@ class _SupplierDetailScreenState extends ConsumerState<SupplierDetailScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('تسجيل دفعة سداد للمورد'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('المورد: ${_statement?.supplier.name ?? ""}'),
-            const SizedBox(height: 8),
-            Text(
-              'إجمالي المستحق للمورد: ${_statement?.supplier.balanceOwed.toStringAsFixed(0)} ${AppStrings.CURRENCY}',
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                color: AppColors.WARNING_AMBER,
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('المورد: ${_statement?.supplier.name ?? ""}'),
+              const SizedBox(height: 8),
+              Text(
+                'إجمالي المستحق للمورد: ${_statement?.supplier.balanceOwed.toStringAsFixed(0)} ${AppStrings.CURRENCY}',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.WARNING_AMBER,
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: amountController,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
+              const SizedBox(height: 16),
+              TextField(
+                controller: amountController,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: 'المبلغ المدفوع *',
+                  suffixText: AppStrings.CURRENCY,
+                  prefixIcon: Icon(Icons.payments_outlined),
+                ),
               ),
-              autofocus: true,
-              decoration: const InputDecoration(
-                labelText: 'المبلغ المدفوع *',
-                suffixText: AppStrings.CURRENCY,
-                prefixIcon: Icon(Icons.payments_outlined),
+              const SizedBox(height: 12),
+              TextField(
+                controller: noteController,
+                decoration: const InputDecoration(
+                  labelText: 'ملاحظة (اختياري)',
+                  prefixIcon: Icon(Icons.notes),
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: noteController,
-              decoration: const InputDecoration(
-                labelText: 'ملاحظة (اختياري)',
-                prefixIcon: Icon(Icons.notes),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
         actions: [
           TextButton(

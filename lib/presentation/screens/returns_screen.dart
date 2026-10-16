@@ -19,6 +19,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/data_refresh_service.dart';
 import '../../providers/phase2_providers.dart';
 import '../widgets/max_width_container.dart';
+import '../widgets/searchable_dropdown.dart';
 
 class ReturnsScreen extends ConsumerStatefulWidget {
   const ReturnsScreen({super.key});
@@ -196,19 +197,17 @@ class _ReturnsScreenState extends ConsumerState<ReturnsScreen> {
                         );
                       }
 
-                      return DropdownButton<String>(
-                        isExpanded: true,
-                        hint: const Text('اختر فاتورة...'),
+                      return SearchableDropdownFormField<String>(
                         value: _selectedSaleInvoiceId,
-                        items: completedInvoices.map<DropdownMenuItem<String>>((
+                        labelText: 'اختر فاتورة المبيعات...',
+                        searchHint: 'ابحث برقم الفاتورة...',
+                        items: completedInvoices.map<SearchableDropdownItem<String>>((
                           invoice,
                         ) {
-                          return DropdownMenuItem<String>(
+                          return SearchableDropdownItem<String>(
                             value: invoice.id,
-                            child: Text(
-                              'الفاتورة #${invoice.invoiceNumber} - ${AppStrings.money(invoice.total)}',
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                            label: 'فاتورة #${invoice.invoiceNumber}',
+                            subtitle: 'الإجمالي: ${AppStrings.money(invoice.total)}',
                           );
                         }).toList(),
                         onChanged: (value) {
@@ -622,20 +621,18 @@ class _ReturnsScreenState extends ConsumerState<ReturnsScreen> {
                         );
                       }
 
-                      return DropdownButton<String>(
-                        isExpanded: true,
-                        hint: const Text('اختر فاتورة توريد...'),
+                      return SearchableDropdownFormField<String>(
                         value: _selectedPurchaseInvoiceId,
-                        items: invoices.map<DropdownMenuItem<String>>((invoice) {
+                        labelText: 'اختر فاتورة توريد...',
+                        searchHint: 'ابحث برقم الفاتورة أو اسم المورد...',
+                        items: invoices.map<SearchableDropdownItem<String>>((invoice) {
                           final shortId = invoice.id.length > 8
                               ? invoice.id.substring(0, 8)
                               : invoice.id;
-                          return DropdownMenuItem<String>(
+                          return SearchableDropdownItem<String>(
                             value: invoice.id,
-                            child: Text(
-                              'فاتورة #$shortId • المورد: ${invoice.supplierName ?? "عام"} • ${AppStrings.money(invoice.total)}',
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                            label: 'فاتورة #$shortId • ${invoice.supplierName ?? "عام"}',
+                            subtitle: 'الإجمالي: ${AppStrings.money(invoice.total)}',
                           );
                         }).toList(),
                         onChanged: (value) {

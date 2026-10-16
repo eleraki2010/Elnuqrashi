@@ -11,6 +11,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/data_refresh_service.dart';
 import '../../providers/phase2_providers.dart';
 import '../widgets/product_search_dialog.dart';
+import '../widgets/searchable_dropdown.dart';
 
 class PurchaseFormScreen extends ConsumerStatefulWidget {
   const PurchaseFormScreen({super.key});
@@ -192,18 +193,16 @@ class _PurchaseFormScreenState extends ConsumerState<PurchaseFormScreen> {
                     if (_selectedSupplierId == null && suppliers.isNotEmpty) {
                       _selectedSupplierId = suppliers.first.id;
                     }
-                    return DropdownButtonFormField<String>(
-                      initialValue: _selectedSupplierId,
-                      decoration: const InputDecoration(
-                        labelText: 'المورد / الشركة *',
-                        prefixIcon: Icon(Icons.business),
-                      ),
+                    return SearchableDropdownFormField<String>(
+                      value: _selectedSupplierId,
+                      labelText: 'المورد / الشركة *',
+                      prefixIcon: const Icon(Icons.business),
+                      searchHint: 'ابحث باسم المورد أو رقم الهاتف...',
                       items: suppliers.map((s) {
-                        return DropdownMenuItem(
+                        return SearchableDropdownItem<String>(
                           value: s.id,
-                          child: Text(
-                            '${s.name} ${s.phone != null ? "(${s.phone})" : ""}',
-                          ),
+                          label: s.name,
+                          subtitle: s.phone != null && s.phone!.isNotEmpty ? s.phone : null,
                         );
                       }).toList(),
                       onChanged: (val) {

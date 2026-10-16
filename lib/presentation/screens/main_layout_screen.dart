@@ -57,9 +57,10 @@ class _MainLayoutScreenState extends ConsumerState<MainLayoutScreen> {
   }
 
   // مصدر واحد لكل وجهات التنقل (موبايل + ديسكتوب) لمنع التباعد بينهما.
-  // ownerOnly = true تظهر للمالك فقط (Phase 3: الصلاحيات).
+  // مصدر واحد لكل وجهات التنقل (موبايل + ديسكتوب) بالترتيب المطلوب بدقة.
   List<({IconData icon, IconData selectedIcon, String label, String route, bool ownerOnly, Widget screen})>
-      _buildEntries() {    return [
+      _buildEntries() {
+    return [
       (
         icon: Icons.dashboard_outlined,
         selectedIcon: Icons.dashboard,
@@ -75,6 +76,22 @@ class _MainLayoutScreenState extends ConsumerState<MainLayoutScreen> {
         route: 'pos',
         ownerOnly: false,
         screen: const POSScreen(),
+      ),
+      (
+        icon: Icons.receipt_long_outlined,
+        selectedIcon: Icons.receipt_long,
+        label: 'المبيعات',
+        route: 'sales',
+        ownerOnly: false,
+        screen: const SalesHistoryScreen(),
+      ),
+      (
+        icon: Icons.people_outline,
+        selectedIcon: Icons.people,
+        label: 'العملاء',
+        route: 'customers',
+        ownerOnly: false,
+        screen: const CustomersListScreen(),
       ),
       (
         icon: Icons.inventory_2_outlined,
@@ -93,60 +110,12 @@ class _MainLayoutScreenState extends ConsumerState<MainLayoutScreen> {
         screen: const InventoryAlertsScreen(),
       ),
       (
-        icon: Icons.checklist_outlined,
-        selectedIcon: Icons.checklist,
-        label: 'جرد',
-        route: 'count',
-        ownerOnly: false,
-        screen: const InventoryCountScreen(),
-      ),
-      (
         icon: Icons.warehouse_outlined,
         selectedIcon: Icons.warehouse,
         label: 'المخزن',
         route: 'warehouse',
         ownerOnly: false,
         screen: const StockSummaryScreen(),
-      ),
-      (
-        icon: Icons.receipt_long_outlined,
-        selectedIcon: Icons.receipt_long,
-        label: 'المبيعات',
-        route: 'sales',
-        ownerOnly: false,
-        screen: const SalesHistoryScreen(),
-      ),
-      (
-        icon: Icons.account_balance_wallet_outlined,
-        selectedIcon: Icons.account_balance_wallet,
-        label: 'المدفوعات',
-        route: 'payments',
-        ownerOnly: false,
-        screen: const PaymentsScreen(),
-      ),
-      (
-        icon: Icons.shopping_bag_outlined,
-        selectedIcon: Icons.shopping_bag,
-        label: 'المشتريات',
-        route: 'purchases',
-        ownerOnly: true,
-        screen: const PurchasesHistoryScreen(),
-      ),
-      (
-        icon: Icons.undo_outlined,
-        selectedIcon: Icons.undo,
-        label: 'مرتجعات',
-        route: 'returns',
-        ownerOnly: false,
-        screen: const ReturnsScreen(),
-      ),
-      (
-        icon: Icons.people_outline,
-        selectedIcon: Icons.people,
-        label: 'العملاء',
-        route: 'customers',
-        ownerOnly: false,
-        screen: const CustomersListScreen(),
       ),
       (
         icon: Icons.local_shipping_outlined,
@@ -157,12 +126,20 @@ class _MainLayoutScreenState extends ConsumerState<MainLayoutScreen> {
         screen: const SuppliersListScreen(),
       ),
       (
-        icon: Icons.analytics_outlined,
-        selectedIcon: Icons.analytics,
-        label: 'التقارير',
-        route: 'reports',
+        icon: Icons.shopping_bag_outlined,
+        selectedIcon: Icons.shopping_bag,
+        label: 'المشتريات',
+        route: 'purchases',
         ownerOnly: true,
-        screen: const ReportsScreen(),
+        screen: const PurchasesHistoryScreen(),
+      ),
+      (
+        icon: Icons.account_balance_wallet_outlined,
+        selectedIcon: Icons.account_balance_wallet,
+        label: 'المدفوعات',
+        route: 'payments',
+        ownerOnly: false,
+        screen: const PaymentsScreen(),
       ),
       (
         icon: Icons.receipt_long_outlined,
@@ -173,12 +150,28 @@ class _MainLayoutScreenState extends ConsumerState<MainLayoutScreen> {
         screen: const ExpensesScreen(),
       ),
       (
-        icon: Icons.account_balance_outlined,
-        selectedIcon: Icons.account_balance,
-        label: 'رصيد المحل',
-        route: 'balance',
+        icon: Icons.undo_outlined,
+        selectedIcon: Icons.undo,
+        label: 'المرتجعات',
+        route: 'returns',
+        ownerOnly: false,
+        screen: const ReturnsScreen(),
+      ),
+      (
+        icon: Icons.analytics_outlined,
+        selectedIcon: Icons.analytics,
+        label: 'التقارير',
+        route: 'reports',
         ownerOnly: true,
-        screen: const ShopBalanceScreen(),
+        screen: const ReportsScreen(),
+      ),
+      (
+        icon: Icons.checklist_outlined,
+        selectedIcon: Icons.checklist,
+        label: 'الجرد',
+        route: 'count',
+        ownerOnly: false,
+        screen: const InventoryCountScreen(),
       ),
       (
         icon: Icons.history_edu_outlined,
@@ -189,12 +182,28 @@ class _MainLayoutScreenState extends ConsumerState<MainLayoutScreen> {
         screen: const AuditLogScreen(),
       ),
       (
+        icon: Icons.account_balance_outlined,
+        selectedIcon: Icons.account_balance,
+        label: 'رصيد المحل',
+        route: 'balance',
+        ownerOnly: true,
+        screen: const ShopBalanceScreen(),
+      ),
+      (
         icon: Icons.settings_outlined,
         selectedIcon: Icons.settings,
         label: 'الإعدادات',
         route: 'settings',
         ownerOnly: true,
         screen: const SettingsScreen(),
+      ),
+      (
+        icon: Icons.apps_outlined,
+        selectedIcon: Icons.apps,
+        label: 'المزيد',
+        route: 'more',
+        ownerOnly: false,
+        screen: _MoreShortcutsScreen(onNavigate: _navigateTo),
       ),
     ];
   }
@@ -206,8 +215,8 @@ class _MainLayoutScreenState extends ConsumerState<MainLayoutScreen> {
   static const List<String> _primaryCompactRoutes = [
     'dashboard',
     'pos',
-    'products',
     'sales',
+    'customers',
   ];
 
   /// فهرس الزر النشط في شريط الجوال: الوجهة الأساسية إن كانت مفتوحة،
@@ -216,92 +225,10 @@ class _MainLayoutScreenState extends ConsumerState<MainLayoutScreen> {
     List<({IconData icon, IconData selectedIcon, String label, String route, bool ownerOnly, Widget screen})> entries,
     int currentIndex,
   ) {
+    if (currentIndex < 0 || currentIndex >= entries.length) return 0;
     final currentRoute = entries[currentIndex].route;
     final primaryIndex = _primaryCompactRoutes.indexOf(currentRoute);
     return primaryIndex == -1 ? _primaryCompactRoutes.length : primaryIndex;
-  }
-
-  /// ورقة "المزيد" للوصول للوجهات الثانوية على الجوال بسلاسة ووضوح.
-  Future<void> _showMoreSheet(
-    List<({IconData icon, IconData selectedIcon, String label, String route, bool ownerOnly, Widget screen})> entries,
-    int currentIndex,
-    int lowStockCount,
-  ) async {
-    final currentRoute = entries[currentIndex].route;
-    final secondary = entries
-        .where((e) => !_primaryCompactRoutes.contains(e.route))
-        .toList();
-
-    final selected = await showModalBottomSheet<
-        ({IconData icon, IconData selectedIcon, String label, String route,
-            bool ownerOnly, Widget screen})>(
-      context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      builder: (ctx) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Text(
-                  'المزيد',
-                  style: Theme.of(ctx).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.PRIMARY_BLUE_DARK,
-                      ),
-                ),
-              ),
-              Flexible(
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: secondary.length,
-                  itemBuilder: (ctx, i) {
-                    final e = secondary[i];
-                    final isSelected = e.route == currentRoute;
-                    final isAlerts = e.icon == Icons.warning_amber_outlined;
-
-                    return ListTile(
-                      leading: Icon(
-                        isSelected ? e.selectedIcon : e.icon,
-                        color: isSelected
-                            ? AppColors.PRIMARY_BLUE
-                            : AppColors.TEXT_SECONDARY,
-                      ),
-                      title: Text(
-                        e.label,
-                        style: TextStyle(
-                          fontWeight: isSelected
-                              ? FontWeight.bold
-                              : FontWeight.w500,
-                          color: isSelected
-                              ? AppColors.PRIMARY_BLUE
-                              : AppColors.TEXT_PRIMARY,
-                        ),
-                      ),
-                      trailing: isAlerts && lowStockCount > 0
-                          ? Badge(
-                              label: Text('$lowStockCount'),
-                              backgroundColor: AppColors.DANGER_RED,
-                              child: const SizedBox.shrink(),
-                            )
-                          : null,
-                      onTap: () => Navigator.pop(ctx, e),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-
-    if (selected != null) {
-      final index = entries.indexWhere((e) => e.route == selected.route);
-      if (index != -1) _onSelectTab(index);
-    }
   }
 
   Future<void> _logout() async {
@@ -412,14 +339,14 @@ class _MainLayoutScreenState extends ConsumerState<MainLayoutScreen> {
         ),
         bottomNavigationBar: NavigationBar(
           selectedIndex: _compactNavIndex(entries, clampedIndex),
-          onDestinationSelected: (index) async {
+          onDestinationSelected: (index) {
             if (index < _primaryCompactRoutes.length) {
               final route = _primaryCompactRoutes[index];
               final entryIndex =
                   entries.indexWhere((e) => e.route == route);
               if (entryIndex != -1) _onSelectTab(entryIndex);
             } else {
-              await _showMoreSheet(entries, clampedIndex, lowStockCount);
+              _navigateTo('more');
             }
           },
           destinations: navDestinations,
@@ -427,14 +354,23 @@ class _MainLayoutScreenState extends ConsumerState<MainLayoutScreen> {
       );
     }
 
+    final sidebarEntries = entries.where((e) => e.route != 'more').toList();
+    final sidebarSelected = sidebarEntries.indexWhere(
+      (e) => e.route == entries[clampedIndex].route,
+    );
+
     return Scaffold(
       body: Row(
         children: [
-          // شريط جانبي قابل للطي والتمرير (يدعم 18+ وجهة دون فيضان).
+          // شريط جانبي قابل للطي والتمرير (يدعم كافة الوجهات دون فيضان).
           _CollapsibleSidebar(
-            entries: entries,
-            selectedIndex: clampedIndex,
-            onSelect: _onSelectTab,
+            entries: sidebarEntries,
+            selectedIndex: sidebarSelected != -1 ? sidebarSelected : 0,
+            onSelect: (idx) {
+              if (idx >= 0 && idx < sidebarEntries.length) {
+                _navigateTo(sidebarEntries[idx].route);
+              }
+            },
             lowStockCount: lowStockCount,
             currentUser: currentUser,
             onLogout: _logout,
@@ -753,6 +689,284 @@ class _SidebarTile extends StatelessWidget {
       label: Text('$badgeCount'),
       backgroundColor: AppColors.DANGER_RED,
       child: child,
+    );
+  }
+}
+
+/// شاشة تفتح باقي الاختصارات في نفس الشاشة بسلاسة وتصميم أنيق عند الضغط على "المزيد"
+class _MoreShortcutsScreen extends ConsumerWidget {
+  final Function(String route) onNavigate;
+
+  const _MoreShortcutsScreen({required this.onNavigate});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final width = MediaQuery.sizeOf(context).width;
+    final lowStockCount = ref.watch(lowStockCountProvider).value ?? 0;
+    final isOwner = ref.watch(isOwnerProvider);
+
+    final shortcuts = [
+      (
+        icon: Icons.inventory_2_outlined,
+        color: AppColors.PRIMARY_BLUE,
+        title: 'المنتجات',
+        subtitle: 'إدارة الأصناف، الأسعار، الباركود والمخزون',
+        route: 'products',
+        ownerOnly: false,
+        badge: 0,
+      ),
+      (
+        icon: Icons.warning_amber_outlined,
+        color: AppColors.DANGER_RED,
+        title: 'النواقص',
+        subtitle: 'تنبيهات الأصناف الحرجة التي قاربت على النفاد',
+        route: 'alerts',
+        ownerOnly: false,
+        badge: lowStockCount,
+      ),
+      (
+        icon: Icons.warehouse_outlined,
+        color: AppColors.PRIMARY_BLUE_DARK,
+        title: 'المخزن',
+        subtitle: 'جرد وتقييم البضاعة وتتبع حركة المخزون',
+        route: 'warehouse',
+        ownerOnly: false,
+        badge: 0,
+      ),
+      (
+        icon: Icons.local_shipping_outlined,
+        color: AppColors.SUCCESS_GREEN,
+        title: 'الموردين',
+        subtitle: 'بيانات الشركات والموردين ومتابعة الحسابات',
+        route: 'suppliers',
+        ownerOnly: false,
+        badge: 0,
+      ),
+      (
+        icon: Icons.shopping_bag_outlined,
+        color: AppColors.PRIMARY_BLUE,
+        title: 'المشتريات',
+        subtitle: 'تسجيل فواتير الشراء والتوريد وتحديث الأسعار',
+        route: 'purchases',
+        ownerOnly: true,
+        badge: 0,
+      ),
+      (
+        icon: Icons.account_balance_wallet_outlined,
+        color: AppColors.SUCCESS_GREEN,
+        title: 'المدفوعات',
+        subtitle: 'سندات القبض من العملاء وسندات الصرف للموردين',
+        route: 'payments',
+        ownerOnly: false,
+        badge: 0,
+      ),
+      (
+        icon: Icons.receipt_long_outlined,
+        color: AppColors.WARNING_AMBER,
+        title: 'المصروفات',
+        subtitle: 'المصروفات التشغيلية واليومية وصافي أرباح المحل',
+        route: 'expenses',
+        ownerOnly: true,
+        badge: 0,
+      ),
+      (
+        icon: Icons.undo_outlined,
+        color: AppColors.WARNING_AMBER,
+        title: 'المرتجعات',
+        subtitle: 'مرتجعات المبيعات للعملاء ومرتجعات الشراء للموردين',
+        route: 'returns',
+        ownerOnly: false,
+        badge: 0,
+      ),
+      (
+        icon: Icons.analytics_outlined,
+        color: AppColors.PRIMARY_BLUE_DARK,
+        title: 'التقارير',
+        subtitle: 'كشوفات الحسابات والأرباح والمبيعات المفصلة',
+        route: 'reports',
+        ownerOnly: true,
+        badge: 0,
+      ),
+      (
+        icon: Icons.checklist_outlined,
+        color: AppColors.PRIMARY_BLUE,
+        title: 'الجرد',
+        subtitle: 'جرد المخزون الفعلي بالمحل وتسوية العجز والفائض',
+        route: 'count',
+        ownerOnly: false,
+        badge: 0,
+      ),
+      (
+        icon: Icons.history_edu_outlined,
+        color: AppColors.TEXT_SECONDARY,
+        title: 'سجل العمليات',
+        subtitle: 'سجل الرقابة المحاسبي لكافة حركات المستخدمين',
+        route: 'audit',
+        ownerOnly: true,
+        badge: 0,
+      ),
+      (
+        icon: Icons.account_balance_outlined,
+        color: AppColors.SUCCESS_GREEN,
+        title: 'رصيد المحل',
+        subtitle: 'الخزينة النقدية وصافي أرباح المحل وديون السوق',
+        route: 'balance',
+        ownerOnly: true,
+        badge: 0,
+      ),
+      (
+        icon: Icons.settings_outlined,
+        color: AppColors.PRIMARY_BLUE_DARK,
+        title: 'الإعدادات',
+        subtitle: 'المستخدمين، الطابعات، والنسخ الاحتياطي',
+        route: 'settings',
+        ownerOnly: true,
+        badge: 0,
+      ),
+    ].where((item) => !item.ownerOnly || isOwner).toList();
+
+    final isWide = width >= 650;
+
+    return Scaffold(
+      backgroundColor: AppColors.NEUTRAL_BG,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [AppColors.PRIMARY_BLUE, AppColors.PRIMARY_BLUE_DARK],
+                    begin: Alignment.topRight,
+                    end: Alignment.bottomLeft,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.PRIMARY_BLUE.withValues(alpha: 0.25),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.apps_rounded,
+                          color: Colors.white, size: 28),
+                    ),
+                    const SizedBox(width: 14),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'كافة أقسام المحل والاختصارات',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 17,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            'اضغط على أي قسم للانتقال إليه مباشرة داخل نفس الشاشة',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: isWide ? 3 : 2,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: isWide ? 2.3 : 1.35,
+                ),
+                itemCount: shortcuts.length,
+                itemBuilder: (context, index) {
+                  final s = shortcuts[index];
+                  return Material(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    elevation: 1,
+                    shadowColor: Colors.black12,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(14),
+                      onTap: () => onNavigate(s.route),
+                      child: Padding(
+                        padding: const EdgeInsets.all(14),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: s.color.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Icon(s.icon, color: s.color, size: 22),
+                                ),
+                                if (s.badge > 0)
+                                  Badge(
+                                    label: Text('${s.badge}'),
+                                    backgroundColor: AppColors.DANGER_RED,
+                                    child: const SizedBox.shrink(),
+                                  ),
+                              ],
+                            ),
+                            const Spacer(),
+                            Text(
+                              s.title,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                                color: AppColors.TEXT_PRIMARY,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              s.subtitle,
+                              style: const TextStyle(
+                                fontSize: 10.5,
+                                color: AppColors.TEXT_SECONDARY,
+                                height: 1.2,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

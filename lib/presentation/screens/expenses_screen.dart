@@ -10,6 +10,7 @@ import '../../providers/app_providers.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/data_refresh_service.dart';
 import '../widgets/max_width_container.dart';
+import '../widgets/searchable_dropdown.dart';
 
 class ExpensesScreen extends ConsumerStatefulWidget {
   const ExpensesScreen({super.key});
@@ -268,15 +269,20 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                                           _showExpenseDialog(existing: expense),
                                     ),
                                     IconButton(
-                                      icon: Icon(
+                                      icon: const Icon(
                                         Icons.delete_outline,
                                         size: 18,
                                         color: AppColors.DANGER_RED,
                                       ),
                                       tooltip: 'حذف المصروف',
                                       visualDensity: VisualDensity.compact,
-                                      onPressed: () =>
-                                          _confirmDelete(context, expense),
+                                      onPressed: () async {
+                                        final confirmed =
+                                            await _confirmDelete(context, expense);
+                                        if (confirmed == true) {
+                                          await _deleteExpense(expense);
+                                        }
+                                      },
                                     ),
                                   ],
                                 ),
@@ -364,10 +370,11 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
           builder: (ctx, setDialogState) {
             return AlertDialog(
               title: Text(isEdit ? 'تعديل مصروف' : 'تسجيل مصروف جديد'),
-              content: Form(
-                key: formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
+              content: SingleChildScrollView(
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     TextFormField(
@@ -412,23 +419,18 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
-                          child: DropdownButtonFormField<String>(
-                            initialValue: categories.contains(category)
+                          child: SearchableDropdownFormField<String>(
+                            value: categories.contains(category)
                                 ? category
                                 : null,
-                            decoration: const InputDecoration(
-                              labelText: 'الفئة',
-                              prefixIcon: Icon(Icons.category_outlined),
-                              border: OutlineInputBorder(),
-                            ),
+                            labelText: 'الفئة',
+                            prefixIcon: const Icon(Icons.category_outlined),
+                            searchHint: 'ابحث عن فئة المصروف...',
                             items: categories
                                 .map(
-                                  (c) => DropdownMenuItem(
+                                  (c) => SearchableDropdownItem<String>(
                                     value: c,
-                                    child: Text(
-                                      c,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
+                                    label: c,
                                   ),
                                 )
                                 .toList(),
@@ -462,7 +464,8 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                   ],
                 ),
               ),
-              actions: [
+            ),
+            actions: [
                 TextButton(
                   onPressed: () => Navigator.of(ctx).pop(),
                   child: const Text('إلغاء'),
@@ -553,14 +556,16 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('إضافة فئة مصروف جديدة'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: const InputDecoration(
-            labelText: 'اسم الفئة',
-            hintText: 'مثال: اشتراكات، تسويق...',
-            prefixIcon: Icon(Icons.category_outlined),
-            border: OutlineInputBorder(),
+        content: SingleChildScrollView(
+          child: TextField(
+            controller: controller,
+            autofocus: true,
+            decoration: const InputDecoration(
+              labelText: 'اسم الفئة',
+              hintText: 'مثال: اشتراكات، تسويق...',
+              prefixIcon: Icon(Icons.category_outlined),
+              border: OutlineInputBorder(),
+            ),
           ),
         ),
         actions: [
@@ -603,10 +608,62 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
     return showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('تأكيد الحذف'),
-        content: Text(
-          'هل تريد حذف المصروف "${expense.title}" بقيمة '
-          '${expense.amount.toStringAsFixed(0)} ${AppStrings.CURRENCY}؟',
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: AppColors.DANGER_RED),
+            SizedBox(width: 8),
+            Text('تأكيد حذف المصروف'),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'هل أنت متأكد من حذف المصروف "${expense.title}"؟',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.WARNING_AMBER.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: AppColors.WARNING_AMBER.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.account_balance_wallet_outlined,
+                            size: 16, color: AppColors.PRIMARY_BLUE),
+                        SizedBox(width: 6),
+                        Text(
+                          'الإجراءات المحاسبية المترتبة على الحذف:',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12.5,
+                            color: AppColors.PRIMARY_BLUE_DARK,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '• استرداد وإعادة مبلغ (${AppStrings.money(expense.amount)}) إلى رصيد خزينة الصندوق الفعلي.\n'
+                      '• زيادة صافي الربح اليومي والفترة المحاسبية بنفس القيمة.\n'
+                      '• توثيق حركة الحذف تلقائياً في سجل الرقابة والعمليات (Audit Log).',
+                      style: const TextStyle(fontSize: 11.5, height: 1.5),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -616,9 +673,10 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.DANGER_RED,
+              foregroundColor: Colors.white,
             ),
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('حذف'),
+            child: const Text('تأكيد الحذف والمحاسبة'),
           ),
         ],
       ),
@@ -635,9 +693,11 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
       if (mounted) {
         setState(() {});
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             backgroundColor: AppColors.SUCCESS_GREEN,
-            content: Text('✓ تم حذف المصروف'),
+            content: Text(
+              '✓ تم حذف المصروف وإعادة ${AppStrings.money(expense.amount)} إلى الخزينة وتحديث الأرباح',
+            ),
           ),
         );
       }

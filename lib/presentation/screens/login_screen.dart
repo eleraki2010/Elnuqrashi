@@ -1,7 +1,10 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
 
 import '../../core/constants/app_constants.dart';
+import '../../core/services/backup_service.dart';
 import '../../providers/auth_provider.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -17,6 +20,111 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
+  File? _detectedBackup;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkForExistingBackup();
+    });
+  }
+
+  Future<void> _checkForExistingBackup() async {
+    try {
+      final isEmpty = await BackupService.isDatabaseEmpty();
+      if (!isEmpty) return;
+      final latest = await BackupService.findLatestBackupFile();
+      if (mounted && latest != null) {
+        setState(() => _detectedBackup = latest);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _restoreDetectedBackup(File file) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.restore, color: AppColors.SUCCESS_GREEN),
+            SizedBox(width: 8),
+            Text('استعادة بيانات المحل'),
+          ],
+        ),
+        content: Text(
+          'سيتم استرجاع كافة المنتجات، الفواتير، والعملاء من النسخة الاحتياطية:\n(${p.basename(file.path)})\n\nهل تريد المتابعة؟',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('إلغاء'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.SUCCESS_GREEN,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('استعادة الآن'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    setState(() => _isLoading = true);
+    try {
+      await BackupService.restoreFromSpecificFile(file);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            backgroundColor: AppColors.SUCCESS_GREEN,
+            duration: Duration(seconds: 4),
+            content: Text('تم استرجاع كافة بياناتك بنجاح! يمكنك الآن تسجيل الدخول.'),
+          ),
+        );
+        setState(() => _detectedBackup = null);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.DANGER_RED,
+            content: Text('تعذر استعادة النسخة: $e'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _pickAndRestoreFile() async {
+    setState(() => _isLoading = true);
+    try {
+      final success = await BackupService.restoreFromBackupFile();
+      if (mounted && success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            backgroundColor: AppColors.SUCCESS_GREEN,
+            content: Text('تم استعادة البيانات بنجاح!'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.DANGER_RED,
+            content: Text('فشلت الاستعادة: $e'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   @override
   void dispose() {
@@ -152,6 +260,106 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
+                    ),
+                  ),
+                  if (_detectedBackup != null) ...[
+                    const SizedBox(height: 20),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.SUCCESS_GREEN.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(AppLayout.BORDER_RADIUS),
+                        border: Border.all(color: AppColors.SUCCESS_GREEN.withValues(alpha: 0.5), width: 1.5),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: AppColors.SUCCESS_GREEN.withValues(alpha: 0.2),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.restore, color: AppColors.SUCCESS_GREEN, size: 24),
+                              ),
+                              const SizedBox(width: 10),
+                              const Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'تم العثور على نسخة احتياطية سابقة!',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                        color: AppColors.SUCCESS_GREEN,
+                                      ),
+                                    ),
+                                    Text(
+                                      'تم العثور على ملف بيانات على جهازك تلقائياً',
+                                      style: TextStyle(fontSize: 11, color: AppColors.TEXT_SECONDARY),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: const Color(0xFFE5E7EB)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.insert_drive_file_outlined, size: 16, color: AppColors.PRIMARY_BLUE),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    p.basename(_detectedBackup!.path),
+                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                    overflow: TextOverflow.ellipsis,
+                                    textDirection: TextDirection.ltr,
+                                    textAlign: TextAlign.right,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.SUCCESS_GREEN,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              elevation: 1,
+                            ),
+                            onPressed: _isLoading ? null : () => _restoreDetectedBackup(_detectedBackup!),
+                            icon: const Icon(Icons.cloud_download_rounded, size: 20),
+                            label: const Text(
+                              'استعادة كافة بيانات المحل الآن',
+                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                      side: const BorderSide(color: Color(0xFFD1D5DB)),
+                    ),
+                    onPressed: _isLoading ? null : _pickAndRestoreFile,
+                    icon: const Icon(Icons.folder_open_outlined, size: 18, color: AppColors.PRIMARY_BLUE),
+                    label: const Text(
+                      'استعادة البيانات يدوياً من ملف (.json)',
+                      style: TextStyle(fontSize: 13, color: AppColors.PRIMARY_BLUE_DARK),
                     ),
                   ),
                   const SizedBox(height: 20),

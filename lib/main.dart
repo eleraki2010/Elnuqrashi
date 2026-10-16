@@ -31,19 +31,22 @@ void main() async {
     // نتيح للتطبيق الإقلاع حتى لو فشلت القاعدة: AuthGate سيعرض شاشة فارغة بدل تعليق.
   }
 
-  // استماع وتفعيل النسخ الاحتياطي التلقائي عند توفر الإنترنت
-  try {
-    GoogleDriveBackupService.initializeAutoBackupListener();
-    GoogleDriveBackupService.checkAndTriggerAutoBackup();
-  } catch (e) {
-    debugPrint('Google Drive background init: $e');
-  }
-
   runApp(
     const ProviderScope(
       child: AlnokrashyPOSApp(),
     ),
   );
+
+  // استماع وتفعيل النسخ الاحتياطي التلقائي في الخلفية بعد إقلاع التطبيق دون تأخير الفتح
+  Future.microtask(() async {
+    try {
+      GoogleDriveBackupService.initializeAutoBackupListener();
+      await Future.delayed(const Duration(seconds: 3));
+      GoogleDriveBackupService.checkAndTriggerAutoBackup();
+    } catch (e) {
+      debugPrint('Google Drive background init: $e');
+    }
+  });
 }
 
 class AlnokrashyPOSApp extends StatelessWidget {
