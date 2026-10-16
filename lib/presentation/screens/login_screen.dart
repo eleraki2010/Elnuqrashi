@@ -77,6 +77,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     try {
       await BackupService.restoreFromSpecificFile(file);
       if (mounted) {
+        ref.invalidate(authProvider);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             backgroundColor: AppColors.SUCCESS_GREEN,
@@ -105,12 +106,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     try {
       final success = await BackupService.restoreFromBackupFile();
       if (mounted && success) {
+        ref.invalidate(authProvider);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             backgroundColor: AppColors.SUCCESS_GREEN,
-            content: Text('تم استعادة البيانات بنجاح!'),
+            content: Text('تم استعادة البيانات بنجاح! يمكنك الآن تسجيل الدخول.'),
           ),
         );
+        setState(() => _detectedBackup = null);
       }
     } catch (e) {
       if (mounted) {

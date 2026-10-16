@@ -825,45 +825,58 @@ class _MoreShortcutsScreen extends ConsumerWidget {
       ),
     ].where((item) => !item.ownerOnly || isOwner).toList();
 
-    final isWide = width >= 650;
+    final crossAxisCount = width >= 840
+        ? 4
+        : (width >= 580 ? 3 : 2);
+
+    final childAspectRatio = width >= 840
+        ? 3.4
+        : (width >= 580 ? 3.0 : 2.55);
 
     return Scaffold(
       backgroundColor: AppColors.NEUTRAL_BG,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
+          physics: const BouncingScrollPhysics(),
+          padding: EdgeInsets.symmetric(
+            horizontal: width >= 600 ? 16 : 10,
+            vertical: 8,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                     colors: [AppColors.PRIMARY_BLUE, AppColors.PRIMARY_BLUE_DARK],
                     begin: Alignment.topRight,
                     end: Alignment.bottomLeft,
                   ),
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(12),
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.PRIMARY_BLUE.withValues(alpha: 0.25),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
+                      color: AppColors.PRIMARY_BLUE.withValues(alpha: 0.18),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
                     ),
                   ],
                 ),
                 child: Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(7),
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.2),
-                        shape: BoxShape.circle,
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(Icons.apps_rounded,
-                          color: Colors.white, size: 28),
+                      child: const Icon(
+                        Icons.dashboard_customize_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
                     ),
-                    const SizedBox(width: 14),
+                    const SizedBox(width: 10),
                     const Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -872,89 +885,145 @@ class _MoreShortcutsScreen extends ConsumerWidget {
                             'كافة أقسام المحل والاختصارات',
                             style: TextStyle(
                               color: Colors.white,
-                              fontSize: 17,
+                              fontSize: 14.5,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          SizedBox(height: 4),
+                          SizedBox(height: 1),
                           Text(
-                            'اضغط على أي قسم للانتقال إليه مباشرة داخل نفس الشاشة',
+                            'الوصول السريع لجميع أدوات وإدارات النظام',
                             style: TextStyle(
                               color: Colors.white70,
-                              fontSize: 12,
+                              fontSize: 10.5,
                             ),
                           ),
                         ],
                       ),
                     ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.18),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        '${shortcuts.length} قسم',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 8),
               GridView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: isWide ? 3 : 2,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  childAspectRatio: isWide ? 2.3 : 1.35,
+                  crossAxisCount: crossAxisCount,
+                  crossAxisSpacing: 8,
+                  mainAxisSpacing: 8,
+                  childAspectRatio: childAspectRatio,
                 ),
                 itemCount: shortcuts.length,
                 itemBuilder: (context, index) {
                   final s = shortcuts[index];
                   return Material(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(14),
-                    elevation: 1,
-                    shadowColor: Colors.black12,
+                    borderRadius: BorderRadius.circular(12),
+                    elevation: 0.5,
+                    shadowColor: Colors.black.withValues(alpha: 0.05),
                     child: InkWell(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(12),
                       onTap: () => onNavigate(s.route),
-                      child: Padding(
-                        padding: const EdgeInsets.all(14),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
+                      splashColor: s.color.withValues(alpha: 0.1),
+                      highlightColor: s.color.withValues(alpha: 0.05),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: s.color.withValues(alpha: 0.18),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
                           children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: s.color.withValues(alpha: 0.12),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: Icon(s.icon, color: s.color, size: 22),
-                                ),
-                                if (s.badge > 0)
-                                  Badge(
-                                    label: Text('${s.badge}'),
-                                    backgroundColor: AppColors.DANGER_RED,
-                                    child: const SizedBox.shrink(),
-                                  ),
-                              ],
+                            Container(
+                              width: 34,
+                              height: 34,
+                              decoration: BoxDecoration(
+                                color: s.color.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(9),
+                              ),
+                              child: Icon(s.icon, color: s.color, size: 19),
                             ),
-                            const Spacer(),
-                            Text(
-                              s.title,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                                color: AppColors.TEXT_PRIMARY,
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          s.title,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 12.5,
+                                            color: AppColors.TEXT_PRIMARY,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      if (s.badge > 0)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 5,
+                                            vertical: 1.5,
+                                          ),
+                                          margin: const EdgeInsets.symmetric(
+                                            horizontal: 3,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: AppColors.DANGER_RED,
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: Text(
+                                            '${s.badge}',
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 9.5,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 1),
+                                  Text(
+                                    s.subtitle,
+                                    style: const TextStyle(
+                                      fontSize: 9.5,
+                                      color: AppColors.TEXT_SECONDARY,
+                                      height: 1.15,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
                               ),
                             ),
-                            const SizedBox(height: 3),
-                            Text(
-                              s.subtitle,
-                              style: const TextStyle(
-                                fontSize: 10.5,
-                                color: AppColors.TEXT_SECONDARY,
-                                height: 1.2,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
+                            const SizedBox(width: 2),
+                            Icon(
+                              Icons.chevron_left_rounded,
+                              size: 16,
+                              color: AppColors.TEXT_SECONDARY.withValues(alpha: 0.4),
                             ),
                           ],
                         ),

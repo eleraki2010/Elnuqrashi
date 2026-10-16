@@ -20,9 +20,16 @@ import 'package:alnokrashy_pos/data/repositories/sale_repository.dart';
 import 'package:alnokrashy_pos/presentation/screens/dashboard_screen.dart';
 import 'package:alnokrashy_pos/presentation/screens/main_layout_screen.dart';
 import 'package:alnokrashy_pos/providers/app_providers.dart';
+import 'package:alnokrashy_pos/providers/phase2_providers.dart';
 import 'package:alnokrashy_pos/providers/pos_cart_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  setUpAll(() {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    SharedPreferences.setMockInitialValues({'vat_enabled': false});
+  });
+
   group('SPECKIT Section 5 Core Business Rules Tests', () {
     test('Rule 1: line_total = quantity * unit_price', () {
       final item = SaleInvoiceItem(
@@ -437,6 +444,7 @@ void main() {
           salesHistoryProvider.overrideWith((ref) async => []),
           stockAlertsProvider.overrideWith((ref) async => []),
           topSellingProductsProvider.overrideWith((ref) async => []),
+          customersNearingDueDateProvider.overrideWith((ref) async => []),
         ],
       );
       addTearDown(container.dispose);
@@ -452,7 +460,8 @@ void main() {
           ),
         ),
       );
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
 
       // زر "بيع جديد" (في الترويسة وفي الإجراءات السريعة) → 'pos'
       await tester.tap(find.text('بيع جديد').first);

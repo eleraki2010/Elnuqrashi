@@ -50,9 +50,23 @@ class BackupService {
       },
     };
 
+    // تصدير كافة الجداول الأساسية المعتمدة
     for (final table in _insertOrder) {
       data[table] = await db.query(table);
     }
+
+    // فحص وتصدير أي جداول إضافية إن وجدت في قاعدة البيانات لضمان شمول 100%
+    try {
+      final extraTables = await db.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE 'android_%'",
+      );
+      for (final row in extraTables) {
+        final tName = row['name'] as String?;
+        if (tName != null && !_insertOrder.contains(tName) && !data.containsKey(tName)) {
+          data[tName] = await db.query(tName);
+        }
+      }
+    } catch (_) {}
 
     // حفظ إعدادات المتجر (الاسم، الهاتف، العنوان، ضريبة القيمة المضافة)
     try {
@@ -76,6 +90,38 @@ class BackupService {
         }
       }
     } catch (_) {}
+
+    // حفظ جميع صور المنتجات المحلية كـ Base64 لضمان بقائها وانتقالها عند نقل النسخة أو إعادة التثبيت
+    try {
+      final productImages = <String, String>{};
+      final productsRows = data['products'] as List?;
+      if (productsRows != null) {
+        for (final row in productsRows) {
+          if (row is Map) {
+            final imgPath = row['image_url']?.toString();
+            if (imgPath != null && imgPath.isNotEmpty) {
+              if (!imgPath.startsWith('http://') && !imgPath.startsWith('https://')) {
+                final file = File(imgPath);
+                if (await file.exists()) {
+                  final fileName = p.basename(imgPath);
+                  final len = await file.length();
+                  // نقبل الصور حتى 10 ميجابايت
+                  if (len > 0 && len < 10 * 1024 * 1024) {
+                    final bytes = await file.readAsBytes();
+                    productImages[fileName] = base64Encode(bytes);
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+      if (productImages.isNotEmpty) {
+        data['_product_images_base64'] = productImages;
+      }
+    } catch (e) {
+      debugPrint('تنبيه أثناء حفظ صور المنتجات في النسخة الاحتياطية: $e');
+    }
 
     return data;
   }
@@ -268,13 +314,22 @@ class BackupService {
         await for (final e in dir.list()) {
           if (e is File) {
             final name = p.basename(e.path).toLowerCase();
-            if (name.endsWith('.json') &&
-                (name.contains('backup') ||
-                    name.contains('alnokrashy') ||
-                    name.contains('elnuqrashi') ||
-                    name.startsWith('202') ||
-                    name.startsWith('bak_'))) {
-              foundFilesMap[e.path] = e;
+            final isAppBackupDir = dirPath.contains(defaultFolderName);
+            if (name.endsWith('.json')) {
+              if (isAppBackupDir ||
+                  name.contains('backup') ||
+                  name.contains('alnokrashy') ||
+                  name.contains('elnuqrashi') ||
+                  name.contains('nakrashy') ||
+                  name.contains('pos') ||
+                  name.contains('bak') ||
+                  name.contains('نقراشي') ||
+                  name.contains('نوكراشي') ||
+                  name.contains('احتياط') ||
+                  name.contains('نسخة') ||
+                  name.startsWith('202')) {
+                foundFilesMap[e.path] = e;
+              }
             }
           }
         }
@@ -384,13 +439,11 @@ class BackupService {
       throw const FormatException('الملف المحدد فارغ — ربما تعذر حفظه مسبقاً.');
     }
 
-    var str = utf8.decode(bytes);
-    if (str.startsWith('\uFEFF')) {
-      str = str.substring(1);
-    }
-    final json = jsonDecode(str);
-    if (json is! Map<String, dynamic>) {
-      throw const FormatException('ملف النسخة الاحتياطية غير صالح');
+    var str = utf8.decode(bytes, allowMalformed: true);
+    str = str.replaceAll(RegExp(r'^[\uFEFF\u200B\s]+'), '').trim();
+    final dynamic json = jsonDecode(str);
+    if (json is! Map) {
+      throw const FormatException('ملف النسخة الاحتياطية غير صالح (ليس بتنسيق JSON صحيح)');
     }
 
     final meta = json['_meta'];
@@ -398,14 +451,16 @@ class BackupService {
         (meta['app'] == 'alnokrashy_pos' || meta['app'] == 'elnuqrashi_pos');
     final hasStoreTables = json['products'] is List ||
         json['sale_invoices'] is List ||
-        json['categories'] is List;
+        json['categories'] is List ||
+        json['customers'] is List ||
+        json['suppliers'] is List;
 
     if (!isValidApp && !hasStoreTables) {
       throw const FormatException(
           'الملف المختار ليس نسخة احتياطية صالحة لتطبيق النقراشي');
     }
 
-    await restoreFromSnapshot(json);
+    await restoreFromSnapshot(Map<String, dynamic>.from(json));
     return true;
   }
 
@@ -414,46 +469,80 @@ class BackupService {
     final initDir = initialDirectory ?? await getEffectiveBackupDirectoryPath();
 
     FilePickerResult? result;
-    try {
-      result = await FilePicker.platform.pickFiles(
-        dialogTitle: 'اختر ملف النسخة الاحتياطية',
-        type: FileType.custom,
-        allowedExtensions: ['json'],
-        initialDirectory: Directory(initDir).existsSync() ? initDir : null,
-        withData: true,
-        lockParentWindow: true,
-      );
-    } catch (_) {
-      // بديل إذا لم يدعم نظام أندرويد نوع الملف المخصص
-      result = await FilePicker.platform.pickFiles(
-        dialogTitle: 'اختر ملف النسخة الاحتياطية',
-        type: FileType.any,
-        withData: true,
-        lockParentWindow: true,
-      );
+    if (!kIsWeb && Platform.isAndroid) {
+      // على أندرويد: استخدام FileType.any ضروري لعدم تعتيم ملفات .json من قِبل مديري الملفات بالنظام
+      try {
+        result = await FilePicker.platform.pickFiles(
+          dialogTitle: 'اختر ملف النسخة الاحتياطية',
+          type: FileType.any,
+          withData: true,
+          withReadStream: true,
+        );
+      } catch (_) {
+        result = await FilePicker.platform.pickFiles(
+          dialogTitle: 'اختر ملف النسخة الاحتياطية',
+          type: FileType.custom,
+          allowedExtensions: ['json'],
+          withData: true,
+          withReadStream: true,
+        );
+      }
+    } else {
+      // لأنظمة سطح المكتب (ويندوز / ماك / لينكس)
+      try {
+        result = await FilePicker.platform.pickFiles(
+          dialogTitle: 'اختر ملف النسخة الاحتياطية',
+          type: FileType.custom,
+          allowedExtensions: ['json'],
+          initialDirectory: Directory(initDir).existsSync() ? initDir : null,
+          withData: true,
+          withReadStream: true,
+          lockParentWindow: true,
+        );
+      } catch (_) {
+        result = await FilePicker.platform.pickFiles(
+          dialogTitle: 'اختر ملف النسخة الاحتياطية',
+          type: FileType.any,
+          withData: true,
+          withReadStream: true,
+          lockParentWindow: true,
+        );
+      }
     }
 
     if (result == null || result.files.isEmpty) return false;
 
     final file = result.files.single;
     List<int>? bytes = file.bytes;
-    if (bytes == null && file.path != null) {
+
+    if ((bytes == null || bytes.isEmpty) && file.readStream != null) {
       try {
-        bytes = await File(file.path!).readAsBytes();
+        final streamData = <int>[];
+        await for (final chunk in file.readStream!) {
+          streamData.addAll(chunk);
+        }
+        if (streamData.isNotEmpty) bytes = streamData;
+      } catch (_) {}
+    }
+
+    if ((bytes == null || bytes.isEmpty) && file.path != null) {
+      try {
+        final f = File(file.path!);
+        if (await f.exists()) {
+          bytes = await f.readAsBytes();
+        }
       } catch (_) {}
     }
 
     if (bytes == null || bytes.isEmpty) {
-      throw const FormatException('تعذّر قراءة الملف المختار — تأكد من صحة الملف.');
+      throw const FormatException('تعذّر قراءة الملف المختار — تأكد من صحة الملف وصلاحيات الوصول.');
     }
 
-    var str = utf8.decode(bytes);
-    if (str.startsWith('\uFEFF')) {
-      str = str.substring(1);
-    }
-    final json = jsonDecode(str);
-    if (json is! Map<String, dynamic>) {
-      throw const FormatException('ملف النسخة الاحتياطية غير صالح');
+    var str = utf8.decode(bytes, allowMalformed: true);
+    str = str.replaceAll(RegExp(r'^[\uFEFF\u200B\s]+'), '').trim();
+    final dynamic json = jsonDecode(str);
+    if (json is! Map) {
+      throw const FormatException('ملف النسخة الاحتياطية غير صالح (ليس بتنسيق JSON صحيح)');
     }
 
     final meta = json['_meta'];
@@ -461,39 +550,108 @@ class BackupService {
         (meta['app'] == 'alnokrashy_pos' || meta['app'] == 'elnuqrashi_pos');
     final hasStoreTables = json['products'] is List ||
         json['sale_invoices'] is List ||
-        json['categories'] is List;
+        json['categories'] is List ||
+        json['customers'] is List ||
+        json['suppliers'] is List;
 
     if (!isValidApp && !hasStoreTables) {
       throw const FormatException(
           'الملف المختار ليس نسخة احتياطية صالحة لتطبيق النقراشي');
     }
 
-    await restoreFromSnapshot(json);
+    await restoreFromSnapshot(Map<String, dynamic>.from(json));
     return true;
   }
 
-  /// استعادة البيانات من كائن لقطة JSON تم التحقق منه.
+  /// استعادة البيانات من كائن لقطة JSON تم التحقق منه بأعلى درجات الأمان والتوافق.
   static Future<void> restoreFromSnapshot(Map<String, dynamic> snapshot) async {
     final db = await AppDatabase.instance;
 
-    await db.transaction((txn) async {
-      // حذف الأبناء قبل الآباء (عكس ترتيب الإدراج).
-      for (final table in _insertOrder.reversed) {
-        await txn.delete(table);
-      }
+    // تعطيل فحص المفاتيح الأجنبية مؤقتاً أثناء عملية الاسترجاع لتفادي فشل المعاملة
+    // بسبب سجلات قديمة أو اختلاف ترتيب العلاقات بين الإصدارات المختلفة.
+    await db.execute('PRAGMA foreign_keys = OFF;');
 
-      // إعادة الإدراج بالترتيب الصحيح.
-      for (final table in _insertOrder) {
-        final rows = snapshot[table];
-        if (rows is! List) continue;
-        for (final row in rows) {
-          if (row is Map<String, dynamic>) {
-            await txn.insert(table, row,
-                conflictAlgorithm: ConflictAlgorithm.ignore);
+    try {
+      await db.transaction((txn) async {
+        // 1. تفريغ الجداول الحالية بالترتيب العكسي
+        for (final table in _insertOrder.reversed) {
+          try {
+            await txn.delete(table);
+          } catch (e) {
+            debugPrint('تنبيه: تعذر مسح الجدول $table أثناء الاسترجاع: $e');
           }
         }
-      }
-    });
+
+        // 2. فحص وإدراج البيانات جدولاً بجدول مع مطابقة الأعمدة الحالية في قاعدة البيانات
+        for (final table in _insertOrder) {
+          final rows = snapshot[table];
+          if (rows is! List) continue;
+
+          // جلب الأعمدة الفعلية الموجودة في الجدول لتجنب خطأ (no such column)
+          final colsInfo = await txn.rawQuery('PRAGMA table_info($table)');
+          final validCols = <String>{};
+          for (final col in colsInfo) {
+            validCols.add(col['name'] as String);
+          }
+
+          for (final rawRow in rows) {
+            if (rawRow is! Map) continue;
+            final cleanRow = <String, dynamic>{};
+            for (final entry in rawRow.entries) {
+              final key = entry.key.toString();
+              if (validCols.contains(key)) {
+                cleanRow[key] = entry.value;
+              }
+            }
+
+            // ضمان تعبئة الأعمدة الإجبارية التي لا تحتوي على قيم افتراضية
+            _fillMissingRequiredValues(table, cleanRow);
+
+            try {
+              await txn.insert(
+                table,
+                cleanRow,
+                conflictAlgorithm: ConflictAlgorithm.replace,
+              );
+            } catch (e) {
+              debugPrint('خطأ في إدراج سطر بالجدول $table: $e');
+            }
+          }
+        }
+
+        // 3. فحص وإدراج أي جداول إضافية إن وجدت في النسخة الاحتياطية
+        for (final entry in snapshot.entries) {
+          final tName = entry.key;
+          if (tName.startsWith('_') || _insertOrder.contains(tName)) continue;
+          final rows = entry.value;
+          if (rows is! List) continue;
+
+          try {
+            final colsInfo = await txn.rawQuery('PRAGMA table_info($tName)');
+            if (colsInfo.isEmpty) continue;
+            final validCols = colsInfo.map((c) => c['name'] as String).toSet();
+            for (final rawRow in rows) {
+              if (rawRow is! Map) continue;
+              final cleanRow = <String, dynamic>{};
+              for (final e in rawRow.entries) {
+                if (validCols.contains(e.key.toString())) {
+                  cleanRow[e.key.toString()] = e.value;
+                }
+              }
+              if (cleanRow.isNotEmpty) {
+                await txn.insert(tName, cleanRow, conflictAlgorithm: ConflictAlgorithm.replace);
+              }
+            }
+          } catch (_) {}
+        }
+
+        // 4. التحقق من سلامة الجداول الأساسية وإعادة زرع البيانات الافتراضية إذا كانت فارغة
+        await _ensureEssentialDefaults(txn);
+      });
+    } finally {
+      // إعادة تفعيل فحص المفاتيح الأجنبية دائماً
+      await db.execute('PRAGMA foreign_keys = ON;');
+    }
 
     // استعادة إعدادات المتجر إلى SharedPreferences
     if (snapshot['_store_settings'] is Map) {
@@ -524,6 +682,175 @@ class BackupService {
         await logoFile.writeAsBytes(logoBytes);
         await ShopProfileRepository().saveLogoPath(logoFile.path);
       } catch (_) {}
+    }
+
+    // استعادة صور المنتجات من Base64 وتحديث مساراتها على الجهاز الجديد
+    if (snapshot['_product_images_base64'] is Map) {
+      try {
+        final productImages = snapshot['_product_images_base64'] as Map;
+        final appDir = await getApplicationDocumentsDirectory();
+        final imagesDir = Directory(p.join(appDir.path, 'product_images'));
+        if (!await imagesDir.exists()) {
+          await imagesDir.create(recursive: true);
+        }
+
+        final fileNameToNewPath = <String, String>{};
+        for (final entry in productImages.entries) {
+          try {
+            final fileName = entry.key.toString();
+            final base64Str = entry.value.toString();
+            if (base64Str.isNotEmpty) {
+              final targetFile = File(p.join(imagesDir.path, fileName));
+              await targetFile.writeAsBytes(base64Decode(base64Str));
+              fileNameToNewPath[fileName] = targetFile.path;
+            }
+          } catch (_) {}
+        }
+
+        // تحديث مسارات الصور للمنتجات في قاعدة البيانات لتشير إلى مكان الملف الجديد على الجهاز
+        if (fileNameToNewPath.isNotEmpty) {
+          for (final entry in fileNameToNewPath.entries) {
+            await db.rawUpdate(
+              'UPDATE products SET image_url = ? WHERE image_url LIKE ?',
+              [entry.value, '%${entry.key}'],
+            );
+          }
+        }
+      } catch (e) {
+        debugPrint('تنبيه أثناء استعادة صور المنتجات: $e');
+      }
+    }
+  }
+
+  /// إكمال أي قيم إجبارية مفقودة من نسخ قديمة لتفادي أخطاء قيود NOT NULL
+  static void _fillMissingRequiredValues(String table, Map<String, dynamic> row) {
+    final now = DateTime.now().toIso8601String();
+    switch (table) {
+      case 'products':
+        row['name'] ??= 'صنف غير مسمى';
+        row['category_id'] ??= 'cat_plumbing';
+        row['unit'] ??= 'قطعة';
+        row['purchase_price'] ??= 0.0;
+        row['sale_price'] ??= 0.0;
+        row['quantity'] ??= 0;
+        row['min_quantity_alert'] ??= 5;
+        row['created_at'] ??= now;
+        row['updated_at'] ??= now;
+        break;
+      case 'categories':
+        row['name'] ??= 'تصنيف عام';
+        break;
+      case 'customers':
+        row['name'] ??= 'عميل';
+        row['balance_due'] ??= 0.0;
+        row['created_at'] ??= now;
+        row['updated_at'] ??= now;
+        break;
+      case 'suppliers':
+        row['name'] ??= 'مورد';
+        row['balance_owed'] ??= 0.0;
+        row['created_at'] ??= now;
+        row['updated_at'] ??= now;
+        break;
+      case 'sale_invoices':
+        row['invoice_number'] ??= 'INV-${row['id'] ?? DateTime.now().millisecondsSinceEpoch}';
+        row['subtotal'] ??= row['total'] ?? 0.0;
+        row['discount'] ??= 0.0;
+        row['tax'] ??= 0.0;
+        row['total'] ??= 0.0;
+        row['paid_amount'] ??= row['total'] ?? 0.0;
+        row['change_due'] ??= 0.0;
+        row['payment_method'] ??= 'cash';
+        row['status'] ??= 'completed';
+        row['created_at'] ??= now;
+        break;
+      case 'sale_invoice_items':
+        row['quantity'] ??= 1;
+        row['unit_price'] ??= 0.0;
+        row['line_total'] ??= (row['quantity'] as num? ?? 1) * (row['unit_price'] as num? ?? 0.0);
+        break;
+      case 'purchase_invoices':
+        row['total'] ??= 0.0;
+        row['tax'] ??= 0.0;
+        row['paid_amount'] ??= 0.0;
+        row['created_at'] ??= now;
+        break;
+      case 'purchase_invoice_items':
+        row['quantity'] ??= 1;
+        row['unit_cost'] ??= 0.0;
+        row['line_total'] ??= (row['quantity'] as num? ?? 1) * (row['unit_cost'] as num? ?? 0.0);
+        break;
+      case 'expenses':
+        row['title'] ??= 'مصروف';
+        row['amount'] ??= 0.0;
+        row['category'] ??= 'أخرى';
+        row['created_at'] ??= now;
+        break;
+      case 'users':
+        row['name'] ??= 'مستخدم';
+        row['username'] ??= 'user_${row['id'] ?? DateTime.now().millisecondsSinceEpoch}';
+        row['password_hash'] ??= AppDatabase.hashPassword('123456');
+        row['role'] ??= 'cashier';
+        break;
+    }
+  }
+
+  /// ضمان عدم ترك الجداول الحيوية فارغة بعد الاسترجاع حتى لو كانت النسخة خالية منها
+  static Future<void> _ensureEssentialDefaults(Transaction txn) async {
+    // 1. ضمان وجود حساب المالك على الأقل
+    final userCount = Sqflite.firstIntValue(
+          await txn.rawQuery('SELECT COUNT(*) FROM users'),
+        ) ?? 0;
+    if (userCount == 0) {
+      await txn.insert('users', {
+        'id': 'user_owner',
+        'name': 'المالك',
+        'username': 'owner',
+        'password_hash': AppDatabase.hashPassword('owner123'),
+        'role': 'owner',
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
+    }
+
+    // 2. ضمان وجود التصنيفات الافتراضية
+    final catCount = Sqflite.firstIntValue(
+          await txn.rawQuery('SELECT COUNT(*) FROM categories'),
+        ) ?? 0;
+    if (catCount == 0) {
+      final defaultCats = [
+        {'id': 'cat_plumbing', 'name': 'أدوات صحية وسباكة', 'parent_id': null},
+        {'id': 'cat_pipes', 'name': 'مواسير ولوازم', 'parent_id': 'cat_plumbing'},
+        {'id': 'cat_mixers', 'name': 'خلاطات ودش', 'parent_id': 'cat_plumbing'},
+        {'id': 'cat_ceramics', 'name': 'سيراميك وبورسلين', 'parent_id': null},
+        {'id': 'cat_tools', 'name': 'عدد وأدوات تركيب', 'parent_id': null},
+        {'id': 'cat_insulation', 'name': 'عوازل ومواد لاصقة', 'parent_id': null},
+      ];
+      for (final cat in defaultCats) {
+        await txn.insert('categories', cat, conflictAlgorithm: ConflictAlgorithm.ignore);
+      }
+    }
+
+    // 3. ضمان وجود فئات المصروفات الافتراضية
+    final expCatCount = Sqflite.firstIntValue(
+          await txn.rawQuery('SELECT COUNT(*) FROM expense_categories'),
+        ) ?? 0;
+    if (expCatCount == 0) {
+      const defaults = [
+        'إيجار',
+        'فواتير (كهرباء/مياه)',
+        'رواتب',
+        'صيانة',
+        'شحن ونقل',
+        'توالف وكسر مخزون',
+        'أخرى',
+      ];
+      final now = DateTime.now().toIso8601String();
+      for (final name in defaults) {
+        await txn.insert('expense_categories', {
+          'id': name,
+          'name': name,
+          'created_at': now,
+        }, conflictAlgorithm: ConflictAlgorithm.ignore);
+      }
     }
   }
 }

@@ -18,6 +18,7 @@ import '../../core/services/printer_settings_service.dart';
 import 'package:printing/printing.dart';
 import '../../data/repositories/shop_profile_repository.dart';
 import '../../providers/app_providers.dart';
+import '../../providers/phase2_providers.dart';
 import '../widgets/max_width_container.dart';
 import 'users_settings_screen.dart';
 
@@ -1160,6 +1161,34 @@ class _BackupRestoreSectionState extends ConsumerState<_BackupRestoreSection> {
     }
   }
 
+  void _invalidateAllData() {
+    ref.invalidate(productListProvider);
+    ref.invalidate(categoriesListProvider);
+    ref.invalidate(customersListProvider);
+    ref.invalidate(suppliersListProvider);
+    ref.invalidate(salesHistoryProvider);
+    ref.invalidate(purchasesListProvider);
+    ref.invalidate(expensesListProvider);
+    ref.invalidate(shopBalanceProvider);
+    ref.invalidate(dashboardStatsProvider);
+    ref.invalidate(stockAlertsProvider);
+    ref.invalidate(lowStockCountProvider);
+    ref.invalidate(totalCustomerDebtProvider);
+    ref.invalidate(overdueCustomersProvider);
+    ref.invalidate(customersNearingDueDateProvider);
+    ref.invalidate(allCustomersNearingDueDateProvider);
+    ref.invalidate(topSellingProductsProvider);
+    ref.invalidate(allTopSellingProductsProvider);
+    ref.invalidate(paymentsProvider);
+    ref.invalidate(auditLogProvider);
+    ref.invalidate(shopProfileProvider);
+    ref.invalidate(vatEnabledProvider);
+    ref.invalidate(storeNameProvider);
+    ref.invalidate(storePhoneProvider);
+    ref.invalidate(storeAddressProvider);
+    ref.invalidate(storeLogoPathProvider);
+  }
+
   Future<void> _restoreSpecificLocalBackup(File file) async {
     final fileName = p.basename(file.path);
     final confirmed = await showDialog<bool>(
@@ -1198,12 +1227,17 @@ class _BackupRestoreSectionState extends ConsumerState<_BackupRestoreSection> {
     try {
       final success = await BackupService.restoreFromSpecificFile(file);
       if (mounted) {
+        if (success) {
+          _invalidateAllData();
+          await _loadLocalBackupInfo();
+        }
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor:
                 success ? AppColors.SUCCESS_GREEN : AppColors.DANGER_RED,
             content: Text(success
-                ? 'تم استعادة النسخة الاحتياطية ($fileName) بنجاح! أعد تشغيل التطبيق لتحديث الشاشات.'
+                ? 'تم استعادة النسخة الاحتياطية ($fileName) بنجاح وتحديث كافة البيانات في التطبيق.'
                 : 'فشلت الاستعادة'),
           ),
         );
@@ -1381,12 +1415,17 @@ class _BackupRestoreSectionState extends ConsumerState<_BackupRestoreSection> {
     try {
       final success = await GoogleDriveBackupService.restoreBackup(file.id!);
       if (mounted) {
+        if (success) {
+          _invalidateAllData();
+          await _loadLocalBackupInfo();
+        }
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor:
                 success ? AppColors.SUCCESS_GREEN : AppColors.DANGER_RED,
             content: Text(success
-                ? 'تم استعادة النسخة السحابية بنجاح! أعد تشغيل التطبيق لتحديث الشاشات.'
+                ? 'تم استعادة النسخة السحابية بنجاح وتحديث كافة البيانات في التطبيق.'
                 : 'فشلت الاستعادة'),
           ),
         );
@@ -1476,12 +1515,17 @@ class _BackupRestoreSectionState extends ConsumerState<_BackupRestoreSection> {
         initialDirectory: _backupDirPath.isNotEmpty ? _backupDirPath : null,
       );
       if (mounted) {
+        if (success) {
+          _invalidateAllData();
+          await _loadLocalBackupInfo();
+        }
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor:
                 success ? AppColors.SUCCESS_GREEN : AppColors.NEUTRAL_BG,
             content: Text(success
-                ? 'تم استعادة النسخة الاحتياطية بنجاح. أعد تشغيل التطبيق لتحديث الشاشات.'
+                ? 'تم استعادة النسخة الاحتياطية بنجاح وتحديث كافة البيانات في التطبيق.'
                 : 'تم إلغاء الاستعادة'),
           ),
         );

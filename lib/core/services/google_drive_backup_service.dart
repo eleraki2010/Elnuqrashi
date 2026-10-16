@@ -195,17 +195,27 @@ class GoogleDriveBackupService {
       throw Exception('ملف النسخة الاحتياطية فارغ.');
     }
 
-    final json = jsonDecode(utf8.decode(dataStore));
-    if (json is! Map<String, dynamic>) {
-      throw Exception('بيانات النسخة الاحتياطية غير صالحة.');
+    var str = utf8.decode(dataStore, allowMalformed: true);
+    str = str.replaceAll(RegExp(r'^[\uFEFF\u200B\s]+'), '').trim();
+    final dynamic json = jsonDecode(str);
+    if (json is! Map) {
+      throw Exception('بيانات النسخة الاحتياطية غير صالحة (ليس بتنسيق JSON صحيح).');
     }
 
     final meta = json['_meta'];
-    if (meta is! Map || meta['app'] != 'alnokrashy_pos') {
+    final isValidApp = meta is Map &&
+        (meta['app'] == 'alnokrashy_pos' || meta['app'] == 'elnuqrashi_pos');
+    final hasStoreTables = json['products'] is List ||
+        json['sale_invoices'] is List ||
+        json['categories'] is List ||
+        json['customers'] is List ||
+        json['suppliers'] is List;
+
+    if (!isValidApp && !hasStoreTables) {
       throw Exception('الملف المختار ليس نسخة احتياطية صالحة لتطبيق النقراشي.');
     }
 
-    await BackupService.restoreFromSnapshot(json);
+    await BackupService.restoreFromSnapshot(Map<String, dynamic>.from(json));
     return true;
   }
 
