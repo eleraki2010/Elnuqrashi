@@ -244,9 +244,13 @@ class PurchasesHistoryScreen extends ConsumerWidget {
                               leading: CircleAvatar(
                                 backgroundColor: AppColors.PRIMARY_BLUE
                                     .withValues(alpha: 0.12),
-                                child: const Icon(
-                                  Icons.inventory_2,
-                                  color: AppColors.PRIMARY_BLUE,
+                                child: Text(
+                                  '#${index + 1}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.PRIMARY_BLUE,
+                                    fontSize: 13,
+                                  ),
                                 ),
                               ),
                               title: Text(

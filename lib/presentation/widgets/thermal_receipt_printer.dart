@@ -7,6 +7,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
 import '../../core/constants/app_constants.dart';
+import '../../core/services/printer_settings_service.dart';
 import '../../data/models/sale_invoice.dart';
 
 /// نتيجة بناء الإيصال: البايتر + أبعاد الصفحة النهائية (نقطة).
@@ -58,8 +59,6 @@ class ThermalReceiptPrinter {
     }
   }
 
-  /// ارتفاع صفحة الإيصال القياسية (مم) عند التوسيط العمودي.
-  static const double _fixedReceiptHeightMm = 190.0;
 
   /// عرض حراري تقريبي (نقطة): 85مم = 240.6 نقطة. أي عرض مطلوب ≤ 240
   /// يُعامل كلفة حرارية (57/80مم)، وكل ما هو أعرض يُعامل كورقة كبيرة.
@@ -68,13 +67,8 @@ class ThermalReceiptPrinter {
   static bool _isThermalWidth(double widthPt) =>
       widthPt > 0 && widthPt <= _thermalMaxWidthPt;
 
-  /// بناء الإيصال (مرحلتان) والعودة بالوثيقة وارتفاعها الفعلي.
-  ///
-  /// المرحلة الأولى بمقاس لفة ذاتي الارتفاع لمعرفة طول المحتوى الفعلي،
-  /// ثم إذا احتوى المحتوى على صفحة القياسية (190mm) تُبنى الصفحة
-  /// بارتفاع ثابت مع توسيط الإيصال عمودياً في منتصفها (طلب الاستخدام:
-  /// "الفاتورة بالكامل في منتصف الصفحة عمودياً"). الفواتير الطويلة تبقى
-  /// على الارتفاع الذاتي حتى لا يُقص أي جزء منها.
+  /// بناء الإيصال بالارتفاع الفعلي التلقائي للوثيقة لضمان طباعة كامل الفاتورة
+  /// من البداية وحتى النهاية دون أي اقتصاص أو توسيط وهمي يقطع المحتوى.
   static Future<_BuiltReceipt> _buildReceipt({
     required SaleInvoice invoice,
     required bool width80mm,
@@ -89,26 +83,6 @@ class ThermalReceiptPrinter {
 
     final widthPt = width80mm ? 80 * PdfPageFormat.mm : 57 * PdfPageFormat.mm;
 
-    // المرحلة 1: ارتفاع ذاتي (لفة حرارية) لقياس طول المحتوى الفعلي.
-    final autoDoc = _buildReceiptDocument(
-      invoice: invoice,
-      width80mm: width80mm,
-      storeName: storeName,
-      storePhone: storePhone,
-      logo: logo,
-      baseFont: baseFont,
-      boldFont: boldFont,
-      fixedPageHeightMm: null,
-    );
-    await autoDoc.save();
-    final contentHeight =
-        autoDoc.document.pdfPageList.pages.first.pageFormat.height;
-
-    // المرحلة 2: صفحة قياسية ثابتة مع توسيط عمودي إن احتوى المحتوى عليها؛
-    // وإلا الارتفاع الذاتي (لا يُقصّ أي جزء من الفاتورة الطويلة).
-    final fixedUsableHeight =
-        _fixedReceiptHeightMm * PdfPageFormat.mm - 16.0;
-    final useFixed = contentHeight <= fixedUsableHeight;
     final doc = _buildReceiptDocument(
       invoice: invoice,
       width80mm: width80mm,
@@ -117,12 +91,9 @@ class ThermalReceiptPrinter {
       logo: logo,
       baseFont: baseFont,
       boldFont: boldFont,
-      fixedPageHeightMm: useFixed ? _fixedReceiptHeightMm : null,
     );
     final bytes = await doc.save();
-    final heightPt = useFixed
-        ? _fixedReceiptHeightMm * PdfPageFormat.mm
-        : contentHeight;
+    final heightPt = doc.document.pdfPageList.pages.first.pageFormat.height;
 
     return _BuiltReceipt(bytes, heightPt, widthPt);
   }
@@ -236,8 +207,8 @@ class ThermalReceiptPrinter {
       return built.bytes;
     }
 
-    // ورقة كبيرة (A4 أو شاشة المعاينة قبل الطباعة على الهاتف/التابلت):
-    // بناء الفاتورة لتطابق شاشة التطبيق تماماً (كارت أنيق بعرض 440 وخطوط واضحة)
+    // ورقة كبيرة (A4 أو طابعة عادية أو معاينة تابلت):
+    // كارت الفاتورة أنيق ومقاساته متجاوبة مع FittedBox لضمان عدم اقتصاص أي جزء
     final body = _receiptBody(
       invoice: invoice,
       width80mm: width80mm,
@@ -249,28 +220,31 @@ class ThermalReceiptPrinter {
       isLargePaper: true,
     );
 
-    const cardWidth = 440.0;
+    const cardWidth = 400.0;
 
     final doc = pw.Document();
     doc.addPage(
       pw.Page(
         pageFormat: requested,
-        margin: const pw.EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        margin: const pw.EdgeInsets.all(12),
         build: (context) {
           return pw.Theme(
             data: pw.ThemeData.withFont(base: baseFont, bold: boldFont),
             child: pw.Directionality(
               textDirection: pw.TextDirection.rtl,
               child: pw.Center(
-                child: pw.Container(
-                  width: cardWidth,
-                  padding: const pw.EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                  decoration: pw.BoxDecoration(
-                    color: PdfColors.white,
-                    border: pw.Border.all(color: _colorBorder, width: 1),
-                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(16)),
+                child: pw.FittedBox(
+                  fit: pw.BoxFit.scaleDown,
+                  child: pw.Container(
+                    width: cardWidth,
+                    padding: const pw.EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    decoration: pw.BoxDecoration(
+                      color: PdfColors.white,
+                      border: pw.Border.all(color: _colorBorder, width: 1),
+                      borderRadius: const pw.BorderRadius.all(pw.Radius.circular(12)),
+                    ),
+                    child: body,
                   ),
-                  child: body,
                 ),
               ),
             ),
@@ -281,8 +255,7 @@ class ThermalReceiptPrinter {
     return doc.save();
   }
 
-  /// بناء وثيقة الإيصال الحرارية. [fixedPageHeightMm] == null → ارتفاع ذاتي
-  /// (مثل لفة حرارية)، وإلا ارتفاع ثابت مع توسيط المحتوى عمودياً.
+  /// بناء وثيقة الإيصال الحرارية بالارتفاع التلقائي الطبيعي للفة الورق.
   static pw.Document _buildReceiptDocument({
     required SaleInvoice invoice,
     required bool width80mm,
@@ -291,14 +264,8 @@ class ThermalReceiptPrinter {
     required pw.ImageProvider? logo,
     required pw.Font baseFont,
     required pw.Font boldFont,
-    required double? fixedPageHeightMm,
   }) {
-    final pageFormat = fixedPageHeightMm == null
-        ? (width80mm ? PdfPageFormat.roll80 : PdfPageFormat.roll57)
-        : PdfPageFormat(
-            width80mm ? 80 * PdfPageFormat.mm : 57 * PdfPageFormat.mm,
-            fixedPageHeightMm * PdfPageFormat.mm,
-          );
+    final pageFormat = width80mm ? PdfPageFormat.roll80 : PdfPageFormat.roll57;
 
     final body = _receiptBody(
       invoice: invoice,
@@ -315,16 +282,13 @@ class ThermalReceiptPrinter {
     doc.addPage(
       pw.Page(
         pageFormat: pageFormat,
-        margin: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+        margin: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 6),
         build: (context) {
-          final pw.Widget content = fixedPageHeightMm != null
-              ? pw.Center(child: body)
-              : body;
           return pw.Theme(
             data: pw.ThemeData.withFont(base: baseFont, bold: boldFont),
             child: pw.Directionality(
               textDirection: pw.TextDirection.rtl,
-              child: content,
+              child: body,
             ),
           );
         },
@@ -350,24 +314,24 @@ class ThermalReceiptPrinter {
     final dateFmt = DateFormat('yyyy/MM/dd - hh:mm a');
 
     // أبعاد وخطوط متناسبة مع الشاشة ومع الورق الحراري
-    final double titleSize = isLargePaper ? 18.0 : (width80mm ? 13.0 : 11.0);
-    final double logoSize = isLargePaper ? 38.0 : (width80mm ? 30.0 : 24.0);
-    final double subSize = isLargePaper ? 11.5 : (width80mm ? 8.0 : 7.0);
-    final double typeSize = isLargePaper ? 12.0 : (width80mm ? 9.0 : 8.0);
-    final double invoiceNumSize = isLargePaper ? 13.0 : (width80mm ? 8.5 : 7.5);
-    final double badgeSize = isLargePaper ? 11.0 : (width80mm ? 7.5 : 6.5);
-    final double dateSize = isLargePaper ? 11.5 : (width80mm ? 8.0 : 7.0);
-    final double customerSize = isLargePaper ? 12.0 : (width80mm ? 8.0 : 7.0);
-    final double tableHeaderSize = isLargePaper ? 12.0 : (width80mm ? 8.0 : 7.0);
-    final double tableDataSize = isLargePaper ? 12.0 : (width80mm ? 7.5 : 6.5);
-    final double totalLabelSize = isLargePaper ? 15.0 : (width80mm ? 9.5 : 8.5);
-    final double totalValSize = isLargePaper ? 17.0 : (width80mm ? 10.0 : 9.0);
-    final double paidSize = isLargePaper ? 12.5 : (width80mm ? 8.0 : 7.0);
-    final double changeSize = isLargePaper ? 12.5 : (width80mm ? 8.0 : 7.0);
-    final double footerSize = isLargePaper ? 11.0 : (width80mm ? 7.0 : 6.0);
-    final double barcodeWidth = isLargePaper ? 130.0 : (width80mm ? 110.0 : 90.0);
-    final double barcodeHeight = isLargePaper ? 26.0 : (width80mm ? 22.0 : 18.0);
-    final double thankYouSize = isLargePaper ? 12.5 : (width80mm ? 8.5 : 7.5);
+    final double titleSize = isLargePaper ? 16.0 : (width80mm ? 13.0 : 11.0);
+    final double logoSize = isLargePaper ? 32.0 : (width80mm ? 30.0 : 24.0);
+    final double subSize = isLargePaper ? 10.5 : (width80mm ? 8.0 : 7.0);
+    final double typeSize = isLargePaper ? 11.0 : (width80mm ? 9.0 : 8.0);
+    final double invoiceNumSize = isLargePaper ? 12.0 : (width80mm ? 8.5 : 7.5);
+    final double badgeSize = isLargePaper ? 10.0 : (width80mm ? 7.5 : 6.5);
+    final double dateSize = isLargePaper ? 10.5 : (width80mm ? 8.0 : 7.0);
+    final double customerSize = isLargePaper ? 11.0 : (width80mm ? 8.0 : 7.0);
+    final double tableHeaderSize = isLargePaper ? 11.0 : (width80mm ? 8.0 : 7.0);
+    final double tableDataSize = isLargePaper ? 10.5 : (width80mm ? 7.5 : 6.5);
+    final double totalLabelSize = isLargePaper ? 13.5 : (width80mm ? 9.5 : 8.5);
+    final double totalValSize = isLargePaper ? 15.0 : (width80mm ? 10.0 : 9.0);
+    final double paidSize = isLargePaper ? 11.0 : (width80mm ? 8.0 : 7.0);
+    final double changeSize = isLargePaper ? 11.0 : (width80mm ? 8.0 : 7.0);
+    final double footerSize = isLargePaper ? 9.5 : (width80mm ? 7.0 : 6.0);
+    final double barcodeWidth = isLargePaper ? 120.0 : (width80mm ? 110.0 : 90.0);
+    final double barcodeHeight = isLargePaper ? 24.0 : (width80mm ? 22.0 : 18.0);
+    final double thankYouSize = isLargePaper ? 11.0 : (width80mm ? 8.5 : 7.5);
 
     final statusBg = invoice.status == 'completed'
         ? _colorGreenBg
@@ -476,25 +440,26 @@ class ThermalReceiptPrinter {
                       color: _colorNavy,
                     ),
                   ),
-                  pw.Container(
-                    padding: pw.EdgeInsets.symmetric(
-                      horizontal: isLargePaper ? 8 : 5,
-                      vertical: isLargePaper ? 2.5 : 1.5,
-                    ),
-                    decoration: pw.BoxDecoration(
-                      color: statusBg,
-                      border: pw.Border.all(color: statusBorder, width: 0.6),
-                      borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
-                    ),
-                    child: pw.Text(
-                      invoice.statusArabic,
-                      style: pw.TextStyle(
-                        font: boldFont,
-                        fontSize: badgeSize,
-                        color: statusText,
+                  if (invoice.status != 'completed')
+                    pw.Container(
+                      padding: pw.EdgeInsets.symmetric(
+                        horizontal: isLargePaper ? 8 : 5,
+                        vertical: isLargePaper ? 2.5 : 1.5,
+                      ),
+                      decoration: pw.BoxDecoration(
+                        color: statusBg,
+                        border: pw.Border.all(color: statusBorder, width: 0.6),
+                        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                      ),
+                      child: pw.Text(
+                        invoice.statusArabic,
+                        style: pw.TextStyle(
+                          font: boldFont,
+                          fontSize: badgeSize,
+                          color: statusText,
+                        ),
                       ),
                     ),
-                  ),
                 ],
               ),
               pw.SizedBox(height: isLargePaper ? 5 : 3),
@@ -723,7 +688,7 @@ class ThermalReceiptPrinter {
         // عبارة الشكر
         pw.Center(
           child: pw.Text(
-            'شكراً لتعاملكم معنا ★ نسعد بخدمتكم دائماً',
+            'شكراً لتعاملكم معنا • نسعد بخدمتكم دائماً',
             textAlign: pw.TextAlign.center,
             style: pw.TextStyle(
               font: boldFont,
@@ -827,10 +792,9 @@ class ThermalReceiptPrinter {
       marginAll: 0,
     );
 
-    await Printing.layoutPdf(
+    await PrinterSettingsService.printDocument(
       name: 'فاتورة_${invoice.invoiceNumber}',
       format: paperFormat,
-      forceCustomPrintPaper: true,
       onLayout: (format) => _buildForPaper(
         invoice: invoice,
         width80mm: width80mm,

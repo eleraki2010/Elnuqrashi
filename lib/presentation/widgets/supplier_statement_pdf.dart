@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
 
 import '../../core/constants/app_constants.dart';
+import '../../core/services/printer_settings_service.dart';
 import '../../data/repositories/supplier_repository.dart';
 
 /// طباعة كشف حساب المورد (A4) — شامل كل عملياته (شراء + دفعات)
@@ -317,7 +318,7 @@ class SupplierStatementPdf {
     String? storeName,
     String? storeLogoPath,
   }) async {
-    await Printing.layoutPdf(
+    await PrinterSettingsService.printDocument(
       name: 'كشف_حساب_${statement.supplier.name}',
       format: PdfPageFormat.a4,
       onLayout: (_) => buildStatementPdf(

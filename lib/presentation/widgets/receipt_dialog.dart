@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/constants/app_constants.dart';
+import '../../core/services/printer_settings_service.dart';
 import '../../data/models/sale_invoice.dart';
 import '../../data/repositories/shop_profile_repository.dart';
 import 'thermal_receipt_printer.dart';
@@ -38,11 +39,13 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
     } catch (_) {
       logoPath = null;
     }
+    final paperSize = await PrinterSettingsService.getPaperSize();
     if (mounted) {
       setState(() {
         _storeName = prefs.getString('store_name');
         _storePhone = prefs.getString('store_phone');
         _storeLogoPath = logoPath;
+        _width80mm = paperSize != '58mm';
       });
     }
   }
@@ -171,35 +174,30 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
                                   color: Color(0xFF0F172A),
                                 ),
                               ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: invoice.status == 'completed'
-                                      ? AppColors.SUCCESS_GREEN
-                                          .withValues(alpha: 0.12)
-                                      : (invoice.status == 'held'
-                                          ? AppColors.WARNING_AMBER
-                                              .withValues(alpha: 0.12)
-                                          : AppColors.DANGER_RED
-                                              .withValues(alpha: 0.12)),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  invoice.statusArabic,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    color: invoice.status == 'completed'
-                                        ? AppColors.SUCCESS_GREEN
-                                        : (invoice.status == 'held'
+                              if (invoice.status != 'completed')
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: (invoice.status == 'held'
                                             ? AppColors.WARNING_AMBER
-                                            : AppColors.DANGER_RED),
+                                            : AppColors.DANGER_RED)
+                                        .withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    invoice.statusArabic,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: invoice.status == 'held'
+                                          ? AppColors.WARNING_AMBER
+                                          : AppColors.DANGER_RED,
+                                    ),
                                   ),
                                 ),
-                              ),
                             ],
                           ),
                           const SizedBox(height: 5),
@@ -485,7 +483,7 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
 
                     // تذييل الشكر
                     const Text(
-                      'شكراً لتعاملكم معنا ★ نسعد بخدمتكم دائماً',
+                      'شكراً لتعاملكم معنا • نسعد بخدمتكم دائماً',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 11.5,

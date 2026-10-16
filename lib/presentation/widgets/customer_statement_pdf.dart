@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
 
 import '../../core/constants/app_constants.dart';
+import '../../core/services/printer_settings_service.dart';
 import '../../data/repositories/customer_repository.dart';
 
 /// حركة موحدة في كشف حساب العميل للمطبعة.
@@ -583,7 +584,7 @@ class CustomerStatementPdf {
     String? storeName,
     String? storeLogoPath,
   }) async {
-    await Printing.layoutPdf(
+    await PrinterSettingsService.printDocument(
       name: 'كشف_حساب_${statement.customer.name}',
       format: PdfPageFormat.a4,
       onLayout: (_) => buildStatementPdf(

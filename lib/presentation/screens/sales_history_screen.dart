@@ -350,9 +350,32 @@ class SalesHistoryScreen extends ConsumerWidget {
                                       mainAxisSize: MainAxisSize.min,
                                       crossAxisAlignment: CrossAxisAlignment.stretch,
                                       children: [
-                                        // السطر 1: شارة الحالة + رقم الفاتورة + العميل | الإجمالي
+                                        // السطر 1: الرقم التسلسلي + شارة الحالة + رقم الفاتورة + العميل | الإجمالي
                                         Row(
                                           children: [
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 7,
+                                                vertical: 2,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFFF1F5F9),
+                                                borderRadius: BorderRadius.circular(4),
+                                                border: Border.all(
+                                                  color: const Color(0xFFCBD5E1),
+                                                  width: 0.8,
+                                                ),
+                                              ),
+                                              child: Text(
+                                                '#${index + 1}',
+                                                style: const TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Color(0xFF475569),
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
                                             Container(
                                               padding: const EdgeInsets.symmetric(
                                                 horizontal: 7,

@@ -80,55 +80,225 @@ class BackupService {
     return data;
   }
 
-  /// حفظ نسخة احتياطية في ملف يختاره المستخدم. يُرجع المسار أو null عند الإلغاء.
-  static Future<String?> createBackupFile() async {
+  static const String keyCustomBackupDir = 'pref_custom_backup_directory';
+  static const String defaultFolderName = 'Elnuqrashi_Backups';
+
+  /// المجلد الافتراضي الظاهر للنسخ الاحتياطي على أجهزة التابلت والكمبيوتر.
+  /// يتميز بأنه:
+  /// 1. ظاهر للمستخدم في تطبيق "ملفاتي" أو مستكشف الملفات (مجلد Download أو Documents العام).
+  /// 2. لا يُحذف إطلاقاً عند إزالة أو تحديث التطبيق بالخطأ من التابلت.
+  static Future<String> getDefaultBackupDirectoryPath() async {
+    if (!kIsWeb && Platform.isAndroid) {
+      // 1. فحص مجلد التنزيلات العام المتاح لجميع التطبيقات والمستخدمين
+      final downloadDir = Directory('/storage/emulated/0/Download');
+      if (downloadDir.existsSync()) {
+        final appBackupDir =
+            Directory(p.join(downloadDir.path, defaultFolderName));
+        if (!appBackupDir.existsSync()) {
+          try {
+            await appBackupDir.create(recursive: true);
+          } catch (_) {}
+        }
+        if (appBackupDir.existsSync()) {
+          return appBackupDir.path;
+        }
+      }
+
+      // 2. فحص مجلد المستندات العام
+      final docsDir = Directory('/storage/emulated/0/Documents');
+      if (docsDir.existsSync()) {
+        final appBackupDir =
+            Directory(p.join(docsDir.path, defaultFolderName));
+        if (!appBackupDir.existsSync()) {
+          try {
+            await appBackupDir.create(recursive: true);
+          } catch (_) {}
+        }
+        if (appBackupDir.existsSync()) {
+          return appBackupDir.path;
+        }
+      }
+
+      // 3. مسار التخزين الخارجي البديل
+      try {
+        final ext = await getExternalStorageDirectory();
+        if (ext != null) {
+          final parts = ext.path.split('/Android');
+          if (parts.isNotEmpty) {
+            final rootPublic =
+                Directory(p.join(parts[0], 'Download', defaultFolderName));
+            if (!rootPublic.existsSync()) {
+              try {
+                await rootPublic.create(recursive: true);
+              } catch (_) {}
+            }
+            if (rootPublic.existsSync()) return rootPublic.path;
+          }
+          final fallback = Directory(p.join(ext.path, defaultFolderName));
+          if (!fallback.existsSync()) await fallback.create(recursive: true);
+          return fallback.path;
+        }
+      } catch (_) {}
+    }
+
+    // لأنظمة سطح المكتب (Windows / Linux / macOS)
+    try {
+      final downloads = await getDownloadsDirectory();
+      if (downloads != null) {
+        final appBackupDir =
+            Directory(p.join(downloads.path, defaultFolderName));
+        if (!appBackupDir.existsSync()) await appBackupDir.create(recursive: true);
+        return appBackupDir.path;
+      }
+    } catch (_) {}
+
+    // ملجأ أخير: مجلد المستندات
+    final docDir = await getApplicationDocumentsDirectory();
+    final fallback = Directory(p.join(docDir.path, defaultFolderName));
+    if (!fallback.existsSync()) await fallback.create(recursive: true);
+    return fallback.path;
+  }
+
+  /// الحصول على المجلد الفعلي المعتمد للنسخ الاحتياطي (المخصص إن وجد، أو الافتراضي).
+  static Future<String> getEffectiveBackupDirectoryPath() async {
+    final prefs = await SharedPreferences.getInstance();
+    final custom = prefs.getString(keyCustomBackupDir);
+    if (custom != null && custom.trim().isNotEmpty) {
+      final dir = Directory(custom.trim());
+      if (dir.existsSync()) {
+        return dir.path;
+      }
+    }
+    return await getDefaultBackupDirectoryPath();
+  }
+
+  /// تعيين مجلد مخصص لحفظ واسترجاع النسخ الاحتياطية.
+  static Future<void> setCustomBackupDirectory(String? path) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (path == null || path.trim().isEmpty) {
+      await prefs.remove(keyCustomBackupDir);
+    } else {
+      await prefs.setString(keyCustomBackupDir, path.trim());
+    }
+  }
+
+  /// إعادة تعيين مجلد النسخ الاحتياطي إلى المجلد الافتراضي الظاهر.
+  static Future<void> resetBackupDirectory() async {
+    await setCustomBackupDirectory(null);
+  }
+
+  /// عرض قائمة ملفات النسخ الاحتياطي الموجودة بالمجلد الفعلي مرتبة من الأحدث للأقدم.
+  static Future<List<File>> listLocalBackupFiles() async {
+    try {
+      final dirPath = await getEffectiveBackupDirectoryPath();
+      final dir = Directory(dirPath);
+      if (!dir.existsSync()) return [];
+
+      final entities = dir.listSync();
+      final files = <File>[];
+      for (final e in entities) {
+        if (e is File && e.path.toLowerCase().endsWith('.json')) {
+          files.add(e);
+        }
+      }
+      files.sort((a, b) {
+        try {
+          return b.lastModifiedSync().compareTo(a.lastModifiedSync());
+        } catch (_) {
+          return 0;
+        }
+      });
+      return files;
+    } catch (e) {
+      debugPrint('Error listing local backup files: $e');
+      return [];
+    }
+  }
+
+  /// حفظ نسخة احتياطية في المجلد المعتمد للتابلت (أو باختيار مكان مخصص عند الطلب).
+  static Future<String?> createBackupFile({bool pickCustomLocation = false}) async {
     final snapshot = await exportSnapshot();
     final json = const JsonEncoder.withIndent('  ').convert(snapshot);
     final now = DateTime.now();
     final fileName =
         'alnokrashy_backup_${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}_${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}.json';
 
-    // على المنصات التي تدعم saveFile نستخدمها، وإلا نحفظ في مجلد المستندات.
-    if (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
-      // تنبيه: saveFile في file_picker على Windows لا يكتب المحتوى بنفسه (يرجع المسار فقط).
-      // لذلك نطلب المسار ثم نكتب الملف بأنفسنا لضمان وجوده فعلياً على القرص.
-      final path = await FilePicker.platform.saveFile(
-        dialogTitle: 'اختر مكان حفظ النسخة الاحتياطية',
-        fileName: fileName,
-        type: FileType.custom,
-        allowedExtensions: ['json'],
-        lockParentWindow: true,
-      );
-      if (path == null) return null;
+    if (pickCustomLocation) {
+      if (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
+        final path = await FilePicker.platform.saveFile(
+          dialogTitle: 'اختر مكان حفظ النسخة الاحتياطية',
+          fileName: fileName,
+          type: FileType.custom,
+          allowedExtensions: ['json'],
+          lockParentWindow: true,
+        );
+        if (path == null) return null;
 
-      // ضمان وجود امتداد .json حتى لو لم يكتبه المستخدم في المربع.
-      String finalPath = path;
-      if (!finalPath.toLowerCase().endsWith('.json')) {
-        finalPath = '$finalPath.json';
+        String finalPath = path;
+        if (!finalPath.toLowerCase().endsWith('.json')) {
+          finalPath = '$finalPath.json';
+        }
+
+        final file = File(finalPath);
+        await file.writeAsString(json, flush: true);
+
+        if (!await file.exists() || await file.length() == 0) {
+          throw Exception('تعذّر كتابة ملف النسخة الاحتياطية على القرص');
+        }
+        return finalPath;
       }
-
-      final file = File(finalPath);
-      await file.writeAsString(json, flush: true);
-
-      // تحقق فعلي أن الملف كُتب وأنه غير فارغ.
-      if (!await file.exists() || await file.length() == 0) {
-        throw Exception('تعذّر كتابة ملف النسخة الاحتياطية على القرص');
-      }
-      return finalPath;
     }
 
-    final dir = await getApplicationDocumentsDirectory();
+    // حفظ في المجلد الظاهر المعتمد (الذي يبقى حتى بعد حذف التطبيق)
+    final dirPath = await getEffectiveBackupDirectoryPath();
+    final dir = Directory(dirPath);
+    if (!dir.existsSync()) {
+      await dir.create(recursive: true);
+    }
+
     final file = File(p.join(dir.path, fileName));
     await file.writeAsString(json, flush: true);
+
+    if (!await file.exists() || await file.length() == 0) {
+      throw Exception('تعذّر كتابة ملف النسخة الاحتياطية في المجلد: $dirPath');
+    }
     return file.path;
   }
 
-  /// استرجاع نسخة احتياطية من ملف يختاره المستخدم. يُرجع true عند النجاح.
-  static Future<bool> restoreFromBackupFile() async {
+  /// استرجاع نسخة احتياطية من ملف محدد مسبقاً (دون فتح حوار البحث).
+  static Future<bool> restoreFromSpecificFile(File file) async {
+    if (!await file.exists()) {
+      throw const FormatException('ملف النسخة الاحتياطية المحدد غير موجود');
+    }
+
+    final bytes = await file.readAsBytes();
+    if (bytes.isEmpty) {
+      throw const FormatException('الملف المحدد فارغ — ربما تعذر حفظه مسبقاً.');
+    }
+
+    final json = jsonDecode(utf8.decode(bytes));
+    if (json is! Map<String, dynamic>) {
+      throw const FormatException('ملف النسخة الاحتياطية غير صالح');
+    }
+
+    final meta = json['_meta'];
+    if (meta is! Map || meta['app'] != 'alnokrashy_pos') {
+      throw const FormatException(
+          'الملف المختار ليس نسخة احتياطية صالحة لتطبيق النقراشي');
+    }
+
+    await restoreFromSnapshot(json);
+    return true;
+  }
+
+  /// استرجاع نسخة احتياطية من ملف يختاره المستخدم عبر متصفح الملفات.
+  static Future<bool> restoreFromBackupFile({String? initialDirectory}) async {
+    final initDir = initialDirectory ?? await getEffectiveBackupDirectoryPath();
     final result = await FilePicker.platform.pickFiles(
       dialogTitle: 'اختر ملف النسخة الاحتياطية',
       type: FileType.custom,
       allowedExtensions: ['json'],
+      initialDirectory: Directory(initDir).existsSync() ? initDir : null,
       withData: true,
       lockParentWindow: true,
     );

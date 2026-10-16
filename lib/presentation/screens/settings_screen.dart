@@ -14,6 +14,8 @@ import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:intl/intl.dart';
 import '../../core/services/backup_service.dart';
 import '../../core/services/google_drive_backup_service.dart';
+import '../../core/services/printer_settings_service.dart';
+import 'package:printing/printing.dart';
 import '../../data/repositories/shop_profile_repository.dart';
 import '../../providers/app_providers.dart';
 import '../widgets/max_width_container.dart';
@@ -161,6 +163,32 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     Padding(
                       padding: EdgeInsets.all(AppLayout.SPACING_UNIT * 3),
                       child: StoreInfoForm(),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              Container(
+                decoration: BoxDecoration(
+                  color: AppColors.NEUTRAL_SURFACE,
+                  borderRadius: BorderRadius.circular(AppLayout.BORDER_RADIUS),
+                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                ),
+                child: ExpansionTile(
+                  leading: const Icon(
+                    Icons.print_outlined,
+                    color: AppColors.PRIMARY_BLUE,
+                  ),
+                  title: const Text(
+                    'إعدادات الطابعات',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: const Text('تحديد الطابعة، مقاس الورق، والطباعة المباشرة للتابلت'),
+                  children: const [
+                    Padding(
+                      padding: EdgeInsets.all(AppLayout.SPACING_UNIT * 3),
+                      child: _PrinterSettingsSection(),
                     ),
                   ],
                 ),
@@ -496,6 +524,555 @@ class StoreInfoForm extends ConsumerWidget {
   }
 }
 
+/// قسم إعدادات الطابعات والطباعة الحرارية لأجهزة التابلت (Tablet POS Printing).
+class _PrinterSettingsSection extends StatefulWidget {
+  const _PrinterSettingsSection();
+
+  @override
+  State<_PrinterSettingsSection> createState() => _PrinterSettingsSectionState();
+}
+
+class _PrinterSettingsSectionState extends State<_PrinterSettingsSection> {
+  Printer? _savedPrinter;
+  String _paperSize = '80mm';
+  bool _directPrint = false;
+  bool _isLoading = false;
+  bool _isTesting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    setState(() => _isLoading = true);
+    try {
+      final printer = await PrinterSettingsService.getSavedPrinter();
+      final size = await PrinterSettingsService.getPaperSize();
+      final direct = await PrinterSettingsService.isDirectPrint();
+      if (mounted) {
+        setState(() {
+          _savedPrinter = printer;
+          _paperSize = size;
+          _directPrint = direct;
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _scanAndSelectPrinter() async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('جاري فحص الطابعات المتوفرة (بلوتوث / شبكة / USB)...'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    List<Printer> printers = [];
+    try {
+      printers = await PrinterSettingsService.discoverPrinters();
+    } catch (_) {}
+
+    if (!mounted) return;
+    Navigator.of(context, rootNavigator: true).pop();
+
+    await showDialog(
+      context: context,
+      builder: (dialogCtx) {
+        return AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.print, color: AppColors.PRIMARY_BLUE),
+              SizedBox(width: 8),
+              Text('اختيار طابعة'),
+            ],
+          ),
+          content: SizedBox(
+            width: 450,
+            child: printers.isEmpty
+                ? const Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.print_disabled,
+                          size: 48, color: AppColors.TEXT_SECONDARY),
+                      SizedBox(height: 12),
+                      Text(
+                        'لم يتم العثور على طابعات متصلة مباشرة.\nتأكد من اقتران طابعة البلوتوث مع التابلت أو اتصال طابعة الشبكة بنفس الراوتر، أو أضفها يدوياً برقم IP.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                            fontSize: 13, color: AppColors.TEXT_SECONDARY),
+                      ),
+                    ],
+                  )
+                : ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: printers.length,
+                    separatorBuilder: (_, _) => const Divider(height: 1),
+                    itemBuilder: (_, index) {
+                      final p = printers[index];
+                      final isSelected = _savedPrinter?.url == p.url;
+                      return ListTile(
+                        leading: Icon(
+                          isSelected
+                              ? Icons.check_circle
+                              : Icons.print_outlined,
+                          color: isSelected
+                              ? AppColors.SUCCESS_GREEN
+                              : AppColors.PRIMARY_BLUE,
+                        ),
+                        title: Text(
+                          p.name,
+                          style: TextStyle(
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
+                        ),
+                        subtitle: Text(
+                          p.model ?? p.url,
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                        onTap: () async {
+                          final messenger = ScaffoldMessenger.of(context);
+                          final nav = Navigator.of(dialogCtx);
+                          await PrinterSettingsService.savePrinter(p);
+                          if (!mounted) return;
+                          setState(() => _savedPrinter = p);
+                          nav.pop();
+                          messenger.showSnackBar(
+                            SnackBar(
+                              backgroundColor: AppColors.SUCCESS_GREEN,
+                              content: Text(
+                                  'تم تعيين الطابعة الافتراضية: ${p.name}'),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogCtx),
+              child: const Text('إغلاق'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _addManualPrinterDialog() async {
+    final nameCtrl = TextEditingController(text: 'طابعة الفواتير');
+    final urlCtrl = TextEditingController(text: 'tcp://192.168.1.');
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('إضافة طابعة شبكة يدوياً (IP)'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'أدخل اسم الطابعة وعنوان IP الخاص بها على الشبكة المحلية (مثل 192.168.1.100 أو tcp://192.168.1.100:9100):',
+              style: TextStyle(fontSize: 12.5, color: AppColors.TEXT_SECONDARY),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: nameCtrl,
+              decoration: const InputDecoration(
+                labelText: 'اسم الطابعة *',
+                hintText: 'مثال: طابعة كاشير 1',
+                prefixIcon: Icon(Icons.badge_outlined),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: urlCtrl,
+              decoration: const InputDecoration(
+                labelText: 'عنوان IP أو مسار الطابعة *',
+                hintText: 'مثال: tcp://192.168.1.100:9100',
+                prefixIcon: Icon(Icons.lan_outlined),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('إلغاء'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final name = nameCtrl.text.trim();
+              final url = urlCtrl.text.trim();
+              if (name.isEmpty || url.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    backgroundColor: AppColors.DANGER_RED,
+                    content: Text('يرجى ملء جميع الحقول المطلوبة'),
+                  ),
+                );
+                return;
+              }
+              final messenger = ScaffoldMessenger.of(context);
+              final nav = Navigator.of(ctx);
+              await PrinterSettingsService.saveCustomPrinter(
+                  name: name, url: url);
+              if (!mounted) return;
+              setState(() {
+                _savedPrinter = Printer(url: url, name: name);
+              });
+              nav.pop();
+              messenger.showSnackBar(
+                SnackBar(
+                  backgroundColor: AppColors.SUCCESS_GREEN,
+                  content: Text('تم حفظ وتعيين الطابعة: $name'),
+                ),
+              );
+            },
+            child: const Text('حفظ'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _clearPrinter() async {
+    await PrinterSettingsService.clearSavedPrinter();
+    if (mounted) {
+      setState(() => _savedPrinter = null);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('تمت العودة لطابعة النظام الافتراضية'),
+        ),
+      );
+    }
+  }
+
+  Future<void> _runTestPrint() async {
+    setState(() => _isTesting = true);
+    try {
+      final success = await PrinterSettingsService.printTestReceipt(context);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor:
+                success ? AppColors.SUCCESS_GREEN : AppColors.NEUTRAL_BG,
+            content: Text(success
+                ? 'تم إرسال صفحة الاختبار للطابعة بنجاح'
+                : 'تم إلغاء أمر الطباعة التجريبية'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.DANGER_RED,
+            content: Text('فشلت الطباعة التجريبية: $e'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isTesting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 1. حالة الطابعة الحالية
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: _savedPrinter != null
+                ? AppColors.SUCCESS_GREEN.withValues(alpha: 0.06)
+                : Colors.grey.shade50,
+            borderRadius: BorderRadius.circular(AppLayout.BORDER_RADIUS),
+            border: Border.all(
+              color: _savedPrinter != null
+                  ? AppColors.SUCCESS_GREEN.withValues(alpha: 0.3)
+                  : Colors.grey.shade300,
+            ),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: _savedPrinter != null
+                      ? AppColors.SUCCESS_GREEN.withValues(alpha: 0.15)
+                      : Colors.grey.shade200,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  _savedPrinter != null
+                      ? Icons.print
+                      : Icons.print_outlined,
+                  color: _savedPrinter != null
+                      ? AppColors.SUCCESS_GREEN
+                      : AppColors.TEXT_SECONDARY,
+                  size: 26,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          _savedPrinter != null
+                              ? _savedPrinter!.name
+                              : 'طابعة النظام الافتراضية',
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: _savedPrinter != null
+                                ? AppColors.SUCCESS_GREEN
+                                : Colors.grey.shade400,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            _savedPrinter != null ? 'معتمدة' : 'افتراضية',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _savedPrinter != null
+                          ? (_savedPrinter!.model ?? _savedPrinter!.url)
+                          : 'يتم إرسال أي مستند أو فاتورة إلى طابعة النظام أو نافذة الاختيار.',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.TEXT_SECONDARY,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // أزرار التحكم في الطابعة
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            ElevatedButton.icon(
+              onPressed: _scanAndSelectPrinter,
+              icon: const Icon(Icons.search, size: 18),
+              label: const Text('بحث عن طابعات متصلة'),
+            ),
+            OutlinedButton.icon(
+              onPressed: _addManualPrinterDialog,
+              icon: const Icon(Icons.add_link, size: 18),
+              label: const Text('إضافة طابعة شبكة (IP)'),
+            ),
+            if (_savedPrinter != null)
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.DANGER_RED,
+                  side: BorderSide(
+                    color: AppColors.DANGER_RED.withValues(alpha: 0.5),
+                  ),
+                ),
+                onPressed: _clearPrinter,
+                icon: const Icon(Icons.clear, size: 18),
+                label: const Text('إلغاء التعيين'),
+              ),
+          ],
+        ),
+
+        const SizedBox(height: 20),
+        const Divider(height: 1),
+        const SizedBox(height: 16),
+
+        // 2. مقاس الورق الافتراضي
+        const Text(
+          'مقاس ورق الطباعة الافتراضي',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          'اختر المقاس المناسب للمطبعة المستخدمة مع التابلت لضبط الفواتير والإيصالات بدقة.',
+          style: TextStyle(fontSize: 12, color: AppColors.TEXT_SECONDARY),
+        ),
+        const SizedBox(height: 10),
+        SegmentedButton<String>(
+          segments: const [
+            ButtonSegment(
+              value: '80mm',
+              label: Text('80 مم (حراري قياسي)'),
+              icon: Icon(Icons.receipt_long),
+            ),
+            ButtonSegment(
+              value: '58mm',
+              label: Text('58 مم (حراري صغير)'),
+              icon: Icon(Icons.receipt),
+            ),
+            ButtonSegment(
+              value: 'a4',
+              label: Text('A4 (عادي / ليزر)'),
+              icon: Icon(Icons.description),
+            ),
+          ],
+          selected: {_paperSize},
+          onSelectionChanged: (newSelection) async {
+            final val = newSelection.first;
+            setState(() => _paperSize = val);
+            await PrinterSettingsService.setPaperSize(val);
+          },
+        ),
+
+        const SizedBox(height: 20),
+        const Divider(height: 1),
+        const SizedBox(height: 8),
+
+        // 3. خيار الطباعة المباشرة السريعة للتابلت
+        SwitchListTile.adaptive(
+          contentPadding: EdgeInsets.zero,
+          title: const Text(
+            'الطباعة المباشرة السريعة (بدون نافذة معاينة)',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+          ),
+          subtitle: const Text(
+            'إرسال الفاتورة فوراً وبأقصى سرعة للطابعة عند الضغط على "طباعة" دون فتح شاشات إضافية. مثالي لأجهزة التابلت لتسريع إنهاء عمليات البيع.',
+            style: TextStyle(fontSize: 12, color: AppColors.TEXT_SECONDARY),
+          ),
+          value: _directPrint,
+          activeTrackColor: AppColors.PRIMARY_BLUE,
+          onChanged: (val) async {
+            setState(() => _directPrint = val);
+            await PrinterSettingsService.setDirectPrint(val);
+          },
+        ),
+
+        const SizedBox(height: 16),
+        const Divider(height: 1),
+        const SizedBox(height: 16),
+
+        // 4. زر الطباعة التجريبية
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppColors.PRIMARY_BLUE.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(AppLayout.BORDER_RADIUS),
+            border: Border.all(
+              color: AppColors.PRIMARY_BLUE.withValues(alpha: 0.2),
+            ),
+          ),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.check_circle_outline,
+                color: AppColors.PRIMARY_BLUE,
+                size: 28,
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'اختبار وتأكيد عمل الطابعة',
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'طباعة صفحة تجريبية تحتوي على اسم المحل والشعار ورقم الفاتورة والباركود للتأكد من جاهزية الطباعة.',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: AppColors.TEXT_SECONDARY,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.PRIMARY_BLUE,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 12),
+                ),
+                onPressed: _isTesting ? null : _runTestPrint,
+                icon: _isTesting
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.print, size: 18),
+                label: const Text(
+                  'طباعة تجريبية',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 /// قسم النسخ الاحتياطي والاستعادة (Phase 3.15).
 class _BackupRestoreSection extends ConsumerStatefulWidget {
   const _BackupRestoreSection();
@@ -514,10 +1091,133 @@ class _BackupRestoreSectionState extends ConsumerState<_BackupRestoreSection> {
   String? _lastCloudBackupTime;
   List<drive.File> _cloudBackups = [];
 
+  // حالة النسخ الاحتياطي المحلي على التابلت
+  String _backupDirPath = '';
+  bool _isCustomBackupDir = false;
+  List<File> _localBackups = [];
+  bool _isLoadingLocalBackups = false;
+
   @override
   void initState() {
     super.initState();
     _initGoogleDriveState();
+    _loadLocalBackupInfo();
+  }
+
+  Future<void> _loadLocalBackupInfo() async {
+    setState(() => _isLoadingLocalBackups = true);
+    try {
+      final effectivePath =
+          await BackupService.getEffectiveBackupDirectoryPath();
+      final prefs = await SharedPreferences.getInstance();
+      final custom = prefs.getString(BackupService.keyCustomBackupDir);
+      final files = await BackupService.listLocalBackupFiles();
+      if (mounted) {
+        setState(() {
+          _backupDirPath = effectivePath;
+          _isCustomBackupDir = custom != null && custom.trim().isNotEmpty;
+          _localBackups = files;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading local backup info: $e');
+    } finally {
+      if (mounted) setState(() => _isLoadingLocalBackups = false);
+    }
+  }
+
+  Future<void> _changeBackupDirectory() async {
+    final pickedPath = await FilePicker.platform.getDirectoryPath(
+      dialogTitle: 'اختر مجلد حفظ واسترجاع النسخ الاحتياطية للتابلت',
+      lockParentWindow: true,
+    );
+    if (pickedPath != null && pickedPath.trim().isNotEmpty) {
+      await BackupService.setCustomBackupDirectory(pickedPath);
+      await _loadLocalBackupInfo();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.SUCCESS_GREEN,
+            content: Text('تم تعيين مجلد النسخ الاحتياطي:\n$pickedPath'),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _resetBackupDirectory() async {
+    await BackupService.resetBackupDirectory();
+    await _loadLocalBackupInfo();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: AppColors.SUCCESS_GREEN,
+          content: Text('تمت استعادة المجلد الافتراضي العام للتابلت بنجاح'),
+        ),
+      );
+    }
+  }
+
+  Future<void> _restoreSpecificLocalBackup(File file) async {
+    final fileName = p.basename(file.path);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: AppColors.DANGER_RED),
+            SizedBox(width: 8),
+            Text('استعادة نسخة احتياطية محلية'),
+          ],
+        ),
+        content: Text(
+          'سيتم استبدال جميع البيانات الحالية بالنسخة الاحتياطية ($fileName).\n'
+          'هذا الإجراء سيقوم بحذف أية بيانات غير محفوظة واسترجاع حالة المحل من تلك النسخة. هل تريد المتابعة؟',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('إلغاء'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.DANGER_RED,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('استعادة الآن'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    setState(() => _localBusy = true);
+    try {
+      final success = await BackupService.restoreFromSpecificFile(file);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor:
+                success ? AppColors.SUCCESS_GREEN : AppColors.DANGER_RED,
+            content: Text(success
+                ? 'تم استعادة النسخة الاحتياطية ($fileName) بنجاح! أعد تشغيل التطبيق لتحديث الشاشات.'
+                : 'فشلت الاستعادة'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.DANGER_RED,
+            content: Text('فشل الاستعادة: $e'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _localBusy = false);
+    }
   }
 
   Future<void> _initGoogleDriveState() async {
@@ -703,20 +1403,25 @@ class _BackupRestoreSectionState extends ConsumerState<_BackupRestoreSection> {
     }
   }
 
-  Future<void> _createLocalBackup() async {
+  Future<void> _createLocalBackup({bool pickCustomLocation = false}) async {
     setState(() => _localBusy = true);
     try {
-      final path = await BackupService.createBackupFile();
+      final path = await BackupService.createBackupFile(
+        pickCustomLocation: pickCustomLocation,
+      );
       if (mounted) {
         if (path == null) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('تم إلغاء النسخ الاحتياطي')),
           );
         } else {
+          await _loadLocalBackupInfo();
+          if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               backgroundColor: AppColors.SUCCESS_GREEN,
-              content: Text('تم حفظ النسخة الاحتياطية في:\n$path'),
+              content: Text(
+                  'تم حفظ النسخة الاحتياطية بنجاح في:\n$path\n(مجلد آمن لا يُحذف عند إزالة التطبيق)'),
               duration: const Duration(seconds: 6),
             ),
           );
@@ -765,7 +1470,9 @@ class _BackupRestoreSectionState extends ConsumerState<_BackupRestoreSection> {
 
     setState(() => _localBusy = true);
     try {
-      final success = await BackupService.restoreFromBackupFile();
+      final success = await BackupService.restoreFromBackupFile(
+        initialDirectory: _backupDirPath.isNotEmpty ? _backupDirPath : null,
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1179,13 +1886,13 @@ class _BackupRestoreSectionState extends ConsumerState<_BackupRestoreSection> {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
+                        color: Colors.green.shade50,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Icon(
                         Icons.save_alt_rounded,
-                        color: AppColors.TEXT_PRIMARY,
-                        size: 22,
+                        color: AppColors.SUCCESS_GREEN,
+                        size: 24,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -1194,15 +1901,15 @@ class _BackupRestoreSectionState extends ConsumerState<_BackupRestoreSection> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'النسخ الاحتياطي المحلي (ملف على الجهاز / فلاشة USB)',
+                            'النسخ الاحتياطي المحلي على التابلت والكمبيوتر',
                             style: TextStyle(
-                              fontSize: 14,
+                              fontSize: 15,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                           SizedBox(height: 2),
                           Text(
-                            'تصدير أو استيراد ملف JSON يدوياً دون الحاجة للإنترنت',
+                            'يُحفظ في مجلد عام ظاهر على التابلت ولا يُحذف إطلاقاً عند إزالة التطبيق بالخطأ',
                             style: TextStyle(
                               fontSize: 12,
                               color: AppColors.TEXT_SECONDARY,
@@ -1214,31 +1921,286 @@ class _BackupRestoreSectionState extends ConsumerState<_BackupRestoreSection> {
                   ],
                 ),
                 const SizedBox(height: 14),
+
+                // عرض مجلد الحفظ المعتمد وأزرار التحكم
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.folder_outlined,
+                            size: 18,
+                            color: AppColors.PRIMARY_BLUE,
+                          ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'مجلد الحفظ والاسترجاع للتابلت:',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const Spacer(),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: _isCustomBackupDir
+                                  ? Colors.blue.shade100
+                                  : Colors.green.shade100,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              _isCustomBackupDir
+                                  ? 'مجلد مخصص'
+                                  : 'مجلد عام محمي ضد الحذف',
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.bold,
+                                color: _isCustomBackupDir
+                                    ? Colors.blue.shade900
+                                    : Colors.green.shade900,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      SelectableText(
+                        _backupDirPath.isEmpty
+                            ? 'جاري تحديد المجلد...'
+                            : _backupDirPath,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontFamily: 'monospace',
+                          color: AppColors.TEXT_PRIMARY,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        children: [
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              visualDensity: VisualDensity.compact,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 6),
+                            ),
+                            onPressed:
+                                _localBusy ? null : _changeBackupDirectory,
+                            icon: const Icon(Icons.drive_file_move_outlined,
+                                size: 16),
+                            label: const Text('تغيير المجلد'),
+                          ),
+                          if (_isCustomBackupDir)
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                visualDensity: VisualDensity.compact,
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 6),
+                              ),
+                              onPressed:
+                                  _localBusy ? null : _resetBackupDirectory,
+                              icon: const Icon(Icons.restore, size: 16),
+                              label:
+                                  const Text('استعادة المجلد الافتراضي العام'),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                // أزرار إنشاء النسخ الاحتياطية
                 Row(
                   children: [
                     Expanded(
+                      flex: 3,
                       child: ElevatedButton.icon(
-                        onPressed: _localBusy ? null : _createLocalBackup,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.SUCCESS_GREEN,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        onPressed: _localBusy
+                            ? null
+                            : () =>
+                                _createLocalBackup(pickCustomLocation: false),
                         icon: _localBusy
                             ? const SizedBox(
                                 width: 16,
                                 height: 16,
                                 child: CircularProgressIndicator(
-                                    strokeWidth: 2),
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
                               )
-                            : const Icon(Icons.file_download_outlined),
-                        label: const Text('إنشاء نسخة محلية'),
+                            : const Icon(Icons.file_download_outlined,
+                                size: 20),
+                        label: const Text(
+                          'إنشاء نسخة في المجلد',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 8),
                     Expanded(
+                      flex: 2,
                       child: OutlinedButton.icon(
-                        onPressed: _localBusy ? null : _restoreLocalBackup,
-                        icon: const Icon(Icons.restore),
-                        label: const Text('استعادة نسخة من ملف'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        onPressed: _localBusy
+                            ? null
+                            : () =>
+                                _createLocalBackup(pickCustomLocation: true),
+                        icon: const Icon(Icons.save_as_outlined, size: 18),
+                        label: const Text('حفظ في فلاشة USB'),
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 16),
+
+                // قائمة النسخ المتوفرة في المجلد الحالي
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius:
+                        BorderRadius.circular(AppLayout.BORDER_RADIUS),
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.history,
+                                size: 18, color: AppColors.PRIMARY_BLUE),
+                            const SizedBox(width: 8),
+                            Text(
+                              'النسخ المتوفرة في المجلد (${_localBackups.length})',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const Spacer(),
+                            IconButton(
+                              icon: _isLoadingLocalBackups
+                                  ? const SizedBox(
+                                      width: 14,
+                                      height: 14,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2),
+                                    )
+                                  : const Icon(Icons.refresh, size: 18),
+                              tooltip: 'تحديث قائمة النسخ',
+                              onPressed: _isLoadingLocalBackups
+                                  ? null
+                                  : _loadLocalBackupInfo,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Divider(height: 1),
+                      if (_localBackups.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.all(16),
+                          child: Center(
+                            child: Text(
+                              'لا توجد نسخ احتياطية في هذا المجلد بعد. انقر على "إنشاء نسخة في المجلد" لحفظ أول نسخة.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppColors.TEXT_SECONDARY,
+                              ),
+                            ),
+                          ),
+                        )
+                      else
+                        ListView.separated(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: _localBackups.length > 5
+                              ? 5
+                              : _localBackups.length,
+                          separatorBuilder: (_, _) => const Divider(height: 1),
+                          itemBuilder: (context, index) {
+                            final file = _localBackups[index];
+                            final fileName = p.basename(file.path);
+                            DateTime? modTime;
+                            int? fileLen;
+                            try {
+                              modTime = file.lastModifiedSync();
+                              fileLen = file.lengthSync();
+                            } catch (_) {}
+
+                            return ListTile(
+                              dense: true,
+                              contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 2),
+                              leading: const Icon(
+                                Icons.insert_drive_file_outlined,
+                                color: AppColors.SUCCESS_GREEN,
+                                size: 20,
+                              ),
+                              title: Text(
+                                fileName,
+                                style: const TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              subtitle: Text(
+                                '${modTime != null ? _formatDateTime(modTime) : ""}  •  ${fileLen != null ? _formatSize(fileLen.toString()) : ""}',
+                                style: const TextStyle(fontSize: 11),
+                              ),
+                              trailing: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.white,
+                                  foregroundColor: AppColors.DANGER_RED,
+                                  side: const BorderSide(
+                                      color: AppColors.DANGER_RED),
+                                  visualDensity: VisualDensity.compact,
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 10),
+                                ),
+                                onPressed: _localBusy
+                                    ? null
+                                    : () => _restoreSpecificLocalBackup(file),
+                                child: const Text('استرجاع'),
+                              ),
+                            );
+                          },
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // زر استعادة من ملف خارجي (فلاشة أو مكان آخر)
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                    ),
+                    onPressed: _localBusy ? null : _restoreLocalBackup,
+                    icon: const Icon(Icons.file_open_outlined, size: 18),
+                    label: const Text('اختيار ملف من مكان آخر أو فلاشة USB'),
+                  ),
                 ),
               ],
             ),
