@@ -13,7 +13,7 @@ class AboutAppDialog extends ConsumerWidget {
   Future<void> _openWhatsApp(BuildContext context) async {
     const phone = AppStrings.DEVELOPER_WHATSAPP;
     final message = Uri.encodeComponent(
-      'مرحباً م/ أحمد، أتواصل معك بخصوص نظام دُكّان POS للحصول على الدعم الفني أو الاستفسار.',
+      'مرحباً م/ محمد، أتواصل معك بخصوص نظام دُكّان POS للحصول على الدعم الفني أو الاستفسار.',
     );
     final url = Uri.parse('https://wa.me/$phone?text=$message');
 

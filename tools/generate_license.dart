@@ -8,7 +8,8 @@ const String _kSecretSalt =
 void main(List<String> args) {
   if (args.isEmpty) {
     stdout.writeln('======================================================');
-    stdout.writeln('  أداة توليد تراخيص النقراشي POS (Elnuqrashi POS Keygen)');
+    stdout.writeln('  أداة توليد تراخيص دُكّان POS (Dokkan POS Keygen)');
+    stdout.writeln('  المطور: م/ محمد العراقي (هاتف: 01032231330)');
     stdout.writeln('======================================================');
     stdout.writeln('الاستخدام:');
     stdout.writeln('  dart run tools/generate_license.dart <DEVICE_ID> [TYPE]');
@@ -41,11 +42,18 @@ void main(List<String> args) {
   if (type == '0') desc = 'شهر واحد (1 Month)';
 
   stdout.writeln('');
-  stdout.writeln('✅ تم توليد مفتاح التفعيل بنجاح:');
+  stdout.writeln('✅ تم توليد مفتاح التفعيل بنجاح (4 خانات × 4 أحرف):');
   stdout.writeln('------------------------------------------------------');
   stdout.writeln('كود الجهاز:    $deviceId');
   stdout.writeln('نوع الترخيص:   $desc');
   stdout.writeln('مفتاح التفعيل: $key');
+  stdout.writeln('------------------------------------------------------');
+  stdout.writeln('رسالة واتساب المقترحة للعميل:');
+  stdout.writeln('مرحباً بك، تم تفعيل ترخيص نظام دُكّان POS بنجاح.');
+  stdout.writeln('نوع الترخيص: $desc');
+  stdout.writeln('كود التفعيل الخاص بجهازك هو: $key');
+  stdout.writeln('يمكنك إدخال الكود في الخانات الأربع أو الضغط على زر (لصق الكود كاملاً).');
+  stdout.writeln('مع تحيات المطور: م/ محمد العراقي (هاتف: 01032231330)');
   stdout.writeln('------------------------------------------------------');
   stdout.writeln('');
 }
@@ -63,7 +71,8 @@ String generateLicenseKey({
   final signature = _generateSignature(cleanDevId, type, epochDaysHex);
   final rawKey = '$type$epochDaysHex$signature';
 
-  return 'ACT-${rawKey.substring(0, 4)}-${rawKey.substring(4, 8)}-${rawKey.substring(8, 12)}-${rawKey.substring(12, 16)}';
+  // 16 حرفاً مقسمة على 4 خانات: XXXX-YYYY-ZZZZ-WWWW
+  return '${rawKey.substring(0, 4)}-${rawKey.substring(4, 8)}-${rawKey.substring(8, 12)}-${rawKey.substring(12, 16)}';
 }
 
 String _generateSignature(String cleanDeviceId, String type, String epochDaysHex) {

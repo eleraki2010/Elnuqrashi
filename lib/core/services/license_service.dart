@@ -251,7 +251,7 @@ class LicenseService {
       payload = payload.substring(3);
     }
 
-    if (payload.length < 13) {
+    if (payload.length != 16) {
       return (
         isValid: false,
         isExpired: false,
@@ -279,8 +279,8 @@ class LicenseService {
         isUtc: true,
       );
 
-      // 3. استخراج التوقيع الرقمي (باقي الحروف)
-      final keySignature = payload.substring(5);
+      // 3. استخراج التوقيع الرقمي (11 خانة)
+      final keySignature = payload.substring(5, 16);
 
       // 4. إعادة توليد التوقيع المتوقع لجهاز العميل والتحقق من التطابق
       final cleanDevId = deviceId.replaceAll(RegExp(r'[^A-Z0-9]'), '');
@@ -361,8 +361,8 @@ class LicenseService {
     final signature = _generateSignature(cleanDevId, type, epochDaysHex);
     final rawKey = '$type$epochDaysHex$signature';
 
-    // تنسيق المفتاح للشكل الجمالي: ACT-XXXX-YYYY-ZZZZ-WWWW
-    return 'ACT-${rawKey.substring(0, 4)}-${rawKey.substring(4, 8)}-${rawKey.substring(8, 12)}-${rawKey.substring(12, 16)}';
+    // تنسيق المفتاح للشكل الرباعي الأنيق: XXXX-YYYY-ZZZZ-WWWW (16 خانة مقسمة على 4 خانات)
+    return '${rawKey.substring(0, 4)}-${rawKey.substring(4, 8)}-${rawKey.substring(8, 12)}-${rawKey.substring(12, 16)}';
   }
 
   /// دالة التوقيع المشفر الداخلي عبر HMAC-SHA256

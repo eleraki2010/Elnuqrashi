@@ -77,32 +77,32 @@ class ThermalReceiptPrinter {
   }) {
     double h = 0.0;
     // هوامش الصفحة والحاوية
-    h += 24.0;
+    h += 32.0;
 
     // ترويسة المحل
     if (hasLogo) {
-      h += (width80mm ? 30.0 : 24.0) + 4.0;
+      h += (width80mm ? 36.0 : 30.0) + 8.0;
     } else {
-      h += (width80mm ? 16.0 : 14.0);
+      h += (width80mm ? 22.0 : 18.0);
     }
     if (hasPhone) {
-      h += 14.0;
+      h += 18.0;
     }
-    h += 16.0; // نوع الفاتورة
-    h += 12.0; // فاصل
+    h += 20.0; // نوع الفاتورة
+    h += 16.0; // فاصل
 
     // بطاقة بيانات الفاتورة
-    h += 68.0;
+    h += 86.0;
 
     // جدول الأصناف
-    h += 22.0; // عنوان الجدول
+    h += 28.0; // عنوان الجدول
     for (final item in invoice.items) {
       final nameLen = (item.productName ?? '').length;
-      final maxChars = width80mm ? 22 : 14;
+      final maxChars = width80mm ? 20 : 12;
       final extraLines = (nameLen / maxChars).ceil().clamp(1, 4) - 1;
-      h += 18.0 + (extraLines * 11.0);
+      h += 22.0 + (extraLines * 14.0);
     }
-    h += 8.0;
+    h += 12.0;
 
     // بطاقة المبالغ المالية
     int extraRows = 0;
@@ -112,20 +112,20 @@ class ThermalReceiptPrinter {
       if (invoice.tax > 0) extraRows += 1;
       extraRows += 1; // فاصل داخلي
     }
-    h += 74.0 + (extraRows * 14.0);
-    h += 8.0;
+    h += 92.0 + (extraRows * 18.0);
+    h += 12.0;
 
     // الفاصل وتذييل الشكر وسياسة الاسترجاع
-    h += 12.0; // فاصل
-    h += 14.0; // سياسة الاسترجاع
-    h += 16.0; // الشكر
-    h += 8.0;
+    h += 16.0; // فاصل
+    h += 18.0; // سياسة الاسترجاع
+    h += 20.0; // الشكر
+    h += 10.0;
 
     // باركود الفاتورة
-    h += (width80mm ? 22.0 : 18.0) + 16.0 + 6.0;
+    h += (width80mm ? 28.0 : 22.0) + 24.0 + 16.0;
 
-    // هامش أمان إضافي للخطوط وقص الورق
-    h += 24.0;
+    // هامش أمان مدروس لمنع قص أي بيانات مع الحفاظ على النسبة القياسية للورق
+    h += 35.0;
 
     return h;
   }
@@ -908,17 +908,17 @@ class ThermalReceiptPrinter {
               width: 0.5,
             ),
             columnWidths: {
-              0: const pw.FlexColumnWidth(46),
-              1: const pw.FlexColumnWidth(18),
-              2: const pw.FlexColumnWidth(18),
-              3: const pw.FlexColumnWidth(18),
+              0: const pw.FlexColumnWidth(48),
+              1: const pw.FlexColumnWidth(14),
+              2: const pw.FlexColumnWidth(19),
+              3: const pw.FlexColumnWidth(19),
             },
             children: [
               pw.TableRow(
                 decoration: pw.BoxDecoration(color: _colorHeaderBg),
                 children: [
                   _tableCell('الصنف', boldFont, tableHeaderSize,
-                      bold: true, align: pw.Alignment.centerRight),
+                      bold: true, align: pw.Alignment.centerRight, isProductName: true),
                   _tableCell('الكمية', boldFont, tableHeaderSize,
                       bold: true, align: pw.Alignment.center),
                   _tableCell('السعر', boldFont, tableHeaderSize,
@@ -938,6 +938,7 @@ class ThermalReceiptPrinter {
                       baseFont,
                       tableDataSize,
                       align: pw.Alignment.centerRight,
+                      isProductName: true,
                     ),
                     _tableCell(
                       '${invoice.items[i].quantity}',
@@ -1101,22 +1102,38 @@ class ThermalReceiptPrinter {
     bool bold = false,
     pw.Alignment align = pw.Alignment.center,
     PdfColor? color,
+    bool isProductName = false,
   }) {
     return pw.Padding(
       padding: const pw.EdgeInsets.symmetric(horizontal: 2.5, vertical: 3.5),
-      child: pw.FittedBox(
-        fit: pw.BoxFit.scaleDown,
-        alignment: align,
-        child: pw.Text(
-          text,
-          style: pw.TextStyle(
-            font: font,
-            fontSize: size,
-            fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
-            color: color ?? (bold ? _colorNavy : const PdfColor(0.2, 0.25, 0.33)),
-          ),
-        ),
-      ),
+      child: isProductName
+          ? pw.Align(
+              alignment: align,
+              child: pw.Text(
+                text,
+                style: pw.TextStyle(
+                  font: font,
+                  fontSize: size,
+                  fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
+                  color: color ?? (bold ? _colorNavy : const PdfColor(0.2, 0.25, 0.33)),
+                ),
+                maxLines: 2,
+                softWrap: true,
+              ),
+            )
+          : pw.FittedBox(
+              fit: pw.BoxFit.scaleDown,
+              alignment: align,
+              child: pw.Text(
+                text,
+                style: pw.TextStyle(
+                  font: font,
+                  fontSize: size,
+                  fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
+                  color: color ?? (bold ? _colorNavy : const PdfColor(0.2, 0.25, 0.33)),
+                ),
+              ),
+            ),
     );
   }
 

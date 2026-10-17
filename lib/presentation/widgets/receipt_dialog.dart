@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -74,49 +75,65 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
   Widget build(BuildContext context) {
     final invoice = widget.invoice;
     final dateFormat = DateFormat('yyyy/MM/dd - hh:mm a');
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final dialogWidth = math.min(420.0, screenWidth * 0.94);
 
     return Dialog(
       backgroundColor: Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
       ),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 20),
       child: Container(
-        width: _width80mm ? 360 : 310,
+        width: dialogWidth,
         constraints: BoxConstraints(
-          maxHeight: MediaQuery.sizeOf(context).height * 0.88,
+          maxHeight: MediaQuery.sizeOf(context).height * 0.90,
         ),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // ترويسة الفاتورة: الشعار بجوار اسم المحل (ولا داعي لكتابة رقم الفاتورة هنا)
+            // ترويسة الفاتورة: الشعار بجوار اسم المحل
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (_storeLogoPath != null &&
-                    _storeLogoPath!.isNotEmpty &&
-                    File(_storeLogoPath!).existsSync()) ...[
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.file(
-                      File(_storeLogoPath!),
-                      width: 38,
-                      height: 38,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: (_storeLogoPath != null &&
+                          _storeLogoPath!.isNotEmpty &&
+                          File(_storeLogoPath!).existsSync())
+                      ? Image.file(
+                          File(_storeLogoPath!),
+                          width: 36,
+                          height: 36,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => Image.asset(
+                            'assets/images/logo.png',
+                            width: 36,
+                            height: 36,
+                            fit: BoxFit.contain,
+                          ),
+                        )
+                      : Image.asset(
+                          'assets/images/logo.png',
+                          width: 36,
+                          height: 36,
+                          fit: BoxFit.contain,
+                        ),
+                ),
+                const SizedBox(width: 10),
+                Flexible(
+                  child: Text(
+                    _storeName?.trim().isNotEmpty == true
+                        ? _storeName!.trim()
+                        : AppStrings.STORE_NAME,
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF0F172A),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                ],
-                Text(
-                  _storeName?.trim().isNotEmpty == true
-                      ? _storeName!.trim()
-                      : AppStrings.STORE_NAME,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF0F172A),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
@@ -170,7 +187,7 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
                                 'رقم الفاتورة: ${invoice.invoiceNumber}',
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 13,
+                                  fontSize: 12.5,
                                   color: Color(0xFF0F172A),
                                 ),
                               ),
@@ -207,14 +224,14 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
                               Text(
                                 'التاريخ: ${dateFormat.format(invoice.createdAt)}',
                                 style: const TextStyle(
-                                  fontSize: 11.5,
+                                  fontSize: 11,
                                   color: Color(0xFF64748B),
                                 ),
                               ),
                               Text(
-                                'طريقة الدفع: ${invoice.paymentMethodArabic}',
+                                'الدفع: ${invoice.paymentMethodArabic}',
                                 style: const TextStyle(
-                                  fontSize: 11.5,
+                                  fontSize: 11,
                                   color: Color(0xFF64748B),
                                 ),
                               ),
@@ -227,7 +244,7 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
                               Text(
                                 'العميل: ${invoice.customerName ?? 'عميل نقدي'}',
                                 style: const TextStyle(
-                                  fontSize: 12,
+                                  fontSize: 11.5,
                                   fontWeight: FontWeight.w500,
                                   color: Color(0xFF334155),
                                 ),
@@ -239,7 +256,7 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
                     ),
                     const SizedBox(height: 10),
 
-                    // جدول الأصناف: تكبير خانة الصنف وتصغير خانات الكمية والسعر والإجمالي
+                    // جدول الأصناف المتناسق
                     Container(
                       width: double.infinity,
                       decoration: BoxDecoration(
@@ -259,12 +276,12 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
                             cells: const [
                               _GridCell(
                                 'الصنف',
-                                flex: 44,
+                                flex: 48,
                                 align: TextAlign.start,
                               ),
                               _GridCell(
                                 'الكمية',
-                                flex: 18,
+                                flex: 14,
                                 align: TextAlign.center,
                               ),
                               _GridCell(
@@ -285,12 +302,12 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
                               cells: [
                                 _GridCell(
                                   invoice.items[i].productName ?? 'منتج',
-                                  flex: 44,
+                                  flex: 48,
                                   align: TextAlign.start,
                                 ),
                                 _GridCell(
                                   '${invoice.items[i].quantity}',
-                                  flex: 18,
+                                  flex: 14,
                                   align: TextAlign.center,
                                 ),
                                 _GridCell(
@@ -386,11 +403,13 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
                                 ],
                               ),
                             ],
+                            const SizedBox(height: 4),
                             const Divider(
-                              height: 12,
-                              thickness: 0.6,
-                              color: Color(0xFFE2E8F0),
+                              height: 1,
+                              thickness: 0.5,
+                              color: Color(0xFFCBD5E1),
                             ),
+                            const SizedBox(height: 4),
                           ],
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -398,7 +417,7 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
                               const Text(
                                 '${AppStrings.LABEL_TOTAL}:',
                                 style: TextStyle(
-                                  fontSize: 15,
+                                  fontSize: 14.5,
                                   fontWeight: FontWeight.bold,
                                   color: Color(0xFF0F172A),
                                 ),
@@ -406,7 +425,7 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
                               Text(
                                 AppStrings.money(invoice.total),
                                 style: const TextStyle(
-                                  fontSize: 17,
+                                  fontSize: 16,
                                   fontWeight: FontWeight.bold,
                                   color: AppColors.PRIMARY_BLUE,
                                 ),
@@ -442,7 +461,7 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
                                     ? '${AppStrings.LABEL_CHANGE}:'
                                     : '${AppStrings.LABEL_REMAINING_ON_CUSTOMER}:',
                                 style: TextStyle(
-                                  fontSize: 12.5,
+                                  fontSize: 12,
                                   fontWeight: FontWeight.bold,
                                   color: invoice.isChangePositive
                                       ? AppColors.SUCCESS_GREEN
@@ -456,7 +475,7 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
                                         invoice.remainingOnCustomer,
                                       ),
                                 style: TextStyle(
-                                  fontSize: 13.5,
+                                  fontSize: 13,
                                   fontWeight: FontWeight.bold,
                                   color: invoice.isChangePositive
                                       ? AppColors.SUCCESS_GREEN
@@ -479,14 +498,14 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
                         color: Color(0xFF64748B),
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 4),
 
                     // تذييل الشكر
                     const Text(
                       'شكراً لتعاملكم معنا • نسعد بخدمتكم دائماً',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 11.5,
+                        fontSize: 11,
                         fontWeight: FontWeight.bold,
                         color: Color(0xFF334155),
                       ),
@@ -497,20 +516,28 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
                     Column(
                       children: [
                         CustomPaint(
-                          size: Size(_width80mm ? 120 : 100, 22),
-                          painter: _BarcodePainter(),
+                          size: const Size(120, 22),
+                          painter: _BarcodePainter(invoice.invoiceNumber),
                         ),
-                        const SizedBox(height: 2),
+                        const SizedBox(height: 3),
                         Text(
                           invoice.invoiceNumber,
                           style: const TextStyle(
-                            fontSize: 10,
-                            letterSpacing: 1.2,
-                            color: Color(0xFF64748B),
+                            fontSize: 9,
                             fontFamily: 'monospace',
+                            color: Color(0xFF64748B),
+                            letterSpacing: 1.5,
                           ),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'تم إصدار الفاتورة عبر نظام ${AppStrings.APP_NAME}',
+                      style: const TextStyle(
+                        fontSize: 9.5,
+                        color: Color(0xFF94A3B8),
+                      ),
                     ),
                   ],
                 ),
@@ -519,47 +546,73 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
 
             const SizedBox(height: 6),
             const Divider(thickness: 0.8, height: 1, color: Color(0xFFE2E8F0)),
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
 
-            // خيار مقاس لفة ورق الطباعة الحرارية
-            Row(
-              children: [
-                const Icon(
-                  Icons.print_outlined,
-                  size: 16,
-                  color: AppColors.PRIMARY_BLUE_DARK,
-                ),
-                const SizedBox(width: 6),
-                const Text(
-                  'مقاس الورق:',
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.TEXT_PRIMARY,
+            // خيار مقاس لفة ورق الطباعة الحرارية (تصميم أنيق مضاد للفيضان)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.print_outlined,
+                    size: 16,
+                    color: AppColors.PRIMARY_BLUE,
                   ),
-                ),
-                const Spacer(),
-                ChoiceChip(
-                  label: const Text('80 مم (عريض / كاشير قياسي)'),
-                  labelStyle: TextStyle(
-                    fontSize: 10.5,
-                    fontWeight: _width80mm ? FontWeight.bold : FontWeight.normal,
+                  const SizedBox(width: 6),
+                  const Text(
+                    'عرض الورق:',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.TEXT_PRIMARY,
+                    ),
                   ),
-                  selected: _width80mm,
-                  onSelected: (_) => setState(() => _width80mm = true),
-                ),
-                const SizedBox(width: 4),
-                ChoiceChip(
-                  label: const Text('58 مم (محمول)'),
-                  labelStyle: TextStyle(
-                    fontSize: 10.5,
-                    fontWeight:
-                        !_width80mm ? FontWeight.bold : FontWeight.normal,
+                  const Spacer(),
+                  InkWell(
+                    onTap: () => setState(() => _width80mm = true),
+                    borderRadius: BorderRadius.circular(6),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: _width80mm ? AppColors.PRIMARY_BLUE : Colors.transparent,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        '80 مم (عريض)',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: _width80mm ? Colors.white : AppColors.TEXT_SECONDARY,
+                        ),
+                      ),
+                    ),
                   ),
-                  selected: !_width80mm,
-                  onSelected: (_) => setState(() => _width80mm = false),
-                ),
-              ],
+                  const SizedBox(width: 4),
+                  InkWell(
+                    onTap: () => setState(() => _width80mm = false),
+                    borderRadius: BorderRadius.circular(6),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: !_width80mm ? AppColors.PRIMARY_BLUE : Colors.transparent,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        '58 مم (محمول)',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: !_width80mm ? Colors.white : AppColors.TEXT_SECONDARY,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 10),
 
@@ -567,40 +620,47 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
             Row(
               children: [
                 Expanded(
+                  flex: 2,
                   child: OutlinedButton(
                     style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 9),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
                       side: const BorderSide(color: Color(0xFFCBD5E1)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
                     onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('إغلاق'),
+                    child: const Text('إغلاق', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
+                  flex: 3,
                   child: OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 9),
-                      side: const BorderSide(color: Color(0xFFCBD5E1)),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      side: const BorderSide(color: AppColors.PRIMARY_BLUE),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
                     onPressed: _shareReceipt,
-                    icon: const Icon(Icons.share, size: 15),
-                    label: const Text('مشاركة'),
+                    icon: const Icon(Icons.share_rounded, size: 15, color: AppColors.PRIMARY_BLUE),
+                    label: const Text('مشاركة PDF', style: TextStyle(color: AppColors.PRIMARY_BLUE, fontWeight: FontWeight.bold, fontSize: 12)),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
+                  flex: 4,
                   child: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 9),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
                       backgroundColor: AppColors.SUCCESS_GREEN,
                       foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      elevation: 1,
                     ),
                     onPressed: _printReceipt,
-                    icon: const Icon(Icons.print, size: 15),
+                    icon: const Icon(Icons.print_rounded, size: 16),
                     label: const Text(
                       'طباعة الفاتورة',
-                      style: TextStyle(fontWeight: FontWeight.bold),
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
                     ),
                   ),
                 ),
@@ -627,32 +687,44 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
           Expanded(
             flex: c.flex,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 6),
               decoration: BoxDecoration(
                 color: isHeader ? _headerBg : (zebra ? _zebraBg : Colors.white),
                 border: Border.all(color: _gridLine, width: 0.5),
               ),
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: c.align == TextAlign.start
-                    ? Alignment.centerRight
-                    : (c.align == TextAlign.end
-                        ? Alignment.centerLeft
-                        : Alignment.center),
-                child: Text(
-                  c.text,
-                  textAlign: c.align,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: isHeader || c.bold
-                        ? FontWeight.bold
-                        : FontWeight.normal,
-                    color: isHeader
-                        ? const Color(0xFF1E293B)
-                        : const Color(0xFF334155),
-                  ),
-                ),
-              ),
+              child: c.align == TextAlign.start
+                  ? Text(
+                      c.text,
+                      textAlign: c.align,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: isHeader ? 11.5 : 11,
+                        fontWeight: isHeader || c.bold ? FontWeight.bold : FontWeight.normal,
+                        color: isHeader
+                            ? const Color(0xFF1E293B)
+                            : const Color(0xFF334155),
+                      ),
+                    )
+                  : FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: c.align == TextAlign.end
+                          ? Alignment.centerLeft
+                          : Alignment.center,
+                      child: Text(
+                        c.text,
+                        textAlign: c.align,
+                        style: TextStyle(
+                          fontSize: isHeader ? 11.5 : 11.5,
+                          fontWeight: isHeader || c.bold
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                          color: isHeader
+                              ? const Color(0xFF1E293B)
+                              : const Color(0xFF334155),
+                        ),
+                      ),
+                    ),
             ),
           ),
       ],
@@ -668,30 +740,56 @@ class _GridCell {
 
   const _GridCell(
     this.text, {
-      this.flex = 1,
-      this.align = TextAlign.center,
-      this.bold = false,
-    });
+    required this.flex,
+    required this.align,
+    this.bold = false,
+  });
 }
 
-/// رسم باركود شريطي نظيف ودقيق يحاكي Code128 كما يظهر في إيصال الكاشير المطبوع.
+/// راسم باركود رقمي خفيف متناسق يطابق باركود PDF
 class _BarcodePainter extends CustomPainter {
+  final String data;
+
+  const _BarcodePainter(this.data);
+
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFF1E293B)
-      ..strokeCap = StrokeCap.square;
+      ..color = const Color(0xFF0F172A)
+      ..strokeWidth = 1.6;
 
-    const pattern = [2, 1, 3, 1, 1, 2, 1, 3, 2, 1, 1, 2, 3, 1, 2, 1, 1, 3, 1, 2, 2, 1, 1, 3, 2];
+    final bytes = data.codeUnits;
+    if (bytes.isEmpty) return;
+
+    final step = size.width / (bytes.length * 4 + 8);
     double x = 4.0;
-    final step = (size.width - 8) / (pattern.length * 1.55);
-    for (int i = 0; i < pattern.length; i++) {
-      final w = pattern[i] * 0.75;
-      paint.strokeWidth = w;
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
-      x += step * (pattern[i] > 1 ? 1.4 : 1.0) + 1.1;
-      if (x > size.width - 4) break;
+
+    // خطوط بداية
+    canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+    x += step * 2;
+    canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+    x += step * 2;
+
+    for (var i = 0; i < bytes.length; i++) {
+      final b = bytes[i];
+      if (b % 2 == 0) {
+        canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+      }
+      x += step;
+      if (b % 3 == 0) {
+        canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+      }
+      x += step;
+      if (b % 5 == 0) {
+        canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+      }
+      x += step * 2;
     }
+
+    // خطوط نهاية
+    canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+    x += step * 2;
+    canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
   }
 
   @override

@@ -17,7 +17,8 @@ void main() {
         type: '9', // Lifetime
       );
 
-      expect(key.startsWith('ACT-'), true);
+      expect(key.split('-').length, 4);
+      expect(key.replaceAll('-', '').length, 16);
 
       final result = LicenseService.verifyLicenseKey(
         deviceId: deviceA,

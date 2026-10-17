@@ -164,10 +164,10 @@ class AppStrings {
   static const String APP_VERSION = '1.0.0 Pro';
 
   /// 2. هوية المطور والجهة المصممة (Developer & Vendor Identity)
-  static const String DEVELOPER_NAME = 'م/ أحمد مصطفى العراقي';
+  static const String DEVELOPER_NAME = 'م/ محمد العراقي';
   static const String DEVELOPER_TITLE = 'مهندس ومطور برمجيات';
-  static const String DEVELOPER_PHONE = '+201018596001';
-  static const String DEVELOPER_WHATSAPP = '201018596001';
+  static const String DEVELOPER_PHONE = '+201032231330';
+  static const String DEVELOPER_WHATSAPP = '201032231330';
   static const String DEVELOPER_RIGHTS = 'جميع الحقوق البرمجية محفوظة © 2026';
 
   /// 3. بيانات المتجر الافتراضية (Default Store Profile)

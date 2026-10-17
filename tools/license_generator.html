@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>مولد تراخيص نظام دُكّان POS | المطور م/ أحمد مصطفى العراقي</title>
+  <title>مولد تراخيص نظام دُكّان POS | المطور م/ محمد العراقي</title>
   <style>
     :root {
       --primary: #1E5FBF;
@@ -32,29 +32,29 @@
     }
     .card {
       background: var(--surface);
-      border-radius: 16px;
+      border-radius: 18px;
       box-shadow: 0 10px 30px rgba(0,0,0,0.08);
       width: 100%;
-      max-width: 540px;
+      max-width: 560px;
       padding: 32px;
       border: 1px solid rgba(0,0,0,0.06);
     }
     .header {
       text-align: center;
-      margin-bottom: 28px;
+      margin-bottom: 26px;
     }
     .badge {
       display: inline-block;
       background: rgba(30, 95, 191, 0.1);
       color: var(--primary);
-      padding: 4px 14px;
+      padding: 5px 16px;
       border-radius: 20px;
-      font-size: 12px;
-      font-weight: bold;
+      font-size: 12.5px;
+      fontWeight: bold;
       margin-bottom: 8px;
     }
     h1 {
-      font-size: 22px;
+      font-size: 23px;
       color: var(--primary-dark);
       margin-bottom: 6px;
     }
@@ -98,98 +98,107 @@
     }
     button.btn-primary {
       width: 100%;
-      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-      color: white;
+      background: var(--primary);
+      color: #FFFFFF;
       border: none;
-      padding: 14px;
       border-radius: 10px;
-      font-size: 15px;
+      padding: 14px;
+      font-size: 16px;
       font-weight: bold;
       cursor: pointer;
-      transition: all 0.2s;
-      box-shadow: 0 4px 12px rgba(30, 95, 191, 0.25);
+      transition: background 0.2s, transform 0.1s;
+      margin-top: 6px;
     }
     button.btn-primary:hover {
-      opacity: 0.95;
-      transform: translateY(-1px);
+      background: var(--primary-dark);
+    }
+    button.btn-primary:active {
+      transform: scale(0.99);
     }
     .result-box {
-      display: none;
-      margin-top: 26px;
+      margin-top: 24px;
       padding: 20px;
       background: #F0FDF4;
       border: 1.5px solid #BBF7D0;
       border-radius: 12px;
-      animation: fadeIn 0.3s ease-in-out;
+      display: none;
+      animation: fadeIn 0.3s ease;
     }
     @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(6px); }
+      from { opacity: 0; transform: translateY(-8px); }
       to { opacity: 1; transform: translateY(0); }
     }
     .result-title {
       font-size: 13px;
-      color: var(--success);
+      color: #166534;
       font-weight: bold;
-      margin-bottom: 8px;
-    }
-    .license-display {
-      background: white;
-      border: 1.5px dashed var(--success);
-      padding: 14px;
-      border-radius: 8px;
+      margin-bottom: 12px;
       text-align: center;
+    }
+    .boxes-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      direction: ltr;
+      margin-bottom: 14px;
+    }
+    .box-chip {
+      background: #FFFFFF;
+      border: 2px solid #86EFAC;
+      border-radius: 8px;
+      padding: 8px 12px;
       font-family: monospace;
-      font-size: 19px;
+      font-size: 18px;
       font-weight: bold;
       letter-spacing: 2px;
       color: #15803D;
-      margin-bottom: 14px;
-      user-select: all;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+    }
+    .box-sep {
+      font-size: 18px;
+      font-weight: bold;
+      color: #86EFAC;
     }
     .action-buttons {
       display: flex;
       gap: 10px;
+      margin-top: 10px;
     }
     .btn-action {
       flex: 1;
       padding: 10px;
-      border: none;
       border-radius: 8px;
+      border: none;
       font-size: 13px;
       font-weight: bold;
       cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      transition: all 0.2s;
+      transition: opacity 0.2s;
     }
     .btn-copy {
-      background: white;
-      color: var(--primary);
-      border: 1px solid var(--primary);
-    }
-    .btn-copy:hover {
-      background: rgba(30, 95, 191, 0.05);
+      background: var(--primary);
+      color: white;
     }
     .btn-whatsapp {
       background: #25D366;
       color: white;
     }
-    .btn-whatsapp:hover {
-      background: #20BD5A;
-    }
-    .error-msg {
-      color: var(--danger);
-      font-size: 12.5px;
-      margin-top: 6px;
-      display: none;
+    .btn-action:hover {
+      opacity: 0.9;
     }
     .footer-note {
       text-align: center;
-      font-size: 11px;
+      margin-top: 20px;
+      font-size: 11.5px;
       color: var(--muted);
-      margin-top: 24px;
+      line-height: 1.6;
+    }
+    .error-msg {
+      color: var(--danger);
+      font-size: 12px;
+      margin-top: 6px;
+      display: none;
+      font-weight: bold;
     }
   </style>
 </head>
@@ -197,9 +206,9 @@
 
 <div class="card">
   <div class="header">
-    <div class="badge">أداة الإدارة الخاصة بالمطور | م/ أحمد مصطفى العراقي</div>
+    <div class="badge">أداة الإدارة الخاصة بالمطور | م/ محمد العراقي (01032231330)</div>
     <h1>مولد تراخيص نظام دُكّان POS</h1>
-    <p class="subtitle">توليد أكواد التفعيل الرسمية المرتبطة بعتاد الأجهزة دون الحاجة لإنترنت</p>
+    <p class="subtitle">توليد أكواد التفعيل الرسمية (4 خانات × 4 أحرف) دون إنترنت</p>
   </div>
 
   <div class="form-group">
@@ -227,21 +236,31 @@
   <button class="btn-primary" onclick="generateKey()">توليد مفتاح التفعيل الآن</button>
 
   <div id="resultBox" class="result-box">
-    <div class="result-title">✅ تم توليد مفتاح التفعيل بنجاح:</div>
-    <div id="licenseKeyText" class="license-display">ACT-XXXX-YYYY-ZZZZ-WWWW</div>
+    <div class="result-title">✅ تم توليد مفتاح التفعيل بنجاح (مقسم على 4 خانات):</div>
+    
+    <div class="boxes-container">
+      <div id="chip1" class="box-chip">XXXX</div>
+      <span class="box-sep">-</span>
+      <div id="chip2" class="box-chip">YYYY</div>
+      <span class="box-sep">-</span>
+      <div id="chip3" class="box-chip">ZZZZ</div>
+      <span class="box-sep">-</span>
+      <div id="chip4" class="box-chip">WWWW</div>
+    </div>
+
     <div class="action-buttons">
-      <button class="btn-action btn-copy" onclick="copyKey()">📋 نسخ المفتاح</button>
-      <button class="btn-action btn-whatsapp" onclick="shareWhatsApp()">💬 إرسال واتساب</button>
+      <button class="btn-action btn-copy" onclick="copyKey()">📋 نسخ الكود كاملاً</button>
+      <button class="btn-action btn-whatsapp" onclick="shareWhatsApp()">💬 إرسال واتساب للعميل</button>
     </div>
   </div>
 
   <div class="footer-note">
-    🔒 النظام محمي بتشفير HMAC-SHA256 — المفتاح يعمل حصراً على الجهاز المحدد ولا يعمل على أي جهاز آخر.
+    🔒 النظام محمي بتشفير HMAC-SHA256 — المفتاح يعمل حصراً على الجهاز المحدد ولا يمكن تشغيله على أي جهاز آخر.
   </div>
 </div>
 
 <script>
-  // المفتاح السري المطابق للتطبيق
+  // المفتاح السري المطابق لنظام دُكّان POS
   const SECRET_SALT = "ELNUQRASHI_POS_PROD_KEY_#2026_V1_SECRET_98b7f24a1e";
 
   async function hmacSha256(message, secret) {
@@ -259,6 +278,8 @@
       .join('')
       .toUpperCase();
   }
+
+  let generatedKeyFormatted = '';
 
   async function generateKey() {
     const rawDeviceId = document.getElementById('deviceId').value.trim().toUpperCase();
@@ -281,30 +302,40 @@
     const signature = digest.substring(0, 11);
 
     const rawKey = `${type}${epochDaysHex}${signature}`;
-    const formattedKey = `ACT-${rawKey.substring(0,4)}-${rawKey.substring(4,8)}-${rawKey.substring(8,12)}-${rawKey.substring(12,16)}`;
+    
+    const p1 = rawKey.substring(0, 4);
+    const p2 = rawKey.substring(4, 8);
+    const p3 = rawKey.substring(8, 12);
+    const p4 = rawKey.substring(12, 16);
 
-    document.getElementById('licenseKeyText').innerText = formattedKey;
+    document.getElementById('chip1').innerText = p1;
+    document.getElementById('chip2').innerText = p2;
+    document.getElementById('chip3').innerText = p3;
+    document.getElementById('chip4').innerText = p4;
+
+    generatedKeyFormatted = `${p1}-${p2}-${p3}-${p4}`;
     document.getElementById('resultBox').style.display = 'block';
   }
 
   function copyKey() {
-    const key = document.getElementById('licenseKeyText').innerText;
-    navigator.clipboard.writeText(key).then(() => {
-      alert('تم نسخ مفتاح التفعيل بنجاح!');
+    if (!generatedKeyFormatted) return;
+    navigator.clipboard.writeText(generatedKeyFormatted).then(() => {
+      alert('تم نسخ كود التفعيل بنجاح: ' + generatedKeyFormatted);
     });
   }
 
   function shareWhatsApp() {
-    const key = document.getElementById('licenseKeyText').innerText;
+    if (!generatedKeyFormatted) return;
     const client = document.getElementById('clientName').value.trim();
     const typeText = document.getElementById('licenseType').options[document.getElementById('licenseType').selectedIndex].text;
     
     let msg = `مرحباً بك${client ? ' ' + client : ''}،%0A`;
     msg += `تم تفعيل ترخيص نظام دُكّان POS بنجاح.%0A`;
     msg += `🔹 نوع الترخيص: ${typeText}%0A`;
-    msg += `🔑 مفتاح التفعيل الخاص بجهازك هو:%0A*${key}*%0A%0A`;
-    msg += `يرجى نسخه ولصقه في خانة التفعيل بالنظام.%0A`;
-    msg += `مع تحيات المطور: م/ أحمد مصطفى العراقي (هاتف: 01018596001)`;
+    msg += `🔑 كود التفعيل الخاص بجهازك هو:%0A*${generatedKeyFormatted}*%0A%0A`;
+    msg += `💡 طريقة الاستخدام:%0A`;
+    msg += `انسخ الكود واضغط زر (لصق الكود كاملاً) داخل شاشة التفعيل أو أدخله في الخانات الأربع.%0A%0A`;
+    msg += `مع تحيات المطور: م/ محمد العراقي (هاتف: 01032231330)`;
 
     window.open(`https://wa.me/?text=${msg}`, '_blank');
   }
