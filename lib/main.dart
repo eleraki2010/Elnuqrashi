@@ -8,6 +8,7 @@ import 'core/theme/app_theme.dart';
 import 'core/services/google_drive_backup_service.dart';
 import 'presentation/screens/login_screen.dart';
 import 'presentation/screens/main_layout_screen.dart';
+import 'presentation/screens/splash_screen.dart';
 import 'providers/auth_provider.dart';
 
 void main() async {
@@ -68,7 +69,7 @@ class AlnokrashyPOSApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      home: const AuthGate(),
+      home: const SplashScreen(),
     );
   }
 }

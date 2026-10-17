@@ -10,11 +10,13 @@ import '../../data/models/sale_invoice.dart';
 import '../../data/repositories/sale_repository.dart';
 import '../../providers/app_providers.dart';
 import '../../providers/phase2_providers.dart';
+import '../widgets/license_banner.dart';
 import '../widgets/receipt_dialog.dart';
 import '../widgets/stat_card.dart';
 import '../widgets/store_logo.dart';
 import 'customer_detail_screen.dart';
 import 'product_form_screen.dart';
+import 'settings_screen.dart';
 
 class DashboardScreen extends ConsumerWidget {
   /// التنقل بالاسم (مقاوم لإعادة الترتيب وفلترة الصلاحيات).
@@ -51,6 +53,8 @@ class DashboardScreen extends ConsumerWidget {
     final sectionGap = ResponsiveUtils.scaledSpacing(20.0, contentWidth);
     final isCompact = contentWidth < 800;
 
+    final storeName = ref.watch(storeNameProvider);
+
     return Scaffold(
       body: SingleChildScrollView(
         padding: EdgeInsets.all(
@@ -59,8 +63,9 @@ class DashboardScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const LicenseBanner(),
             // Store Title & Header
-            _buildHeader(scale, contentWidth, dateFormat),
+            _buildHeader(scale, contentWidth, dateFormat, storeName),
             SizedBox(height: ResponsiveUtils.scaledSpacing(24.0, contentWidth)),
 
             // Metrics Cards Grid
@@ -976,7 +981,7 @@ class DashboardScreen extends ConsumerWidget {
   }
 
   // Store Title & Header
-  Widget _buildHeader(double scale, double contentWidth, DateFormat dateFormat) {
+  Widget _buildHeader(double scale, double contentWidth, DateFormat dateFormat, String storeName) {
     return Padding(
       padding: EdgeInsets.symmetric(
         horizontal: ResponsiveUtils.scaledSpacing(16.0, contentWidth),
@@ -990,14 +995,15 @@ class DashboardScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  AppStrings.APP_TITLE,
+                  storeName.isNotEmpty ? storeName : AppStrings.DEFAULT_STORE_NAME,
                   style: TextStyle(
                     fontSize: ResponsiveUtils.scaledFont(20.0, contentWidth),
                     fontWeight: FontWeight.bold,
+                    color: AppColors.TEXT_PRIMARY,
                   ),
                 ),
                 Text(
-                  '${AppStrings.STORE_NAME} • ${dateFormat.format(DateTime.now())}',
+                  '${AppStrings.APP_NAME} • ${dateFormat.format(DateTime.now())}',
                   style: TextStyle(
                     fontSize: ResponsiveUtils.scaledFont(13.5, contentWidth),
                     color: AppColors.TEXT_SECONDARY,

@@ -102,7 +102,7 @@ class ResponsiveUtils {
     if (width >= largeScreenStart) {
       // تحسين بسيط جداً للشاشات الكبيرة جداً لتحسين تجربة اللمس
       // دون التأثير على الشاشات اللوحية القياسية (600-1200dp)
-      return 1.0 + ((width - largeScreenStart) / 2000) * (largeScreenScale - 1.0);
+      return (1.0 + ((width - largeScreenStart) / 2000) * (largeScreenScale - 1.0)).clamp(1.0, maxScale);
     }
     return 1.0;
   }
@@ -157,8 +157,24 @@ class ResponsiveUtils {
 }
 
 class AppStrings {
-  static const String APP_TITLE = 'النقراشي للأدوات الصحية والسيراميك';
-  static const String STORE_NAME = 'النقراشي للأدوات الصحية والسيراميك';
+  /// 1. العلامة التجارية للنظام (Software Brand)
+  static const String APP_NAME = 'دُكّان POS';
+  static const String APP_TITLE = 'دُكّان - نظام إدارة المحلات والمبيعات';
+  static const String APP_SLOGAN = 'النظام الشامل لإدارة نقاط البيع والمخزون والمحاسبة';
+  static const String APP_VERSION = '1.0.0 Pro';
+
+  /// 2. هوية المطور والجهة المصممة (Developer & Vendor Identity)
+  static const String DEVELOPER_NAME = 'م/ أحمد مصطفى العراقي';
+  static const String DEVELOPER_TITLE = 'مهندس ومطور برمجيات';
+  static const String DEVELOPER_PHONE = '+201018596001';
+  static const String DEVELOPER_WHATSAPP = '201018596001';
+  static const String DEVELOPER_RIGHTS = 'جميع الحقوق البرمجية محفوظة © 2026';
+
+  /// 3. بيانات المتجر الافتراضية (Default Store Profile)
+  static const String DEFAULT_STORE_NAME = 'متجري / اسم المحل';
+  static const String DEFAULT_STORE_ACTIVITY = 'تجارة عامة ومبيعات';
+  static const String STORE_NAME = DEFAULT_STORE_NAME;
+
   static const String CURRENCY = 'ج.م';
   static const String CURRENCY_CODE = 'EGP';
 

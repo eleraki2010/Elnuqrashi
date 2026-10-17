@@ -23,6 +23,7 @@ import 'shop_balance_screen.dart';
 import '../widgets/store_logo.dart';
 import 'stock_summary_screen.dart';
 import 'suppliers_list_screen.dart';
+import '../dialogs/about_app_dialog.dart';
 
 class MainLayoutScreen extends ConsumerStatefulWidget {
   const MainLayoutScreen({super.key});
@@ -294,9 +295,11 @@ class _MainLayoutScreenState extends ConsumerState<MainLayoutScreen> {
         ),
       ];
 
+      final storeName = ref.watch(storeNameProvider);
+
       return Scaffold(
         appBar: AppBar(
-          title: Text(AppStrings.APP_TITLE),
+          title: Text(storeName.isNotEmpty ? storeName : AppStrings.APP_NAME),
           actions: [
             if (lowStockCount > 0)
               Padding(
@@ -402,7 +405,7 @@ class _MainLayoutScreenState extends ConsumerState<MainLayoutScreen> {
 
 /// شريط تنقل جانبي قابل للطي مع تمرير عمودي — يحل فيضان NavigationRail
 /// عند كثرة الوجهات (18+) على شاشات التابلت، ويعرض الأيقونات فقط عند الطي.
-class _CollapsibleSidebar extends StatelessWidget {
+class _CollapsibleSidebar extends ConsumerWidget {
   final List<({IconData icon, IconData selectedIcon, String label, String route, bool ownerOnly, Widget screen})> entries;
   final int selectedIndex;
   final ValueChanged<int> onSelect;
@@ -424,7 +427,8 @@ class _CollapsibleSidebar extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final storeName = ref.watch(storeNameProvider);
     final width = isCollapsed
         ? AppLayout.SIDEBAR_COLLAPSED_WIDTH
         : AppLayout.SIDEBAR_EXPANDED_WIDTH;
@@ -474,7 +478,7 @@ class _CollapsibleSidebar extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            'النقراشي POS',
+                            storeName.isNotEmpty ? storeName : AppStrings.DEFAULT_STORE_NAME,
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 14.5 * scale,
@@ -483,7 +487,7 @@ class _CollapsibleSidebar extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                           ),
                           Text(
-                            'أدوات صحية وسيراميك',
+                            AppStrings.APP_NAME,
                             style: TextStyle(
                               fontSize: 11 * scale,
                               color: AppColors.TEXT_SECONDARY,
@@ -558,7 +562,15 @@ class _CollapsibleSidebar extends StatelessWidget {
                             ),
                           ),
                         ),
-                      const SizedBox(height: 6),
+                      IconButton(
+                        icon: Icon(Icons.info_outline_rounded, size: 18 * scale, color: AppColors.PRIMARY_BLUE),
+                        tooltip: 'عن نظام ${AppStrings.APP_NAME}',
+                        onPressed: () => showDialog(
+                          context: context,
+                          builder: (_) => const AboutAppDialog(),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
                       IconButton(
                         icon: Icon(Icons.logout, size: 18 * scale),
                         tooltip: 'تسجيل الخروج',
@@ -589,6 +601,41 @@ class _CollapsibleSidebar extends StatelessWidget {
                         label: Text(
                           'تسجيل الخروج',
                           style: TextStyle(fontSize: 13 * scale),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      // زر عن النظام وهوية المطور
+                      InkWell(
+                        onTap: () => showDialog(
+                          context: context,
+                          builder: (_) => const AboutAppDialog(),
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: AppColors.PRIMARY_BLUE.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: AppColors.PRIMARY_BLUE.withValues(alpha: 0.15),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.info_outline_rounded,
+                                  size: 13, color: AppColors.PRIMARY_BLUE),
+                              const SizedBox(width: 6),
+                              Text(
+                                '${AppStrings.APP_NAME} • v1.0',
+                                style: TextStyle(
+                                  fontSize: 11 * scale,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.PRIMARY_BLUE_DARK,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ],

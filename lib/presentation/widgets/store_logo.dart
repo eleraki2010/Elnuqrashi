@@ -44,17 +44,26 @@ class StoreLogo extends ConsumerWidget {
   }
 
   Widget _fallback(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: AppColors.PRIMARY_BLUE,
-        borderRadius: BorderRadius.circular(borderRadius),
-      ),
-      child: Icon(
-        Icons.storefront,
-        color: Colors.white,
-        size: size * 0.6,
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(borderRadius),
+      child: Image.asset(
+        'assets/images/logo.png',
+        width: size,
+        height: size,
+        fit: BoxFit.contain,
+        errorBuilder: (_, _, _) => Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            color: AppColors.PRIMARY_BLUE,
+            borderRadius: BorderRadius.circular(borderRadius),
+          ),
+          child: Icon(
+            Icons.storefront,
+            color: Colors.white,
+            size: size * 0.6,
+          ),
+        ),
       ),
     );
   }

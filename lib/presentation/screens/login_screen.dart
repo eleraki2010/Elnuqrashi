@@ -172,15 +172,31 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(20),
+                    width: 96,
+                    height: 96,
                     decoration: BoxDecoration(
-                      color: AppColors.PRIMARY_BLUE,
-                      borderRadius: BorderRadius.circular(AppLayout.BORDER_RADIUS * 2),
-                    ),
-                    child: const Icon(
-                      Icons.storefront,
                       color: Colors.white,
-                      size: 56,
+                      borderRadius: BorderRadius.circular(AppLayout.BORDER_RADIUS * 2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.PRIMARY_BLUE.withValues(alpha: 0.15),
+                          blurRadius: 18,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    padding: const EdgeInsets.all(10),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(AppLayout.BORDER_RADIUS),
+                      child: Image.asset(
+                        'assets/images/logo.png',
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, _, _) => const Icon(
+                          Icons.storefront,
+                          color: AppColors.PRIMARY_BLUE,
+                          size: 56,
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -390,6 +406,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ),
                       ],
                     ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.verified_user_outlined, size: 13, color: AppColors.TEXT_SECONDARY),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${AppStrings.APP_NAME} (${AppStrings.APP_VERSION}) • تطوير: ${AppStrings.DEVELOPER_NAME}',
+                        style: const TextStyle(fontSize: 11, color: AppColors.TEXT_SECONDARY),
+                      ),
+                    ],
                   ),
                 ],
               ),

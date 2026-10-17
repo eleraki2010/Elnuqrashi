@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.alnokrashy" "\0"
-            VALUE "FileDescription", "alnokrashy_pos" "\0"
+            VALUE "CompanyName", "Dokkan POS" "\0"
+            VALUE "FileDescription", "Dokkan POS - نظام دُكّان لإدارة المحلات والمبيعات" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "alnokrashy_pos" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 com.alnokrashy. All rights reserved." "\0"
-            VALUE "OriginalFilename", "alnokrashy_pos.exe" "\0"
-            VALUE "ProductName", "alnokrashy_pos" "\0"
+            VALUE "InternalName", "dokkan_pos" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 Dokkan POS. All rights reserved." "\0"
+            VALUE "OriginalFilename", "dokkan_pos.exe" "\0"
+            VALUE "ProductName", "Dokkan POS" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

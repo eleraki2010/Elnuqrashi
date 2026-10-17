@@ -44,7 +44,7 @@ class BackupService {
     final db = await AppDatabase.instance;
     final data = <String, dynamic>{
       '_meta': {
-        'app': 'alnokrashy_pos',
+        'app': 'dokkan_pos',
         'db_version': AppDatabase.dbVersion,
         'exported_at': DateTime.now().toIso8601String(),
       },
@@ -127,7 +127,8 @@ class BackupService {
   }
 
   static const String keyCustomBackupDir = 'pref_custom_backup_directory';
-  static const String defaultFolderName = 'Elnuqrashi_Backups';
+  static const String defaultFolderName = 'Dokkan_Backups';
+  static const String legacyFolderName = 'Elnuqrashi_Backups';
 
   /// المجلد الافتراضي الظاهر للنسخ الاحتياطي على أجهزة التابلت والكمبيوتر.
   /// يتميز بأنه:
@@ -253,6 +254,7 @@ class BackupService {
       ];
       for (final dp in downloadPaths) {
         dirs.add(p.join(dp, defaultFolderName));
+        dirs.add(p.join(dp, legacyFolderName));
         dirs.add(dp);
       }
 
@@ -263,6 +265,7 @@ class BackupService {
       ];
       for (final dp in docPaths) {
         dirs.add(p.join(dp, defaultFolderName));
+        dirs.add(p.join(dp, legacyFolderName));
         dirs.add(dp);
       }
 
@@ -318,6 +321,8 @@ class BackupService {
             if (name.endsWith('.json')) {
               if (isAppBackupDir ||
                   name.contains('backup') ||
+                  name.contains('dokkan') ||
+                  name.contains('دكان') ||
                   name.contains('alnokrashy') ||
                   name.contains('elnuqrashi') ||
                   name.contains('nakrashy') ||
@@ -384,7 +389,7 @@ class BackupService {
     final json = const JsonEncoder.withIndent('  ').convert(snapshot);
     final now = DateTime.now();
     final fileName =
-        'alnokrashy_backup_${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}_${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}.json';
+        'dokkan_backup_${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}_${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}.json';
 
     if (pickCustomLocation) {
       if (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
@@ -448,7 +453,7 @@ class BackupService {
 
     final meta = json['_meta'];
     final isValidApp = meta is Map &&
-        (meta['app'] == 'alnokrashy_pos' || meta['app'] == 'elnuqrashi_pos');
+        (meta['app'] == 'dokkan_pos' || meta['app'] == 'alnokrashy_pos' || meta['app'] == 'elnuqrashi_pos');
     final hasStoreTables = json['products'] is List ||
         json['sale_invoices'] is List ||
         json['categories'] is List ||
@@ -457,7 +462,7 @@ class BackupService {
 
     if (!isValidApp && !hasStoreTables) {
       throw const FormatException(
-          'الملف المختار ليس نسخة احتياطية صالحة لتطبيق النقراشي');
+          'الملف المختار ليس نسخة احتياطية صالحة لنظام دُكّان POS');
     }
 
     await restoreFromSnapshot(Map<String, dynamic>.from(json));
@@ -547,7 +552,7 @@ class BackupService {
 
     final meta = json['_meta'];
     final isValidApp = meta is Map &&
-        (meta['app'] == 'alnokrashy_pos' || meta['app'] == 'elnuqrashi_pos');
+        (meta['app'] == 'dokkan_pos' || meta['app'] == 'alnokrashy_pos' || meta['app'] == 'elnuqrashi_pos');
     final hasStoreTables = json['products'] is List ||
         json['sale_invoices'] is List ||
         json['categories'] is List ||
@@ -556,7 +561,7 @@ class BackupService {
 
     if (!isValidApp && !hasStoreTables) {
       throw const FormatException(
-          'الملف المختار ليس نسخة احتياطية صالحة لتطبيق النقراشي');
+          'الملف المختار ليس نسخة احتياطية صالحة لنظام دُكّان POS');
     }
 
     await restoreFromSnapshot(Map<String, dynamic>.from(json));

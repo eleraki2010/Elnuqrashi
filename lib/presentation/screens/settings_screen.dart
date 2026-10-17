@@ -19,6 +19,10 @@ import 'package:printing/printing.dart';
 import '../../data/repositories/shop_profile_repository.dart';
 import '../../providers/app_providers.dart';
 import '../../providers/phase2_providers.dart';
+import '../../providers/license_provider.dart';
+import '../../core/services/license_service.dart';
+import '../dialogs/activation_dialog.dart';
+import '../dialogs/about_app_dialog.dart';
 import '../widgets/max_width_container.dart';
 import 'users_settings_screen.dart';
 
@@ -244,6 +248,63 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       child: _BackupRestoreSection(),
                     ),
                   ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              Container(
+                decoration: BoxDecoration(
+                  color: AppColors.NEUTRAL_SURFACE,
+                  borderRadius: BorderRadius.circular(AppLayout.BORDER_RADIUS),
+                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                ),
+                child: const ExpansionTile(
+                  leading: Icon(
+                    Icons.verified_user_outlined,
+                    color: AppColors.PRIMARY_BLUE,
+                  ),
+                  title: Text(
+                    'ترخيص وتفعيل التطبيق',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text('حالة الاشتراك وبصمة العتاد ومفتاح التفعيل'),
+                  children: [
+                    Padding(
+                      padding: EdgeInsets.all(AppLayout.SPACING_UNIT * 3),
+                      child: _LicenseSettingsSection(),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // كارت معلومات النظام وهوية المطور
+              Container(
+                decoration: BoxDecoration(
+                  color: AppColors.NEUTRAL_SURFACE,
+                  borderRadius: BorderRadius.circular(AppLayout.BORDER_RADIUS),
+                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                ),
+                child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.PRIMARY_BLUE.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.info_outline_rounded, color: AppColors.PRIMARY_BLUE),
+                  ),
+                  title: const Text(
+                    'عن نظام ${AppStrings.APP_NAME} والدعم الفني',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: const Text('الإصدار ${AppStrings.APP_VERSION} • تطوير: ${AppStrings.DEVELOPER_NAME}'),
+                  trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+                  onTap: () => showDialog(
+                    context: context,
+                    builder: (_) => const AboutAppDialog(),
+                  ),
                 ),
               ),
               const SizedBox(height: 24),
@@ -2256,3 +2317,157 @@ class _BackupRestoreSectionState extends ConsumerState<_BackupRestoreSection> {
     );
   }
 }
+
+class _LicenseSettingsSection extends ConsumerWidget {
+  const _LicenseSettingsSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final licenseAsync = ref.watch(licenseProvider);
+
+    return licenseAsync.when(
+      data: (info) {
+        final isLicensed = info.status == LicenseStatus.licensedActive;
+        final isExpired = info.status == LicenseStatus.trialExpired ||
+            info.status == LicenseStatus.licenseExpired ||
+            info.status == LicenseStatus.clockTampered;
+
+        final badgeColor = isLicensed
+            ? AppColors.SUCCESS_GREEN
+            : (isExpired ? AppColors.DANGER_RED : AppColors.WARNING_AMBER);
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: badgeColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: badgeColor),
+                  ),
+                  child: Text(
+                    isLicensed
+                        ? 'نسخة مفعلة رسمياً'
+                        : (isExpired ? 'الترخيص منتهٍ' : 'فترة تجريبية مجانية'),
+                    style: TextStyle(
+                      color: badgeColor,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                ElevatedButton.icon(
+                  onPressed: () => ActivationDialog.show(context, licenseInfo: info),
+                  icon: Icon(isLicensed ? Icons.refresh_rounded : Icons.key_rounded, size: 16),
+                  label: Text(isLicensed ? 'تحديث كود التفعيل' : 'تفعيل النسخة الآن'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isLicensed ? AppColors.PRIMARY_BLUE : AppColors.SUCCESS_GREEN,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.NEUTRAL_BG,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFE5E7EB)),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'كود هذا الجهاز (Hardware ID):',
+                        style: TextStyle(fontSize: 12, color: AppColors.TEXT_SECONDARY),
+                      ),
+                      Row(
+                        children: [
+                          SelectableText(
+                            info.deviceId,
+                            style: const TextStyle(
+                              fontFamily: 'monospace',
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13.5,
+                              color: AppColors.PRIMARY_BLUE_DARK,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          IconButton(
+                            icon: const Icon(Icons.copy_rounded, size: 16, color: AppColors.PRIMARY_BLUE),
+                            tooltip: 'نسخ الكود',
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            onPressed: () {
+                              Clipboard.setData(ClipboardData(text: info.deviceId));
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('تم نسخ كود الجهاز بنجاح!'),
+                                  backgroundColor: AppColors.SUCCESS_GREEN,
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'حالة الصلاحية:',
+                        style: TextStyle(fontSize: 12, color: AppColors.TEXT_SECONDARY),
+                      ),
+                      Text(
+                        info.statusDescription,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.bold,
+                          color: badgeColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (info.expiryDate != null && !info.isLifetime) ...[
+                    const Divider(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'تاريخ انتهاء الترخيص:',
+                          style: TextStyle(fontSize: 12, color: AppColors.TEXT_SECONDARY),
+                        ),
+                        Text(
+                          info.expiryDate!.toString().split(' ').first,
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.TEXT_PRIMARY,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Text('خطأ: $e'),
+    );
+  }
+}
+

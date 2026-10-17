@@ -8,6 +8,7 @@ import 'package:printing/printing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../data/repositories/shop_profile_repository.dart';
+import '../constants/app_constants.dart';
 
 /// إدارة إعدادات الطابعات وتكاملها مع أجهزة التابلت والكمبيوتر (Modern Tablet-ready POS Printing).
 class PrinterSettingsService {
@@ -162,7 +163,7 @@ class PrinterSettingsService {
       boldFont = pw.Font.helveticaBold();
     }
 
-    String storeName = 'النقراشي للأدوات الصحية والسيراميك';
+    String storeName = AppStrings.DEFAULT_STORE_NAME;
     String? storePhone;
     pw.ImageProvider? logoProvider;
     try {
@@ -302,7 +303,7 @@ class PrinterSettingsService {
                   pw.SizedBox(height: 8),
                   pw.BarcodeWidget(
                     barcode: pw.Barcode.code128(),
-                    data: 'ELNUQRASHI-TEST',
+                    data: 'DOKKAN-TEST',
                     width: widthPt * 0.75,
                     height: 28,
                     drawText: true,

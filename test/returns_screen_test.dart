@@ -5,6 +5,7 @@ import 'package:alnokrashy_pos/data/models/sale_invoice.dart';
 import 'package:alnokrashy_pos/data/models/sale_invoice_item.dart';
 import 'package:alnokrashy_pos/data/repositories/sale_repository.dart';
 import 'package:alnokrashy_pos/presentation/screens/returns_screen.dart';
+import 'package:alnokrashy_pos/presentation/widgets/searchable_dropdown.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -148,13 +149,13 @@ void main() {
 
       await flush(tester);
 
-      // 1) فتح قائمة الفواتير (عناصر القائمة تُبنى عند الفتح فقط).
-      await tester.tap(find.byType(DropdownButton<String>));
+      // 1) فتح قائمة الفواتير
+      await tester.tap(find.byType(SearchableDropdownFormField<String>));
       await tester.pumpAndSettle();
 
       // 2) اختيار الفاتورة.
-      expect(find.text('الفاتورة #20260100 - 200 ج.م'), findsOneWidget);
-      await tester.tap(find.text('الفاتورة #20260100 - 200 ج.م'));
+      expect(find.textContaining('20260100'), findsWidgets);
+      await tester.tap(find.textContaining('20260100').last);
       await flush(tester);
 
       // 3) اختيار الصنف (Checkbox جديد داخل سطر الكمية — الرقم الافتراضي
@@ -167,14 +168,14 @@ void main() {
       // نمرّره للعرض أولاً حتى لا يخطئ الضغط). سحب إحداثي مبسّط على
       // منطقة محتوى تبويب "مرتجع جديد" (لا يعتمد على فلدرس المؤشرات
       // القابلة للتمرير المتعددة في الشجرة).
-      expect(find.text('تأكيد المرتجع'), findsOneWidget);
+      expect(find.textContaining('تأكيد المرتجع'), findsOneWidget);
       for (var i = 0; i < 12; i++) {
-        final bottom = tester.getBottomLeft(find.text('تأكيد المرتجع')).dy;
+        final bottom = tester.getBottomLeft(find.textContaining('تأكيد المرتجع')).dy;
         if (bottom <= 590) break;
         await tester.dragFrom(const Offset(400, 450), const Offset(0, -200));
         await tester.pump();
       }
-      await tester.tap(find.text('تأكيد المرتجع'));
+      await tester.tap(find.textContaining('تأكيد المرتجع'));
       await flush(tester, cycles: 12);
 
       // رسالة النجاح ظهرت.

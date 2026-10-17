@@ -238,14 +238,14 @@ class _SearchableDropdownSheetState<T>
     final bottomInset = media.viewInsets.bottom;
     final maxHeight = media.size.height * 0.75;
 
-    return Container(
-      constraints: BoxConstraints(maxHeight: maxHeight),
-      margin: EdgeInsets.only(bottom: bottomInset),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: SafeArea(
+    return Material(
+      color: Colors.white,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      clipBehavior: Clip.antiAlias,
+      child: Container(
+        constraints: BoxConstraints(maxHeight: maxHeight),
+        margin: EdgeInsets.only(bottom: bottomInset),
+        child: SafeArea(
         top: false,
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -437,6 +437,7 @@ class _SearchableDropdownSheetState<T>
           ],
         ),
       ),
+    ),
     );
   }
 }

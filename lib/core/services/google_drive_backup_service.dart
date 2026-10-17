@@ -136,7 +136,7 @@ class GoogleDriveBackupService {
     final driveFile = drive.File()
       ..name = fileName
       ..parents = [folderId]
-      ..description = 'نسخة احتياطية لنظام النقراشي POS'
+      ..description = 'نسخة احتياطية لنظام دُكّان POS'
       ..mimeType = 'application/json';
 
     final uploaded = await driveApi.files.create(
@@ -204,7 +204,7 @@ class GoogleDriveBackupService {
 
     final meta = json['_meta'];
     final isValidApp = meta is Map &&
-        (meta['app'] == 'alnokrashy_pos' || meta['app'] == 'elnuqrashi_pos');
+        (meta['app'] == 'dokkan_pos' || meta['app'] == 'alnokrashy_pos' || meta['app'] == 'elnuqrashi_pos');
     final hasStoreTables = json['products'] is List ||
         json['sale_invoices'] is List ||
         json['categories'] is List ||
@@ -212,7 +212,7 @@ class GoogleDriveBackupService {
         json['suppliers'] is List;
 
     if (!isValidApp && !hasStoreTables) {
-      throw Exception('الملف المختار ليس نسخة احتياطية صالحة لتطبيق النقراشي.');
+      throw Exception('الملف المختار ليس نسخة احتياطية صالحة لنظام دُكّان POS.');
     }
 
     await BackupService.restoreFromSnapshot(Map<String, dynamic>.from(json));

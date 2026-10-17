@@ -8,6 +8,8 @@ import '../../data/models/product.dart';
 import '../../providers/app_providers.dart';
 import '../../providers/phase2_providers.dart';
 import '../../providers/pos_cart_provider.dart';
+import '../../providers/license_provider.dart';
+import '../dialogs/activation_dialog.dart';
 import '../widgets/receipt_dialog.dart';
 import '../widgets/product_image_view.dart';
 import 'barcode_scanner_screen.dart';
@@ -43,6 +45,15 @@ class _POSScreenState extends ConsumerState<POSScreen> {
   }
 
   Future<void> _completeSale() async {
+    final canTransact = ref.read(isTransactionAllowedProvider);
+    if (!canTransact) {
+      final licenseInfo = ref.read(licenseProvider).value;
+      if (licenseInfo != null && mounted) {
+        ActivationDialog.show(context, licenseInfo: licenseInfo);
+      }
+      return;
+    }
+
     final cart = ref.read(cartProvider);
     final cartNotifier = ref.read(cartProvider.notifier);
 

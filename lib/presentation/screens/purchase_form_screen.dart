@@ -10,6 +10,8 @@ import '../../data/models/purchase_invoice_item.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/data_refresh_service.dart';
 import '../../providers/phase2_providers.dart';
+import '../../providers/license_provider.dart';
+import '../dialogs/activation_dialog.dart';
 import '../widgets/product_search_dialog.dart';
 import '../widgets/searchable_dropdown.dart';
 
@@ -114,6 +116,15 @@ class _PurchaseFormScreenState extends ConsumerState<PurchaseFormScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('يرجى إضافة صنف واحد على الأقل للفاتورة')),
       );
+      return;
+    }
+
+    final canTransact = ref.read(isTransactionAllowedProvider);
+    if (!canTransact) {
+      final licenseInfo = ref.read(licenseProvider).value;
+      if (licenseInfo != null && mounted) {
+        ActivationDialog.show(context, licenseInfo: licenseInfo);
+      }
       return;
     }
 

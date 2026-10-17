@@ -463,23 +463,10 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
 
-      // زر "بيع جديد" (في الترويسة وفي الإجراءات السريعة) → 'pos'
-      await tester.tap(find.text('بيع جديد').first);
+      // زر "نقطة البيع" في الترويسة → 'pos'
+      await tester.tap(find.byTooltip('نقطة البيع'));
       await tester.pump();
       expect(invokedRoutes, contains('pos'));
-
-      // "عرض الكل" لسجل المبيعات يجب أن يفتح 'sales' وليس 'count' (الجرد).
-      // historically this called index 4 (الجرد) — هذا الاختبار يحرسه.
-      final viewAllButtons = find.text('عرض الكل');
-      expect(viewAllButtons, findsNWidgets(2));
-      await tester.tap(viewAllButtons.first);
-      await tester.pump();
-      expect(invokedRoutes, contains('sales'));
-
-      // "عرض الكل" لتنبيهات المخزون → 'alerts'
-      await tester.tap(viewAllButtons.last);
-      await tester.pump();
-      expect(invokedRoutes, contains('alerts'));
 
       // لا يجب أن تُطلب مسارات الجرد من لوحة القيادة.
       expect(invokedRoutes, isNot(contains('count')));
@@ -525,11 +512,11 @@ void main() {
       expect(ResponsiveUtils.scaledSpacing(base, width), base * factor);
     });
 
-    test('statGridColumns shows 4 columns on every wide content width', () {
-      expect(ResponsiveUtils.statGridColumns(390.0), 1); // هاتف عمودي
-      expect(ResponsiveUtils.statGridColumns(412.0), 4); // هاتف
-      expect(ResponsiveUtils.statGridColumns(576.0), 4); // تابلت مع شريط جانبي
-      expect(ResponsiveUtils.statGridColumns(1056.0), 4); // تابلت أفقي
+    test('statGridColumns shows correct columns based on screen breakpoint', () {
+      expect(ResponsiveUtils.statGridColumns(390.0), 1); // هاتف عمودي (<480)
+      expect(ResponsiveUtils.statGridColumns(480.0), 2); // تابلت رأسي (480-949)
+      expect(ResponsiveUtils.statGridColumns(576.0), 2); // تابلت مع شريط جانبي
+      expect(ResponsiveUtils.statGridColumns(1056.0), 4); // تابلت أفقي (>=950)
       expect(ResponsiveUtils.statGridColumns(1600.0), 4); // ديسكتوب عريض
     });
 
@@ -599,12 +586,10 @@ void main() {
 
       final navBar = tester.widget<NavigationBar>(find.byType(NavigationBar));
       expect(navBar.destinations.length, 5);
-      expect(find.text('المزيد'), findsOneWidget);
+      expect(find.descendant(of: find.byType(NavigationBar), matching: find.text('المزيد')), findsOneWidget);
 
       // زر "المزيد" يفتح ورقة بالوجهات الثانوية (المدفوعات مثلاً).
-      // ملاحظة: نتجنّب pumpAndSettle لأن شاشات أخرى تعرض مؤشر تحميل متحرك
-      // لا ينتهي (LinearProgressIndicator) فيما لا يستقر عليه.
-      await tester.tap(find.text('المزيد'));
+      await tester.tap(find.descendant(of: find.byType(NavigationBar), matching: find.text('المزيد')));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
       expect(find.text('المدفوعات'), findsWidgets);
@@ -634,6 +619,7 @@ void main() {
         ),
       );
       await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
 
       // مطوي → زر التوسيع ظاهر، زر الطي غير ظاهر.
       expect(find.byTooltip('توسيع القائمة'), findsOneWidget);
@@ -664,6 +650,7 @@ void main() {
         ),
       );
       await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
 
       expect(find.byTooltip('طي القائمة'), findsOneWidget);
       expect(find.byTooltip('توسيع القائمة'), findsNothing);

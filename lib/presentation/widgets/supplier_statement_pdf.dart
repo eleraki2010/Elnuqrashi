@@ -373,8 +373,8 @@ class SupplierStatementPdf {
           pw.SizedBox(height: 12),
           pw.Center(
             child: pw.Text(
-              'نشكركم لحسن تعاونكم معنا — تم إصدار هذا المستند عبر نظام ${AppStrings.STORE_NAME}',
-              style: pw.TextStyle(font: baseFont, fontSize: 8, color: PdfColors.grey600),
+              'نشكركم لحسن تعاونكم معنا — تم إصدار هذا المستند عبر نظام ${AppStrings.APP_NAME}',
+              style: pw.TextStyle(font: baseFont, fontSize: 8.5, color: PdfColors.grey600),
             ),
           ),
         ],
