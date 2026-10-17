@@ -100,18 +100,17 @@ class ThermalReceiptPrinter {
 
     // ترويسة المحل
     if (hasLogo) {
-      h += (width80mm ? 34.0 : 28.0) + 6.0;
-    } else {
-      h += (width80mm ? 20.0 : 16.0);
+      h += (width80mm ? 24.0 : 20.0) + 4.0;
     }
+    h += (width80mm ? 20.0 : 16.0);
     if (hasPhone) {
       h += 16.0;
     }
     h += 18.0; // نوع الفاتورة
     h += 12.0; // فاصل
 
-    // بطاقة بيانات الفاتورة
-    h += 76.0;
+    // بطاقة بيانات الفاتورة (3 أسطر متناسقة)
+    h += 82.0;
 
     // جدول الأصناف
     h += 22.0; // عنوان الجدول
@@ -479,6 +478,10 @@ class ThermalReceiptPrinter {
                       style: pw.TextStyle(font: baseFont, fontSize: 10, color: _colorSecondary),
                     ),
                     pw.Text(
+                      'المستخدم: ${invoice.cashierDisplayName}',
+                      style: pw.TextStyle(font: baseFont, fontSize: 10, color: _colorSecondary),
+                    ),
+                    pw.Text(
                       'الحالة: ${invoice.statusArabic}',
                       style: pw.TextStyle(
                         font: boldFont,
@@ -779,46 +782,34 @@ class ThermalReceiptPrinter {
       crossAxisAlignment: pw.CrossAxisAlignment.stretch,
       mainAxisSize: pw.MainAxisSize.min,
       children: [
-        // ترويسة المحل: الشعار بجوار اسم المحل
+        // ترويسة المحل: الشعار في الأعلى يليه اسم المحل متمركزاً لمنع أي خروج خارج حدود الورقة
+        if (logo != null) ...[
+          pw.Center(
+            child: pw.Container(
+              width: logoSize,
+              height: logoSize,
+              child: pw.ClipRRect(
+                horizontalRadius: 6,
+                verticalRadius: 6,
+                child: pw.Image(logo, fit: pw.BoxFit.contain),
+              ),
+            ),
+          ),
+          pw.SizedBox(height: isLargePaper ? 4 : 2.5),
+        ],
         pw.Center(
-          child: logo == null
-              ? pw.Text(
-                  storeName?.trim().isNotEmpty == true
-                      ? storeName!.trim()
-                      : AppStrings.STORE_NAME,
-                  textAlign: pw.TextAlign.center,
-                  style: pw.TextStyle(
-                    font: boldFont,
-                    fontSize: titleSize,
-                    color: _colorNavy,
-                  ),
-                )
-              : pw.Row(
-                  mainAxisAlignment: pw.MainAxisAlignment.center,
-                  mainAxisSize: pw.MainAxisSize.min,
-                  children: [
-                    pw.Container(
-                      width: logoSize,
-                      height: logoSize,
-                      child: pw.ClipRRect(
-                        horizontalRadius: 6,
-                        verticalRadius: 6,
-                        child: pw.Image(logo, fit: pw.BoxFit.contain),
-                      ),
-                    ),
-                    pw.SizedBox(width: isLargePaper ? 10 : 8),
-                    pw.Text(
-                      storeName?.trim().isNotEmpty == true
-                          ? storeName!.trim()
-                          : AppStrings.STORE_NAME,
-                      style: pw.TextStyle(
-                        font: boldFont,
-                        fontSize: titleSize,
-                        color: _colorNavy,
-                      ),
-                    ),
-                  ],
-                ),
+          child: pw.Text(
+            storeName?.trim().isNotEmpty == true
+                ? storeName!.trim()
+                : AppStrings.STORE_NAME,
+            textAlign: pw.TextAlign.center,
+            softWrap: true,
+            style: pw.TextStyle(
+              font: boldFont,
+              fontSize: titleSize,
+              color: _colorNavy,
+            ),
+          ),
         ),
         if (storePhone != null && storePhone.trim().isNotEmpty) ...[
           pw.SizedBox(height: isLargePaper ? 3 : 2),
@@ -861,43 +852,18 @@ class ThermalReceiptPrinter {
           ),
           child: pw.Column(
             children: [
+              // سطر 1: رقم الفاتورة والتاريخ في سطر واحد
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
                   pw.Text(
-                    'رقم الفاتورة: ${invoice.invoiceNumber}',
+                    'رقم الفاتورة: #${invoice.invoiceNumber}',
                     style: pw.TextStyle(
                       font: boldFont,
                       fontSize: invoiceNumSize,
                       color: _colorNavy,
                     ),
                   ),
-                  if (invoice.status != 'completed')
-                    pw.Container(
-                      padding: pw.EdgeInsets.symmetric(
-                        horizontal: isLargePaper ? 8 : 5,
-                        vertical: isLargePaper ? 2.5 : 1.5,
-                      ),
-                      decoration: pw.BoxDecoration(
-                        color: statusBg,
-                        border: pw.Border.all(color: statusBorder, width: 0.6),
-                        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
-                      ),
-                      child: pw.Text(
-                        invoice.statusArabic,
-                        style: pw.TextStyle(
-                          font: boldFont,
-                          fontSize: badgeSize,
-                          color: statusText,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-              pw.SizedBox(height: isLargePaper ? 5 : 3),
-              pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                children: [
                   pw.Text(
                     'التاريخ: ${dateFmt.format(invoice.createdAt)}',
                     style: pw.TextStyle(
@@ -906,6 +872,24 @@ class ThermalReceiptPrinter {
                       color: _colorSecondary,
                     ),
                   ),
+                ],
+              ),
+              pw.SizedBox(height: isLargePaper ? 4.5 : 3),
+              // سطر 2: اسم العميل وطريقة الدفع في سطر واحد
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Expanded(
+                    child: pw.Text(
+                      'العميل: ${invoice.customerName ?? 'عميل نقدي'}',
+                      style: pw.TextStyle(
+                        font: boldFont,
+                        fontSize: customerSize,
+                        color: const PdfColor(0.2, 0.25, 0.33),
+                      ),
+                    ),
+                  ),
+                  pw.SizedBox(width: 6),
                   pw.Text(
                     'طريقة الدفع: ${invoice.paymentMethodArabic}',
                     style: pw.TextStyle(
@@ -916,16 +900,38 @@ class ThermalReceiptPrinter {
                   ),
                 ],
               ),
-              pw.SizedBox(height: isLargePaper ? 5 : 3),
+              pw.SizedBox(height: isLargePaper ? 4.5 : 3),
+              // سطر 3: المستخدم الذي أنشأ الفاتورة + الحالة
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
-                  pw.Text(
-                    'العميل: ${invoice.customerName ?? 'عميل نقدي'}',
-                    style: pw.TextStyle(
-                      font: boldFont,
-                      fontSize: customerSize,
-                      color: const PdfColor(0.2, 0.25, 0.33),
+                  pw.Expanded(
+                    child: pw.Text(
+                      'المستخدم: ${invoice.cashierDisplayName}',
+                      style: pw.TextStyle(
+                        font: baseFont,
+                        fontSize: dateSize,
+                        color: _colorSecondary,
+                      ),
+                    ),
+                  ),
+                  pw.Container(
+                    padding: pw.EdgeInsets.symmetric(
+                      horizontal: isLargePaper ? 7 : 4,
+                      vertical: isLargePaper ? 2 : 1,
+                    ),
+                    decoration: pw.BoxDecoration(
+                      color: statusBg,
+                      border: pw.Border.all(color: statusBorder, width: 0.6),
+                      borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                    ),
+                    child: pw.Text(
+                      invoice.statusArabic,
+                      style: pw.TextStyle(
+                        font: boldFont,
+                        fontSize: badgeSize,
+                        color: statusText,
+                      ),
                     ),
                   ),
                 ],
@@ -1162,7 +1168,7 @@ class ThermalReceiptPrinter {
     );
   }
 
-  /// خلية جدول متناسقة مع دعم الحجم والمحاذاة
+  /// صف جدول متناسق واحترافي دون تكرار أو ازدواجية في حدود الخلايا
   static pw.Widget _pdfGridRow({
     required List<_PdfGridCell> cells,
     required pw.Font baseFont,
@@ -1170,53 +1176,60 @@ class ThermalReceiptPrinter {
     bool isHeader = false,
     bool zebra = false,
   }) {
-    return pw.Row(
-      children: [
-        for (final c in cells)
-          pw.Expanded(
-            flex: c.flex,
-            child: pw.Container(
-              padding: const pw.EdgeInsets.symmetric(horizontal: 3.5, vertical: 4),
-              decoration: pw.BoxDecoration(
-                color: isHeader
-                    ? _colorHeaderBg
-                    : (zebra ? _colorCardBg : PdfColors.white),
-                border: pw.Border.all(color: _colorTableBorder, width: 0.5),
-              ),
-              child: c.isProductName
-                  ? pw.Align(
-                      alignment: c.align,
-                      child: pw.Text(
-                        c.text,
-                        textAlign: pw.TextAlign.right,
-                        maxLines: 2,
-                        softWrap: true,
-                        style: pw.TextStyle(
-                          font: c.bold ? boldFont : baseFont,
-                          fontSize: c.fontSize,
-                          color: isHeader
-                              ? const PdfColor(0.12, 0.16, 0.23)
-                              : const PdfColor(0.2, 0.25, 0.33),
-                        ),
-                      ),
-                    )
-                  : pw.FittedBox(
-                      fit: pw.BoxFit.scaleDown,
-                      alignment: c.align,
-                      child: pw.Text(
-                        c.text,
-                        style: pw.TextStyle(
-                          font: c.bold ? boldFont : baseFont,
-                          fontSize: c.fontSize,
-                          color: isHeader
-                              ? const PdfColor(0.12, 0.16, 0.23)
-                              : (c.bold ? _colorNavy : const PdfColor(0.2, 0.25, 0.33)),
-                        ),
-                      ),
-                    ),
-            ),
+    return pw.Container(
+      decoration: pw.BoxDecoration(
+        color: isHeader
+            ? _colorHeaderBg
+            : (zebra ? _colorCardBg : PdfColors.white),
+        border: pw.Border(
+          bottom: pw.BorderSide(
+            color: isHeader ? _colorTableBorder : _colorBorder,
+            width: isHeader ? 0.8 : 0.5,
           ),
-      ],
+        ),
+      ),
+      child: pw.Row(
+        children: [
+          for (final c in cells)
+            pw.Expanded(
+              flex: c.flex,
+              child: pw.Container(
+                padding: const pw.EdgeInsets.symmetric(horizontal: 3.5, vertical: 4.5),
+                child: c.isProductName
+                    ? pw.Align(
+                        alignment: c.align,
+                        child: pw.Text(
+                          c.text,
+                          textAlign: pw.TextAlign.right,
+                          maxLines: 2,
+                          softWrap: true,
+                          style: pw.TextStyle(
+                            font: c.bold ? boldFont : baseFont,
+                            fontSize: c.fontSize,
+                            color: isHeader
+                                ? const PdfColor(0.12, 0.16, 0.23)
+                                : const PdfColor(0.2, 0.25, 0.33),
+                          ),
+                        ),
+                      )
+                    : pw.FittedBox(
+                        fit: pw.BoxFit.scaleDown,
+                        alignment: c.align,
+                        child: pw.Text(
+                          c.text,
+                          style: pw.TextStyle(
+                            font: c.bold ? boldFont : baseFont,
+                            fontSize: c.fontSize,
+                            color: isHeader
+                                ? const PdfColor(0.12, 0.16, 0.23)
+                                : (c.bold ? _colorNavy : const PdfColor(0.2, 0.25, 0.33)),
+                          ),
+                        ),
+                      ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 

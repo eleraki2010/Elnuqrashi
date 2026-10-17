@@ -5,6 +5,7 @@ import '../data/models/sale_invoice.dart';
 import '../data/models/sale_invoice_item.dart';
 import 'package:alnokrashy_pos/core/constants/app_constants.dart';
 import 'app_providers.dart';
+import 'auth_provider.dart';
 import 'data_refresh_service.dart';
 
 class CartItem {
@@ -225,8 +226,13 @@ class CartNotifier extends Notifier<CartState> {
 
     final invoiceNumber =
         await ref.read(saleRepositoryProvider).generateNextInvoiceNumber();
+    final currentUser = ref.read(authProvider).user;
+    final cashierName = currentUser?.name.trim().isNotEmpty == true
+        ? currentUser!.name.trim()
+        : (currentUser?.username ?? 'المدير');
     final invoice = buildSaleInvoice(
       invoiceNumber: invoiceNumber,
+      cashierId: cashierName,
       status: 'completed',
     );
     await ref.read(saleRepositoryProvider).createSaleInvoice(

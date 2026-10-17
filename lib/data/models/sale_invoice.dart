@@ -10,6 +10,7 @@ class SaleInvoice {
   final String? customerId;
   final String? customerName;
   final String? cashierId;
+  final String? cashierName;
   final List<SaleInvoiceItem> items;
   final double subtotal;
   final double discount;
@@ -27,6 +28,7 @@ class SaleInvoice {
     this.customerId,
     this.customerName,
     this.cashierId,
+    this.cashierName,
     this.items = const [],
     required this.subtotal,
     this.discount = 0.0,
@@ -41,6 +43,17 @@ class SaleInvoice {
 
   bool get isChangePositive => changeDue >= 0;
   double get remainingOnCustomer => changeDue < 0 ? (-changeDue) : 0.0;
+
+  /// اسم المستخدم الذي أنشأ الفاتورة
+  String get cashierDisplayName {
+    if (cashierName != null && cashierName!.trim().isNotEmpty) {
+      return cashierName!.trim();
+    }
+    if (cashierId != null && cashierId!.trim().isNotEmpty) {
+      return cashierId!.trim();
+    }
+    return 'المدير';
+  }
 
   /// إجمالي عدد الأصناف المختلفة بالفاتورة
   int get itemsCount => items.length;
@@ -104,6 +117,7 @@ class SaleInvoice {
       customerId: map['customer_id'] as String?,
       customerName: map['customer_name'] as String?,
       cashierId: map['cashier_id'] as String?,
+      cashierName: map['cashier_name'] as String?,
       items: items,
       subtotal: (map['subtotal'] as num).toDouble(),
       discount: (map['discount'] as num?)?.toDouble() ?? 0.0,
@@ -123,6 +137,7 @@ class SaleInvoice {
     String? customerId,
     Object? customerName = _sentinel,
     String? cashierId,
+    Object? cashierName = _sentinel,
     List<SaleInvoiceItem>? items,
     double? subtotal,
     double? discount,
@@ -142,6 +157,9 @@ class SaleInvoice {
           ? this.customerName
           : customerName as String?,
       cashierId: cashierId ?? this.cashierId,
+      cashierName: identical(cashierName, _sentinel)
+          ? this.cashierName
+          : cashierName as String?,
       items: items ?? this.items,
       subtotal: subtotal ?? this.subtotal,
       discount: discount ?? this.discount,

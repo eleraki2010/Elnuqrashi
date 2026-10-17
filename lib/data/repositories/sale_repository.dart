@@ -185,9 +185,10 @@ class SaleRepository {
   Future<List<SaleInvoice>> getAllSaleInvoices() async {
     final db = await AppDatabase.instance;
     final List<Map<String, dynamic>> maps = await db.rawQuery('''
-      SELECT si.*, c.name as customer_name
+      SELECT si.*, c.name as customer_name, COALESCE(u.name, si.cashier_id, 'المدير') as cashier_name
       FROM sale_invoices si
       LEFT JOIN customers c ON si.customer_id = c.id
+      LEFT JOIN users u ON si.cashier_id = u.id
       ORDER BY si.created_at DESC
     ''');
     return maps.map((m) => SaleInvoice.fromMap(m)).toList();
@@ -198,9 +199,10 @@ class SaleRepository {
 
     final invoiceMaps = await db.rawQuery(
       '''
-      SELECT si.*, c.name as customer_name
+      SELECT si.*, c.name as customer_name, COALESCE(u.name, si.cashier_id, 'المدير') as cashier_name
       FROM sale_invoices si
       LEFT JOIN customers c ON si.customer_id = c.id
+      LEFT JOIN users u ON si.cashier_id = u.id
       WHERE si.id = ?
     ''',
       [invoiceId],

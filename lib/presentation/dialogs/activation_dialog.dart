@@ -200,9 +200,9 @@ class _ActivationDialogState extends ConsumerState<ActivationDialog> {
           textCapitalization: TextCapitalization.characters,
           maxLength: 4,
           style: const TextStyle(
-            fontSize: 16,
+            fontSize: 15,
             fontWeight: FontWeight.bold,
-            letterSpacing: 2,
+            letterSpacing: 1.5,
             fontFamily: 'monospace',
             color: AppColors.PRIMARY_BLUE_DARK,
           ),
@@ -210,14 +210,14 @@ class _ActivationDialogState extends ConsumerState<ActivationDialog> {
             counterText: '',
             hintText: hint,
             hintStyle: const TextStyle(
-              fontSize: 12,
+              fontSize: 11.5,
               color: Colors.black26,
-              letterSpacing: 1.5,
+              letterSpacing: 1.2,
               fontWeight: FontWeight.normal,
             ),
             filled: true,
             fillColor: Colors.grey.shade50,
-            contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+            contentPadding: const EdgeInsets.symmetric(vertical: 11, horizontal: 2),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
               borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
@@ -368,21 +368,24 @@ class _ActivationDialogState extends ConsumerState<ActivationDialog> {
                                       ),
                                     Expanded(
                                       child: Container(
-                                        padding: const EdgeInsets.symmetric(vertical: 6),
+                                        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
                                         alignment: Alignment.center,
                                         decoration: BoxDecoration(
                                           color: const Color(0xFFF8FAFC),
                                           borderRadius: BorderRadius.circular(6),
                                           border: Border.all(color: const Color(0xFFCBD5E1)),
                                         ),
-                                        child: Text(
-                                          info.deviceId.split('-')[i],
-                                          style: const TextStyle(
-                                            fontSize: 13.5,
-                                            fontWeight: FontWeight.bold,
-                                            letterSpacing: 1.2,
-                                            color: AppColors.PRIMARY_BLUE_DARK,
-                                            fontFamily: 'monospace',
+                                        child: FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          child: Text(
+                                            info.deviceId.split('-')[i],
+                                            style: const TextStyle(
+                                              fontSize: 13.5,
+                                              fontWeight: FontWeight.bold,
+                                              letterSpacing: 1.2,
+                                              color: AppColors.PRIMARY_BLUE_DARK,
+                                              fontFamily: 'monospace',
+                                            ),
                                           ),
                                         ),
                                       ),

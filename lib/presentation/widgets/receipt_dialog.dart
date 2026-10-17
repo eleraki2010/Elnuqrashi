@@ -93,50 +93,47 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // ترويسة الفاتورة: الشعار بجوار اسم المحل بحجم أنيق ومتناسق
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(6),
-                  child: (_storeLogoPath != null &&
-                          _storeLogoPath!.isNotEmpty &&
-                          File(_storeLogoPath!).existsSync())
-                      ? Image.file(
-                          File(_storeLogoPath!),
-                          width: 30,
-                          height: 30,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => Image.asset(
-                            'assets/images/logo.png',
-                            width: 30,
-                            height: 30,
-                            fit: BoxFit.contain,
-                          ),
-                        )
-                      : Image.asset(
-                          'assets/images/logo.png',
-                          width: 30,
-                          height: 30,
-                          fit: BoxFit.contain,
-                        ),
-                ),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Text(
-                    _storeName?.trim().isNotEmpty == true
-                        ? _storeName!.trim()
-                        : AppStrings.STORE_NAME,
-                    style: const TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF0F172A),
-                    ),
-                    overflow: TextOverflow.ellipsis,
+            // ترويسة الفاتورة: الشعار في الأعلى يليه اسم المحل متمركزاً لمنع أي خروج عن حدود الورقة
+            if (_storeLogoPath != null &&
+                _storeLogoPath!.isNotEmpty &&
+                File(_storeLogoPath!).existsSync()) ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: Image.file(
+                  File(_storeLogoPath!),
+                  width: 32,
+                  height: 32,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => Image.asset(
+                    'assets/images/logo.png',
+                    width: 32,
+                    height: 32,
+                    fit: BoxFit.contain,
                   ),
                 ),
-              ],
+              ),
+              const SizedBox(height: 4),
+            ] else ...[
+              Image.asset(
+                'assets/images/logo.png',
+                width: 32,
+                height: 32,
+                fit: BoxFit.contain,
+              ),
+              const SizedBox(height: 4),
+            ],
+            Text(
+              _storeName?.trim().isNotEmpty == true
+                  ? _storeName!.trim()
+                  : AppStrings.STORE_NAME,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 13.5,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF0F172A),
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
             if (_storePhone != null && _storePhone!.trim().isNotEmpty) ...[
               const SizedBox(height: 2),
@@ -180,47 +177,18 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
                       ),
                       child: Column(
                         children: [
+                          // سطر 1: رقم الفاتورة والتاريخ في سطر واحد
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                'رقم الفاتورة: ${invoice.invoiceNumber}',
+                                'رقم الفاتورة: #${invoice.invoiceNumber}',
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 11.5,
                                   color: Color(0xFF0F172A),
                                 ),
                               ),
-                              if (invoice.status != 'completed')
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                    vertical: 1.5,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: (invoice.status == 'held'
-                                            ? AppColors.WARNING_AMBER
-                                            : AppColors.DANGER_RED)
-                                        .withValues(alpha: 0.12),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Text(
-                                    invoice.statusArabic,
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                      color: invoice.status == 'held'
-                                          ? AppColors.WARNING_AMBER
-                                          : AppColors.DANGER_RED,
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
                               Text(
                                 'التاريخ: ${dateFormat.format(invoice.createdAt)}',
                                 style: const TextStyle(
@@ -228,6 +196,25 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
                                   color: Color(0xFF64748B),
                                 ),
                               ),
+                            ],
+                          ),
+                          const SizedBox(height: 4.5),
+                          // سطر 2: اسم العميل وطريقة الدفع في سطر واحد
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  'العميل: ${invoice.customerName ?? 'عميل نقدي'}',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF334155),
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
                               Text(
                                 'الدفع: ${invoice.paymentMethodArabic}',
                                 style: const TextStyle(
@@ -237,16 +224,47 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 4.5),
+                          // سطر 3: المستخدم الذي أنشأ الفاتورة + الحالة
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                'العميل: ${invoice.customerName ?? 'عميل نقدي'}',
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w500,
-                                  color: Color(0xFF334155),
+                              Expanded(
+                                child: Text(
+                                  'المستخدم: ${invoice.cashierDisplayName}',
+                                  style: const TextStyle(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w500,
+                                    color: Color(0xFF475569),
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 1.5,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: (invoice.status == 'completed'
+                                          ? AppColors.SUCCESS_GREEN
+                                          : (invoice.status == 'held'
+                                              ? AppColors.WARNING_AMBER
+                                              : AppColors.DANGER_RED))
+                                      .withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  invoice.statusArabic,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: invoice.status == 'completed'
+                                        ? AppColors.SUCCESS_GREEN
+                                        : (invoice.status == 'held'
+                                            ? AppColors.WARNING_AMBER
+                                            : AppColors.DANGER_RED),
+                                  ),
                                 ),
                               ),
                             ],
@@ -728,53 +746,63 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
     bool isHeader = false,
     bool zebra = false,
   }) {
-    return Row(
-      children: [
-        for (final c in cells)
-          Expanded(
-            flex: c.flex,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
-              decoration: BoxDecoration(
-                color: isHeader ? _headerBg : (zebra ? _zebraBg : Colors.white),
-                border: Border.all(color: _gridLine, width: 0.5),
-              ),
-              child: c.align == TextAlign.start
-                  ? Text(
-                      c.text,
-                      textAlign: c.align,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: isHeader ? 10.5 : 10.0,
-                        fontWeight: isHeader || c.bold ? FontWeight.bold : FontWeight.normal,
-                        color: isHeader
-                            ? const Color(0xFF1E293B)
-                            : const Color(0xFF334155),
-                      ),
-                    )
-                  : FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: c.align == TextAlign.end
-                          ? Alignment.centerLeft
-                          : Alignment.center,
-                      child: Text(
+    return Container(
+      decoration: BoxDecoration(
+        color: isHeader ? _headerBg : (zebra ? _zebraBg : Colors.white),
+        border: Border(
+          bottom: BorderSide(
+            color: isHeader ? _gridLine : const Color(0xFFE2E8F0),
+            width: isHeader ? 0.8 : 0.5,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          for (final c in cells)
+            Expanded(
+              flex: c.flex,
+              child: Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: 4,
+                  vertical: isHeader ? 6.0 : 5.5,
+                ),
+                child: c.align == TextAlign.start
+                    ? Text(
                         c.text,
                         textAlign: c.align,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: isHeader ? 10.5 : 10.0,
-                          fontWeight: isHeader || c.bold
-                              ? FontWeight.bold
-                              : FontWeight.normal,
+                          fontWeight: isHeader || c.bold ? FontWeight.bold : FontWeight.normal,
                           color: isHeader
                               ? const Color(0xFF1E293B)
                               : const Color(0xFF334155),
                         ),
+                      )
+                    : FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: c.align == TextAlign.end
+                            ? Alignment.centerLeft
+                            : Alignment.center,
+                        child: Text(
+                          c.text,
+                          textAlign: c.align,
+                          style: TextStyle(
+                            fontSize: isHeader ? 10.5 : 10.0,
+                            fontWeight: isHeader || c.bold
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                            color: isHeader
+                                ? const Color(0xFF1E293B)
+                                : const Color(0xFF334155),
+                          ),
+                        ),
                       ),
-                    ),
+              ),
             ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 }
