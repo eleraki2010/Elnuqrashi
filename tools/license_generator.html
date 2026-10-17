@@ -8,18 +8,20 @@
     :root {
       --primary: #1E5FBF;
       --primary-dark: #123E80;
-      --success: #1FAA59;
-      --danger: #E23B3B;
-      --bg: #F5F7FA;
+      --success: #16A34A;
+      --success-dark: #15803D;
+      --danger: #DC2626;
+      --bg: #F1F5F9;
       --surface: #FFFFFF;
-      --text: #1A1A1A;
-      --muted: #6B7280;
+      --text: #0F172A;
+      --muted: #64748B;
+      --border: #CBD5E1;
     }
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     }
     body {
       background: var(--bg);
@@ -28,86 +30,139 @@
       justify-content: center;
       align-items: center;
       min-height: 100vh;
-      padding: 20px;
+      padding: 24px 16px;
     }
     .card {
       background: var(--surface);
-      border-radius: 18px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+      border-radius: 20px;
+      box-shadow: 0 12px 36px rgba(15, 23, 42, 0.08);
       width: 100%;
-      max-width: 560px;
-      padding: 32px;
-      border: 1px solid rgba(0,0,0,0.06);
+      max-width: 580px;
+      padding: 36px 32px;
+      border: 1px solid rgba(226, 232, 240, 0.8);
     }
     .header {
       text-align: center;
-      margin-bottom: 26px;
+      margin-bottom: 28px;
     }
     .badge {
       display: inline-block;
       background: rgba(30, 95, 191, 0.1);
       color: var(--primary);
-      padding: 5px 16px;
-      border-radius: 20px;
-      font-size: 12.5px;
-      fontWeight: bold;
-      margin-bottom: 8px;
+      padding: 6px 18px;
+      border-radius: 9999px;
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      border: 1px solid rgba(30, 95, 191, 0.2);
     }
     h1 {
-      font-size: 23px;
+      font-size: 24px;
+      font-weight: 800;
       color: var(--primary-dark);
       margin-bottom: 6px;
+      letter-spacing: -0.5px;
     }
     p.subtitle {
-      font-size: 13px;
+      font-size: 13.5px;
       color: var(--muted);
+      line-height: 1.5;
     }
     .form-group {
-      margin-bottom: 20px;
+      margin-bottom: 22px;
+    }
+    .label-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
     }
     label {
-      display: block;
       font-size: 13.5px;
-      font-weight: bold;
-      margin-bottom: 8px;
+      font-weight: 700;
       color: var(--text);
     }
-    input, select {
+    .btn-paste-full {
+      background: #EFF6FF;
+      color: var(--primary);
+      border: 1px solid #BFDBFE;
+      padding: 4px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-paste-full:hover {
+      background: #DBEAFE;
+    }
+    input.text-input, select {
       width: 100%;
       padding: 12px 14px;
-      border: 1.5px solid #E5E7EB;
+      border: 1.5px solid var(--border);
       border-radius: 10px;
       font-size: 14px;
       transition: all 0.2s;
       outline: none;
-      background: #FAFAFA;
+      background: #F8FAFC;
+      color: var(--text);
     }
-    input:focus, select:focus {
+    input.text-input:focus, select:focus {
       border-color: var(--primary);
       background: #FFFFFF;
       box-shadow: 0 0 0 3px rgba(30, 95, 191, 0.15);
     }
-    input.code-input {
-      font-family: monospace;
-      letter-spacing: 2px;
+
+    /* 4 خانات مستقلة لكود الجهاز */
+    .boxes-input-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      direction: ltr;
+      margin-top: 4px;
+    }
+    .code-box {
+      flex: 1;
+      height: 52px;
       text-align: center;
-      font-size: 16px;
-      font-weight: bold;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 19px;
+      font-weight: 800;
+      letter-spacing: 2px;
       color: var(--primary-dark);
+      background: #F8FAFC;
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      outline: none;
+      transition: all 0.2s;
       text-transform: uppercase;
     }
+    .code-box:focus {
+      border-color: var(--primary);
+      background: #FFFFFF;
+      box-shadow: 0 0 0 3px rgba(30, 95, 191, 0.18);
+    }
+    .box-dash {
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--muted);
+      user-select: none;
+    }
+
     button.btn-primary {
       width: 100%;
       background: var(--primary);
       color: #FFFFFF;
       border: none;
-      border-radius: 10px;
-      padding: 14px;
+      border-radius: 12px;
+      padding: 15px;
       font-size: 16px;
-      font-weight: bold;
+      font-weight: 800;
       cursor: pointer;
       transition: background 0.2s, transform 0.1s;
-      margin-top: 6px;
+      margin-top: 8px;
+      box-shadow: 0 4px 12px rgba(30, 95, 191, 0.25);
     }
     button.btn-primary:hover {
       background: var(--primary-dark);
@@ -115,12 +170,14 @@
     button.btn-primary:active {
       transform: scale(0.99);
     }
+
+    /* صندوق نتيجة التوليد في 4 خانات */
     .result-box {
-      margin-top: 24px;
-      padding: 20px;
+      margin-top: 26px;
+      padding: 22px;
       background: #F0FDF4;
-      border: 1.5px solid #BBF7D0;
-      border-radius: 12px;
+      border: 2px solid #86EFAC;
+      border-radius: 14px;
       display: none;
       animation: fadeIn 0.3s ease;
     }
@@ -129,51 +186,55 @@
       to { opacity: 1; transform: translateY(0); }
     }
     .result-title {
-      font-size: 13px;
-      color: #166534;
-      font-weight: bold;
-      margin-bottom: 12px;
+      font-size: 13.5px;
+      color: var(--success-dark);
+      font-weight: 800;
+      margin-bottom: 14px;
       text-align: center;
     }
-    .boxes-container {
+    .result-boxes {
       display: flex;
       justify-content: center;
       align-items: center;
       gap: 8px;
       direction: ltr;
-      margin-bottom: 14px;
+      margin-bottom: 16px;
     }
-    .box-chip {
+    .result-chip {
       background: #FFFFFF;
-      border: 2px solid #86EFAC;
-      border-radius: 8px;
-      padding: 8px 12px;
-      font-family: monospace;
-      font-size: 18px;
-      font-weight: bold;
+      border: 2px solid #4ADE80;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 20px;
+      font-weight: 800;
       letter-spacing: 2px;
-      color: #15803D;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+      color: var(--success-dark);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+      user-select: all;
     }
-    .box-sep {
-      font-size: 18px;
-      font-weight: bold;
-      color: #86EFAC;
+    .result-dash {
+      font-size: 20px;
+      font-weight: 800;
+      color: #4ADE80;
     }
     .action-buttons {
       display: flex;
       gap: 10px;
-      margin-top: 10px;
     }
     .btn-action {
       flex: 1;
-      padding: 10px;
-      border-radius: 8px;
+      padding: 12px;
+      border-radius: 10px;
       border: none;
-      font-size: 13px;
-      font-weight: bold;
+      font-size: 13.5px;
+      font-weight: 700;
       cursor: pointer;
       transition: opacity 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
     }
     .btn-copy {
       background: var(--primary);
@@ -184,21 +245,22 @@
       color: white;
     }
     .btn-action:hover {
-      opacity: 0.9;
+      opacity: 0.92;
     }
+
     .footer-note {
       text-align: center;
-      margin-top: 20px;
-      font-size: 11.5px;
+      margin-top: 24px;
+      font-size: 12px;
       color: var(--muted);
       line-height: 1.6;
     }
     .error-msg {
       color: var(--danger);
       font-size: 12px;
-      margin-top: 6px;
+      margin-top: 8px;
       display: none;
-      font-weight: bold;
+      font-weight: 700;
     }
   </style>
 </head>
@@ -208,18 +270,31 @@
   <div class="header">
     <div class="badge">أداة الإدارة الخاصة بالمطور | م/ محمد العراقي (01032231330)</div>
     <h1>مولد تراخيص نظام دُكّان POS</h1>
-    <p class="subtitle">توليد أكواد التفعيل الرسمية (4 خانات × 4 أحرف) دون إنترنت</p>
+    <p class="subtitle">إدخال كود الجهاز في 4 خانات وتوليد كود التفعيل في 4 خانات مستقلة</p>
   </div>
 
   <div class="form-group">
     <label>اسم المحل / العميل (اختياري للتوثيق):</label>
-    <input type="text" id="clientName" placeholder="مثال: محل الحاج محمد صابر">
+    <input type="text" id="clientName" class="text-input" placeholder="مثال: محل الأمانة التجاري">
   </div>
 
+  <!-- حقول كود جهاز العميل (4 خانات مستقلة) -->
   <div class="form-group">
-    <label>كود جهاز العميل (Hardware ID):</label>
-    <input type="text" id="deviceId" class="code-input" placeholder="ELN-XXXX-YYYY-ZZZZ" maxlength="17" autofocus>
-    <div id="deviceIdError" class="error-msg">يرجى إدخال كود الجهاز بشكل صحيح (مثال: ELN-XXXX-YYYY-ZZZZ)</div>
+    <div class="label-row">
+      <label>كود جهاز العميل (Hardware ID - 4 خانات):</label>
+      <button type="button" class="btn-paste-full" onclick="pasteDeviceCode()">📋 لصق الكود كاملاً</button>
+    </div>
+
+    <div class="boxes-input-container">
+      <input type="text" id="dev1" class="code-box" placeholder="ELN" maxlength="4" autofocus>
+      <span class="box-dash">-</span>
+      <input type="text" id="dev2" class="code-box" placeholder="XXXX" maxlength="4">
+      <span class="box-dash">-</span>
+      <input type="text" id="dev3" class="code-box" placeholder="YYYY" maxlength="4">
+      <span class="box-dash">-</span>
+      <input type="text" id="dev4" class="code-box" placeholder="ZZZZ" maxlength="4">
+    </div>
+    <div id="deviceIdError" class="error-msg">يرجى إدخال كود الجهاز في الخانات الأربع أو استخدام زر (لصق الكود كاملاً)</div>
   </div>
 
   <div class="form-group">
@@ -235,17 +310,18 @@
 
   <button class="btn-primary" onclick="generateKey()">توليد مفتاح التفعيل الآن</button>
 
+  <!-- صندوق النتيجة في 4 خانات مستقلة -->
   <div id="resultBox" class="result-box">
-    <div class="result-title">✅ تم توليد مفتاح التفعيل بنجاح (مقسم على 4 خانات):</div>
+    <div class="result-title">✅ تم توليد مفتاح التفعيل بنجاح (4 خانات مستقلة):</div>
     
-    <div class="boxes-container">
-      <div id="chip1" class="box-chip">XXXX</div>
-      <span class="box-sep">-</span>
-      <div id="chip2" class="box-chip">YYYY</div>
-      <span class="box-sep">-</span>
-      <div id="chip3" class="box-chip">ZZZZ</div>
-      <span class="box-sep">-</span>
-      <div id="chip4" class="box-chip">WWWW</div>
+    <div class="result-boxes">
+      <div id="chip1" class="result-chip">XXXX</div>
+      <span class="result-dash">-</span>
+      <div id="chip2" class="result-chip">YYYY</div>
+      <span class="result-dash">-</span>
+      <div id="chip3" class="result-chip">ZZZZ</div>
+      <span class="result-dash">-</span>
+      <div id="chip4" class="result-chip">WWWW</div>
     </div>
 
     <div class="action-buttons">
@@ -262,6 +338,84 @@
 <script>
   // المفتاح السري المطابق لنظام دُكّان POS
   const SECRET_SALT = "ELNUQRASHI_POS_PROD_KEY_#2026_V1_SECRET_98b7f24a1e";
+
+  const d1 = document.getElementById('dev1');
+  const d2 = document.getElementById('dev2');
+  const d3 = document.getElementById('dev3');
+  const d4 = document.getElementById('dev4');
+  const inputs = [d1, d2, d3, d4];
+
+  // إدارة الانتقال التلقائي واللصق الذكي في الخانات الأربع
+  inputs.forEach((input, index) => {
+    input.addEventListener('input', (e) => {
+      input.value = input.value.toUpperCase();
+      const val = input.value;
+      
+      // إذا أدخل المستخدم 4 أحرف، ينتقل تلقائياً للخانة التالية
+      if (val.length >= 4 && index < 3) {
+        inputs[index + 1].focus();
+        inputs[index + 1].select();
+      }
+    });
+
+    input.addEventListener('keydown', (e) => {
+      // الرجوع للخانة السابقة عند الضغط على Backspace والخانة الحالية فارغة
+      if (e.key === 'Backspace' && input.value.length === 0 && index > 0) {
+        inputs[index - 1].focus();
+      }
+    });
+
+    input.addEventListener('paste', (e) => {
+      e.preventDefault();
+      const pasteText = (e.clipboardData || window.clipboardData).getData('text');
+      distributeDeviceCode(pasteText);
+    });
+  });
+
+  // توزيع الكود المنسوخ كاملاً على الخانات الأربع
+  function distributeDeviceCode(text) {
+    if (!text) return;
+    const clean = text.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (!clean) return;
+
+    if (clean.length >= 3) {
+      // غالباً الخانة الأولى ELN (3 أحرف) أو 4 أحرف
+      if (clean.startsWith('ELN')) {
+        d1.value = 'ELN';
+        const rest = clean.substring(3);
+        d2.value = rest.substring(0, 4);
+        d3.value = rest.substring(4, 8);
+        d4.value = rest.substring(8, 12);
+      } else {
+        d1.value = clean.substring(0, 4);
+        d2.value = clean.substring(4, 8);
+        d3.value = clean.substring(8, 12);
+        d4.value = clean.substring(12, 16);
+      }
+    } else {
+      d1.value = clean;
+    }
+
+    if (d4.value.length >= 4) {
+      d4.focus();
+    } else if (d3.value.length >= 4) {
+      d4.focus();
+    } else if (d2.value.length >= 4) {
+      d3.focus();
+    } else {
+      d2.focus();
+    }
+  }
+
+  // زر لصق كود الجهاز من الحافظة
+  async function pasteDeviceCode() {
+    try {
+      const text = await navigator.clipboard.readText();
+      distributeDeviceCode(text);
+    } catch (_) {
+      alert('يرجى الضغط داخل أي خانة والضغط على Ctrl+V للصق الكود.');
+    }
+  }
 
   async function hmacSha256(message, secret) {
     const enc = new TextEncoder();
@@ -282,11 +436,15 @@
   let generatedKeyFormatted = '';
 
   async function generateKey() {
-    const rawDeviceId = document.getElementById('deviceId').value.trim().toUpperCase();
-    const cleanDevId = rawDeviceId.replace(/[^A-Z0-9]/g, '');
+    const c1 = d1.value.trim().toUpperCase();
+    const c2 = d2.value.trim().toUpperCase();
+    const c3 = d3.value.trim().toUpperCase();
+    const c4 = d4.value.trim().toUpperCase();
+
+    const fullRawDevId = `${c1}${c2}${c3}${c4}`.replace(/[^A-Z0-9]/g, '');
     const errorDiv = document.getElementById('deviceIdError');
 
-    if (cleanDevId.length < 10) {
+    if (fullRawDevId.length < 10) {
       errorDiv.style.display = 'block';
       return;
     }
@@ -297,7 +455,7 @@
     const epochDays = Math.floor(now.getTime() / 86400000);
     const epochDaysHex = epochDays.toString(16).toUpperCase().padStart(4, '0');
 
-    const message = `${cleanDevId}:${type}:${epochDaysHex}`;
+    const message = `${fullRawDevId}:${type}:${epochDaysHex}`;
     const digest = await hmacSha256(message, SECRET_SALT);
     const signature = digest.substring(0, 11);
 

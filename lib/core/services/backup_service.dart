@@ -808,12 +808,12 @@ class BackupService {
         ) ?? 0;
     if (userCount == 0) {
       await txn.insert('users', {
-        'id': 'user_owner',
+        'id': 'user_owner_default',
         'name': 'المالك',
-        'username': 'owner',
-        'password_hash': AppDatabase.hashPassword('owner123'),
+        'username': '1',
+        'password_hash': AppDatabase.hashPassword('123'),
         'role': 'owner',
-      }, conflictAlgorithm: ConflictAlgorithm.ignore);
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
     }
 
     // 2. ضمان وجود التصنيفات الافتراضية

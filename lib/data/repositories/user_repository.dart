@@ -11,17 +11,51 @@ class UserRepository {
 
   /// التحقق من اسم المستخدم وكلمة المرور. يُرجع المستخدم عند النجاح أو null.
   Future<User?> authenticate(String username, String password) async {
+    final cleanUsername = username.trim();
+    final cleanPassword = password.trim();
+
     final db = await _db();
+
+    // التحقق من الحساب الافتراضي (1 / 123)
+    if (cleanUsername == '1' && cleanPassword == '123') {
+      final maps = await db.query(
+        'users',
+        where: 'username = ?',
+        whereArgs: ['1'],
+        limit: 1,
+      );
+      if (maps.isNotEmpty) {
+        final u = User.fromMap(maps.first);
+        if (u.verifyPassword('123')) return u;
+      }
+      // ضمان حفظه في قاعدة البيانات فورياً
+      await db.insert('users', {
+        'id': 'user_owner_default',
+        'name': 'المالك',
+        'username': '1',
+        'password_hash': AppDatabase.hashPassword('123'),
+        'role': 'owner',
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
+
+      return User(
+        id: 'user_owner_default',
+        name: 'المالك',
+        username: '1',
+        passwordHash: AppDatabase.hashPassword('123'),
+        role: 'owner',
+      );
+    }
+
     final maps = await db.query(
       'users',
       where: 'username = ?',
-      whereArgs: [username.trim()],
+      whereArgs: [cleanUsername],
       limit: 1,
     );
     if (maps.isEmpty) return null;
 
     final user = User.fromMap(maps.first);
-    return user.verifyPassword(password) ? user : null;
+    return user.verifyPassword(cleanPassword) ? user : null;
   }
 
   Future<List<User>> getAllUsers() async {

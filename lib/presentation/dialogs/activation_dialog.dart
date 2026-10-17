@@ -347,25 +347,58 @@ class _ActivationDialogState extends ConsumerState<ActivationDialog> {
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: AppColors.PRIMARY_BLUE.withValues(alpha: 0.3)),
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          SelectableText(
-                            info.deviceId,
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 1.2,
-                              color: AppColors.PRIMARY_BLUE_DARK,
-                              fontFamily: 'monospace',
+                      child: Directionality(
+                        textDirection: TextDirection.ltr,
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Row(
+                                children: [
+                                  for (int i = 0; i < info.deviceId.split('-').length; i++) ...[
+                                    if (i > 0)
+                                      const Padding(
+                                        padding: EdgeInsets.symmetric(horizontal: 2),
+                                        child: Text(
+                                          '-',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: AppColors.TEXT_SECONDARY,
+                                          ),
+                                        ),
+                                      ),
+                                    Expanded(
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(vertical: 6),
+                                        alignment: Alignment.center,
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFF8FAFC),
+                                          borderRadius: BorderRadius.circular(6),
+                                          border: Border.all(color: const Color(0xFFCBD5E1)),
+                                        ),
+                                        child: Text(
+                                          info.deviceId.split('-')[i],
+                                          style: const TextStyle(
+                                            fontSize: 13.5,
+                                            fontWeight: FontWeight.bold,
+                                            letterSpacing: 1.2,
+                                            color: AppColors.PRIMARY_BLUE_DARK,
+                                            fontFamily: 'monospace',
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
                             ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.copy_rounded, size: 20, color: AppColors.PRIMARY_BLUE),
-                            tooltip: 'نسخ كود الجهاز',
-                            onPressed: _copyDeviceId,
-                          ),
-                        ],
+                            const SizedBox(width: 6),
+                            IconButton(
+                              icon: const Icon(Icons.copy_rounded, size: 20, color: AppColors.PRIMARY_BLUE),
+                              tooltip: 'نسخ كود الجهاز',
+                              onPressed: _copyDeviceId,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                     const SizedBox(height: 10),

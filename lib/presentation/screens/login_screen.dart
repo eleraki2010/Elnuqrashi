@@ -16,8 +16,8 @@ class LoginScreen extends ConsumerStatefulWidget {
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _usernameController = TextEditingController();
-  final _passwordController = TextEditingController();
+  final _usernameController = TextEditingController(text: '1');
+  final _passwordController = TextEditingController(text: '123');
   bool _isLoading = false;
   bool _obscurePassword = true;
   File? _detectedBackup;
@@ -396,7 +396,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            'الحساب الافتراضي للمالك:\nاسم المستخدم: owner\nكلمة المرور: owner123\nيمكنك تغييرها من شاشة المستخدمين بعد الدخول.',
+                            'الحساب الافتراضي للدخول:\nاسم المستخدم: 1\nكلمة المرور: 123\nيمكنك إضافة أو تغيير المستخدمين من شاشة الإعدادات بعد الدخول.',
                             style: TextStyle(
                               fontSize: 12,
                               color: AppColors.TEXT_SECONDARY,

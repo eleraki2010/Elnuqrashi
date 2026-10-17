@@ -57,7 +57,12 @@ class AppDatabase {
       onCreate: _onCreate,
       onConfigure: _onConfigure,
       onUpgrade: _onUpgrade,
+      onOpen: _onOpen,
     );
+  }
+
+  static Future<void> _onOpen(Database db) async {
+    await _ensureDefaultUser(db);
   }
 
   static Future<void> _onConfigure(Database db) async {
@@ -536,13 +541,31 @@ class AppDatabase {
     return sha256.convert(utf8.encode(password)).toString();
   }
 
+  static Future<void> _ensureDefaultUser(Database db) async {
+    final existing = await db.query(
+      'users',
+      where: 'username = ?',
+      whereArgs: ['1'],
+      limit: 1,
+    );
+    if (existing.isEmpty) {
+      await db.insert('users', {
+        'id': 'user_owner_default',
+        'name': 'المالك',
+        'username': '1',
+        'password_hash': hashPassword('123'),
+        'role': 'owner',
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+  }
+
   static Future<void> _seedDefaultOwner(Database db) async {
     await db.insert('users', {
-      'id': 'user_owner',
+      'id': 'user_owner_default',
       'name': 'المالك',
-      'username': 'owner',
-      'password_hash': hashPassword('owner123'),
+      'username': '1',
+      'password_hash': hashPassword('123'),
       'role': 'owner',
-    }, conflictAlgorithm: ConflictAlgorithm.ignore);
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 }
