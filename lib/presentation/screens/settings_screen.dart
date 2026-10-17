@@ -1250,6 +1250,133 @@ class _BackupRestoreSectionState extends ConsumerState<_BackupRestoreSection> {
     ref.invalidate(storeLogoPathProvider);
   }
 
+  Future<void> _downloadBackup(File file) async {
+    final fileName = p.basename(file.path);
+    DateTime? modTime;
+    int? fileLen;
+    try {
+      modTime = file.lastModifiedSync();
+      fileLen = file.lengthSync();
+    } catch (_) {}
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.download_for_offline_rounded,
+                color: AppColors.PRIMARY_BLUE),
+            SizedBox(width: 8),
+            Text(
+              'تنزيل النسخة الاحتياطية',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'هل ترغب في تنزيل وحفظ نسخة من هذا الملف على جهازك / اختيار مكان الحفظ؟',
+              style: TextStyle(fontSize: 13, height: 1.4),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '📄 اسم الملف: $fileName',
+                    style: const TextStyle(
+                        fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
+                  if (fileLen != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      '📦 الحجم: ${_formatSize(fileLen.toString())}',
+                      style: const TextStyle(
+                          fontSize: 11.5, color: AppColors.TEXT_SECONDARY),
+                    ),
+                  ],
+                  if (modTime != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      '🕒 التاريخ: ${_formatDateTime(modTime)}',
+                      style: const TextStyle(
+                          fontSize: 11.5, color: AppColors.TEXT_SECONDARY),
+                    ),
+                  ],
+                  const SizedBox(height: 4),
+                  Text(
+                    '📁 المسار الحالي: ${file.path}',
+                    style: const TextStyle(
+                        fontSize: 10.5, color: AppColors.TEXT_SECONDARY),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('إلغاء'),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.PRIMARY_BLUE,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            icon: const Icon(Icons.file_download_outlined, size: 18),
+            label: const Text('موافق، تنزيل وحفظ الآن'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      final savedPath = await BackupService.downloadBackupFile(file);
+      if (mounted) {
+        if (savedPath != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              backgroundColor: AppColors.SUCCESS_GREEN,
+              duration: const Duration(seconds: 5),
+              content: Text(
+                  'تم تنزيل وحفظ النسخة الاحتياطية بنجاح في:\n$savedPath'),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('تم إلغاء عملية التنزيل')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.DANGER_RED,
+            content: Text('تعذر تنزيل النسخة: $e'),
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _restoreSpecificLocalBackup(File file) async {
     final fileName = p.basename(file.path);
     final confirmed = await showDialog<bool>(
@@ -2197,7 +2324,7 @@ class _BackupRestoreSectionState extends ConsumerState<_BackupRestoreSection> {
                                 size: 18, color: AppColors.PRIMARY_BLUE),
                             const SizedBox(width: 8),
                             Text(
-                              'النسخ المتوفرة في المجلد (${_localBackups.length})',
+                              'النسخ المتوفرة (${_localBackups.length})',
                               style: const TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.bold,
@@ -2227,7 +2354,7 @@ class _BackupRestoreSectionState extends ConsumerState<_BackupRestoreSection> {
                           padding: EdgeInsets.all(16),
                           child: Center(
                             child: Text(
-                              'لا توجد نسخ احتياطية في هذا المجلد بعد. انقر على "إنشاء نسخة في المجلد" لحفظ أول نسخة.',
+                              'لا توجد نسخ احتياطية مسجلة على هذا الجهاز بعد. انقر على "إنشاء نسخة في المجلد" لحفظ أول نسخة.',
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 fontSize: 12,
@@ -2240,13 +2367,12 @@ class _BackupRestoreSectionState extends ConsumerState<_BackupRestoreSection> {
                         ListView.separated(
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
-                          itemCount: _localBackups.length > 5
-                              ? 5
-                              : _localBackups.length,
+                          itemCount: _localBackups.length,
                           separatorBuilder: (_, _) => const Divider(height: 1),
                           itemBuilder: (context, index) {
                             final file = _localBackups[index];
                             final fileName = p.basename(file.path);
+                            final folderPath = p.dirname(file.path);
                             DateTime? modTime;
                             int? fileLen;
                             try {
@@ -2257,11 +2383,20 @@ class _BackupRestoreSectionState extends ConsumerState<_BackupRestoreSection> {
                             return ListTile(
                               dense: true,
                               contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 2),
-                              leading: const Icon(
-                                Icons.insert_drive_file_outlined,
-                                color: AppColors.SUCCESS_GREEN,
-                                size: 20,
+                                  horizontal: 12, vertical: 4),
+                              onTap: () => _downloadBackup(file),
+                              leading: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: AppColors.SUCCESS_GREEN
+                                      .withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(
+                                  Icons.insert_drive_file_outlined,
+                                  color: AppColors.SUCCESS_GREEN,
+                                  size: 22,
+                                ),
                               ),
                               title: Text(
                                 fileName,
@@ -2270,24 +2405,65 @@ class _BackupRestoreSectionState extends ConsumerState<_BackupRestoreSection> {
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
-                              subtitle: Text(
-                                '${modTime != null ? _formatDateTime(modTime) : ""}  •  ${fileLen != null ? _formatSize(fileLen.toString()) : ""}',
-                                style: const TextStyle(fontSize: 11),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '${modTime != null ? _formatDateTime(modTime) : ""}  •  ${fileLen != null ? _formatSize(fileLen.toString()) : ""}',
+                                    style: const TextStyle(
+                                        fontSize: 11,
+                                        color: AppColors.TEXT_SECONDARY),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.folder_open_outlined,
+                                          size: 13,
+                                          color: AppColors.TEXT_SECONDARY),
+                                      const SizedBox(width: 4),
+                                      Expanded(
+                                        child: Text(
+                                          folderPath,
+                                          style: const TextStyle(
+                                            fontSize: 10.5,
+                                            fontFamily: 'monospace',
+                                            color: AppColors.TEXT_SECONDARY,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ),
-                              trailing: ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.white,
-                                  foregroundColor: AppColors.DANGER_RED,
-                                  side: const BorderSide(
-                                      color: AppColors.DANGER_RED),
-                                  visualDensity: VisualDensity.compact,
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 10),
-                                ),
-                                onPressed: _localBusy
-                                    ? null
-                                    : () => _restoreSpecificLocalBackup(file),
-                                child: const Text('استرجاع'),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    tooltip: 'تنزيل وحفظ النسخة على الجهاز',
+                                    icon: const Icon(Icons.download_rounded,
+                                        color: AppColors.PRIMARY_BLUE),
+                                    onPressed: () => _downloadBackup(file),
+                                  ),
+                                  const SizedBox(width: 2),
+                                  ElevatedButton(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.white,
+                                      foregroundColor: AppColors.DANGER_RED,
+                                      side: const BorderSide(
+                                          color: AppColors.DANGER_RED),
+                                      visualDensity: VisualDensity.compact,
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 10),
+                                    ),
+                                    onPressed: _localBusy
+                                        ? null
+                                        : () =>
+                                            _restoreSpecificLocalBackup(file),
+                                    child: const Text('استرجاع'),
+                                  ),
+                                ],
                               ),
                             );
                           },

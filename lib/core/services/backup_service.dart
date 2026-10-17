@@ -188,6 +188,31 @@ class BackupService {
       } catch (_) {}
     }
 
+    // فحص المجلدات القائمة بالفعل والتي تحتوي على نسخ سابقة لنظام دكان
+    try {
+      final docDir = await getApplicationDocumentsDirectory();
+      for (final sub in [defaultFolderName, 'backups', 'backup', legacyFolderName]) {
+        final existing = Directory(p.join(docDir.path, sub));
+        if (existing.existsSync()) {
+          final hasFiles = existing.listSync().any((e) => e is File && e.path.toLowerCase().endsWith('.json'));
+          if (hasFiles) return existing.path;
+        }
+      }
+    } catch (_) {}
+
+    try {
+      final dlDir = await getDownloadsDirectory();
+      if (dlDir != null) {
+        for (final sub in [defaultFolderName, 'backups', 'backup', legacyFolderName]) {
+          final existing = Directory(p.join(dlDir.path, sub));
+          if (existing.existsSync()) {
+            final hasFiles = existing.listSync().any((e) => e is File && e.path.toLowerCase().endsWith('.json'));
+            if (hasFiles) return existing.path;
+          }
+        }
+      }
+    } catch (_) {}
+
     // لأنظمة سطح المكتب (Windows / Linux / macOS)
     try {
       final downloads = await getDownloadsDirectory();
@@ -204,6 +229,32 @@ class BackupService {
     final fallback = Directory(p.join(docDir.path, defaultFolderName));
     if (!fallback.existsSync()) await fallback.create(recursive: true);
     return fallback.path;
+  }
+
+  /// مفتاح حفظ المجلدات التي تم اختيار نسخ منها مسبقاً
+  static const String keyKnownBackupDirs = 'pref_known_backup_directories';
+
+  /// تسجيل مسار مجلد تم استيراد أو حفظ نسخ منه ليتم فحصه تلقائياً دائماً
+  static Future<void> addKnownBackupDirectory(String dirPath) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final list = prefs.getStringList(keyKnownBackupDirs) ?? [];
+      final clean = dirPath.trim();
+      if (clean.isNotEmpty && !list.contains(clean)) {
+        list.add(clean);
+        await prefs.setStringList(keyKnownBackupDirs, list);
+      }
+    } catch (_) {}
+  }
+
+  /// جلب المجلدات المسجلة سابقاً
+  static Future<List<String>> getKnownBackupDirectories() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getStringList(keyKnownBackupDirs) ?? [];
+    } catch (_) {
+      return [];
+    }
   }
 
   /// الحصول على المجلد الفعلي المعتمد للنسخ الاحتياطي (المخصص إن وجد، أو الافتراضي).
@@ -226,6 +277,7 @@ class BackupService {
       await prefs.remove(keyCustomBackupDir);
     } else {
       await prefs.setString(keyCustomBackupDir, path.trim());
+      await addKnownBackupDirectory(path.trim());
     }
   }
 
@@ -244,8 +296,14 @@ class BackupService {
       dirs.add(effective);
     } catch (_) {}
 
+    // 2. المجلدات المحفوظة التي تم التعامل معها مسبقاً
+    try {
+      final known = await getKnownBackupDirectories();
+      dirs.addAll(known);
+    } catch (_) {}
+
     if (!kIsWeb && Platform.isAndroid) {
-      // 2. مجلدات التنزيلات العامة الشائعة على أندرويد
+      // 3. مجلدات التنزيلات العامة الشائعة على أندرويد
       final downloadPaths = [
         '/storage/emulated/0/Download',
         '/storage/emulated/0/Downloads',
@@ -255,10 +313,12 @@ class BackupService {
       for (final dp in downloadPaths) {
         dirs.add(p.join(dp, defaultFolderName));
         dirs.add(p.join(dp, legacyFolderName));
+        dirs.add(p.join(dp, 'backups'));
+        dirs.add(p.join(dp, 'backup'));
         dirs.add(dp);
       }
 
-      // 3. مجلدات المستندات العامة الشائعة
+      // 4. مجلدات المستندات العامة الشائعة
       final docPaths = [
         '/storage/emulated/0/Documents',
         '/sdcard/Documents',
@@ -266,40 +326,70 @@ class BackupService {
       for (final dp in docPaths) {
         dirs.add(p.join(dp, defaultFolderName));
         dirs.add(p.join(dp, legacyFolderName));
+        dirs.add(p.join(dp, 'backups'));
+        dirs.add(p.join(dp, 'backup'));
         dirs.add(dp);
       }
 
-      // 4. مسار الـ External Storage
+      // 5. الجذر ومجلدات التخزين
+      dirs.add('/storage/emulated/0/backups');
+      dirs.add('/storage/emulated/0');
+      dirs.add('/sdcard/backups');
+      dirs.add('/sdcard');
+
+      // 6. مسار الـ External Storage
       try {
         final ext = await getExternalStorageDirectory();
         if (ext != null) {
           dirs.add(p.join(ext.path, defaultFolderName));
+          dirs.add(p.join(ext.path, 'backups'));
           dirs.add(ext.path);
           final parts = ext.path.split('/Android');
           if (parts.isNotEmpty) {
             dirs.add(p.join(parts[0], 'Download', defaultFolderName));
             dirs.add(p.join(parts[0], 'Documents', defaultFolderName));
+            dirs.add(p.join(parts[0], 'Download', 'backups'));
+            dirs.add(p.join(parts[0], 'Documents', 'backups'));
             dirs.add(p.join(parts[0], 'Download'));
             dirs.add(p.join(parts[0], 'Documents'));
+            dirs.add(p.join(parts[0], 'backups'));
           }
         }
       } catch (_) {}
     }
 
-    // 5. مجلد المستندات والتنزيلات لنظام التشغيل
+    // 7. مجلدات سطح المكتب (ويندوز / ماك / لينكس)
+    final desktopBases = <String>{};
     try {
       final docDir = await getApplicationDocumentsDirectory();
-      dirs.add(p.join(docDir.path, defaultFolderName));
-      dirs.add(docDir.path);
+      desktopBases.add(docDir.path);
     } catch (_) {}
 
     try {
       final dlDir = await getDownloadsDirectory();
       if (dlDir != null) {
-        dirs.add(p.join(dlDir.path, defaultFolderName));
-        dirs.add(dlDir.path);
+        desktopBases.add(dlDir.path);
       }
     } catch (_) {}
+
+    if (!kIsWeb) {
+      final userProfile = Platform.environment['USERPROFILE'] ??
+          Platform.environment['HOME'];
+      if (userProfile != null && userProfile.isNotEmpty) {
+        desktopBases.add(p.join(userProfile, 'Documents'));
+        desktopBases.add(p.join(userProfile, 'Downloads'));
+        desktopBases.add(p.join(userProfile, 'Desktop'));
+        desktopBases.add(userProfile);
+      }
+    }
+
+    for (final base in desktopBases) {
+      dirs.add(p.join(base, defaultFolderName));
+      dirs.add(p.join(base, 'backups'));
+      dirs.add(p.join(base, 'backup'));
+      dirs.add(p.join(base, legacyFolderName));
+      dirs.add(base);
+    }
 
     return dirs.toList();
   }
@@ -314,27 +404,66 @@ class BackupService {
         final dir = Directory(dirPath);
         if (!await dir.exists()) continue;
 
-        await for (final e in dir.list()) {
+        await for (final e in dir.list(followLinks: false)) {
           if (e is File) {
             final name = p.basename(e.path).toLowerCase();
-            final isAppBackupDir = dirPath.contains(defaultFolderName);
             if (name.endsWith('.json')) {
-              if (isAppBackupDir ||
-                  name.contains('backup') ||
-                  name.contains('dokkan') ||
-                  name.contains('دكان') ||
-                  name.contains('alnokrashy') ||
-                  name.contains('elnuqrashi') ||
-                  name.contains('nakrashy') ||
-                  name.contains('pos') ||
-                  name.contains('bak') ||
-                  name.contains('نقراشي') ||
-                  name.contains('نوكراشي') ||
-                  name.contains('احتياط') ||
-                  name.contains('نسخة') ||
-                  name.startsWith('202')) {
-                foundFilesMap[e.path] = e;
+              int len = 0;
+              try {
+                len = e.lengthSync();
+              } catch (_) {}
+
+              if (len > 30) {
+                final isAppBackupDir = dirPath.toLowerCase().contains('backup') ||
+                    dirPath.toLowerCase().contains('dokkan') ||
+                    dirPath.toLowerCase().contains('elnuqrashi') ||
+                    dirPath.toLowerCase().contains('alnokrashy') ||
+                    dirPath.contains('دكان') ||
+                    dirPath.contains('نقراشي');
+
+                final isBackupFileName = name.contains('backup') ||
+                    name.contains('dokkan') ||
+                    name.contains('دكان') ||
+                    name.contains('alnokrashy') ||
+                    name.contains('elnuqrashi') ||
+                    name.contains('nakrashy') ||
+                    name.contains('pos') ||
+                    name.contains('bak') ||
+                    name.contains('نقراشي') ||
+                    name.contains('نوكراشي') ||
+                    name.contains('احتياط') ||
+                    name.contains('نسخة') ||
+                    name.startsWith('202') ||
+                    name.contains('-202');
+
+                if (isAppBackupDir || isBackupFileName) {
+                  foundFilesMap[e.path] = e;
+                }
               }
+            }
+          } else if (e is Directory) {
+            // فحص المجلدات الفرعية المباشرة إذا كانت تخص النسخ الاحتياطي
+            final subName = p.basename(e.path).toLowerCase();
+            if (subName.contains('backup') ||
+                subName.contains('dokkan') ||
+                subName.contains('elnuqrashi') ||
+                subName.contains('alnokrashy') ||
+                subName.contains('دكان') ||
+                subName.contains('نقراشي')) {
+              try {
+                await for (final subEntry in e.list(followLinks: false)) {
+                  if (subEntry is File &&
+                      subEntry.path.toLowerCase().endsWith('.json')) {
+                    int subLen = 0;
+                    try {
+                      subLen = subEntry.lengthSync();
+                    } catch (_) {}
+                    if (subLen > 30) {
+                      foundFilesMap[subEntry.path] = subEntry;
+                    }
+                  }
+                }
+              } catch (_) {}
             }
           }
         }
@@ -352,6 +481,85 @@ class BackupService {
       }
     });
     return files;
+  }
+
+  /// تنزيل / تصدير نسخة احتياطية محددة إلى مكان يختاره المستخدم (أو مجلد التنزيلات)
+  static Future<String?> downloadBackupFile(File sourceFile) async {
+    if (!await sourceFile.exists()) {
+      throw const FormatException('ملف النسخة الاحتياطية غير موجود');
+    }
+
+    final originalName = p.basename(sourceFile.path);
+
+    // لأنظمة سطح المكتب (ويندوز / ماك / لينكس): فتح حوار الحفظ الرسمي
+    if (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
+      final savePath = await FilePicker.platform.saveFile(
+        dialogTitle: 'اختر مكان حفظ وتنزيل النسخة الاحتياطية',
+        fileName: originalName,
+        type: FileType.custom,
+        allowedExtensions: ['json'],
+        lockParentWindow: true,
+      );
+      if (savePath == null) return null;
+
+      String finalPath = savePath;
+      if (!finalPath.toLowerCase().endsWith('.json')) {
+        finalPath = '$finalPath.json';
+      }
+
+      final copiedFile = await sourceFile.copy(finalPath);
+      return copiedFile.path;
+    }
+
+    // لأنظمة أندرويد والتابلت
+    if (!kIsWeb && Platform.isAndroid) {
+      try {
+        final savePath = await FilePicker.platform.saveFile(
+          dialogTitle: 'اختر مكان حفظ وتنزيل النسخة الاحتياطية',
+          fileName: originalName,
+          type: FileType.custom,
+          allowedExtensions: ['json'],
+        );
+        if (savePath != null) {
+          String finalPath = savePath;
+          if (!finalPath.toLowerCase().endsWith('.json')) {
+            finalPath = '$finalPath.json';
+          }
+          final copied = await sourceFile.copy(finalPath);
+          return copied.path;
+        }
+      } catch (_) {}
+
+      // النسخ إلى مجلد التنزيلات العام Download
+      final downloadDir = Directory('/storage/emulated/0/Download');
+      if (downloadDir.existsSync()) {
+        String targetPath = p.join(downloadDir.path, originalName);
+        if (p.canonicalize(sourceFile.path) == p.canonicalize(targetPath)) {
+          final now = DateTime.now();
+          targetPath = p.join(downloadDir.path,
+              'downloaded_${now.millisecondsSinceEpoch}_$originalName');
+        }
+        final copied = await sourceFile.copy(targetPath);
+        return copied.path;
+      }
+    }
+
+    // ملجأ لأنظمة أخرى عبر getDownloadsDirectory
+    try {
+      final dlDir = await getDownloadsDirectory();
+      if (dlDir != null) {
+        String targetPath = p.join(dlDir.path, originalName);
+        if (p.canonicalize(sourceFile.path) == p.canonicalize(targetPath)) {
+          final now = DateTime.now();
+          targetPath = p.join(dlDir.path,
+              'downloaded_${now.millisecondsSinceEpoch}_$originalName');
+        }
+        final copied = await sourceFile.copy(targetPath);
+        return copied.path;
+      }
+    } catch (_) {}
+
+    return sourceFile.path;
   }
 
   /// البحث عن أحدث ملف نسخة احتياطية صالح على التابلت عبر كافة المجلدات
@@ -466,6 +674,9 @@ class BackupService {
     }
 
     await restoreFromSnapshot(Map<String, dynamic>.from(json));
+    try {
+      await addKnownBackupDirectory(file.parent.path);
+    } catch (_) {}
     return true;
   }
 
@@ -565,6 +776,11 @@ class BackupService {
     }
 
     await restoreFromSnapshot(Map<String, dynamic>.from(json));
+    if (file.path != null) {
+      try {
+        await addKnownBackupDirectory(File(file.path!).parent.path);
+      } catch (_) {}
+    }
     return true;
   }
 
