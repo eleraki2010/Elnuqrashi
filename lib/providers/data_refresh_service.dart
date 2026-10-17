@@ -1,5 +1,6 @@
 import 'app_providers.dart';
 import 'phase2_providers.dart';
+import '../presentation/screens/settings_screen.dart';
 
 /// وحدة مركزية لتحديث وإبطال المزودات (Providers) فورياً
 /// عند إدخال أو تعديل أو حذف أي بيانات في النظام لضمان تحميلها
@@ -100,3 +101,34 @@ void refreshAfterReturn(dynamic ref) {
 void refreshAfterCategoryChange(dynamic ref) {
   ref.invalidate(categoriesListProvider);
 }
+
+/// يُستدعى فوراً بعد استرجاع نسخة احتياطية لإعادة تحميل كل بيانات النظام في كافة الشاشات
+void refreshAfterRestore(dynamic ref) {
+  ref.invalidate(productListProvider);
+  ref.invalidate(categoriesListProvider);
+  ref.invalidate(customersListProvider);
+  ref.invalidate(suppliersListProvider);
+  ref.invalidate(salesHistoryProvider);
+  ref.invalidate(purchasesListProvider);
+  ref.invalidate(expensesListProvider);
+  ref.invalidate(shopBalanceProvider);
+  ref.invalidate(dashboardStatsProvider);
+  ref.invalidate(stockAlertsProvider);
+  ref.invalidate(lowStockCountProvider);
+  ref.invalidate(stockSummaryProvider);
+  ref.invalidate(totalCustomerDebtProvider);
+  ref.invalidate(overdueCustomersProvider);
+  ref.invalidate(customersNearingDueDateProvider);
+  ref.invalidate(allCustomersNearingDueDateProvider);
+  ref.invalidate(topSellingProductsProvider);
+  ref.invalidate(allTopSellingProductsProvider);
+  ref.invalidate(paymentsProvider);
+  ref.invalidate(auditLogProvider);
+  ref.invalidate(shopProfileProvider);
+  ref.invalidate(vatEnabledProvider);
+  ref.invalidate(storeNameProvider);
+  ref.invalidate(storePhoneProvider);
+  ref.invalidate(storeAddressProvider);
+  ref.invalidate(storeLogoPathProvider);
+}
+

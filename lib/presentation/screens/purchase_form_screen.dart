@@ -16,7 +16,9 @@ import '../widgets/product_search_dialog.dart';
 import '../widgets/searchable_dropdown.dart';
 
 class PurchaseFormScreen extends ConsumerStatefulWidget {
-  const PurchaseFormScreen({super.key});
+  final PurchaseInvoice? purchaseToEdit;
+
+  const PurchaseFormScreen({super.key, this.purchaseToEdit});
 
   @override
   ConsumerState<PurchaseFormScreen> createState() => _PurchaseFormScreenState();
@@ -33,6 +35,19 @@ class _PurchaseFormScreenState extends ConsumerState<PurchaseFormScreen> {
   final TextEditingController _paidAmountController = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+    if (widget.purchaseToEdit != null) {
+      final p = widget.purchaseToEdit!;
+      _selectedSupplierId = p.supplierId;
+      if (p.paidAmount > 0) {
+        _paidAmountController.text = p.paidAmount.toStringAsFixed(0);
+      }
+      _items.addAll(p.items);
+    }
+  }
+
+  @override
   void dispose() {
     _quantityController.dispose();
     _unitCostController.dispose();
@@ -40,13 +55,13 @@ class _PurchaseFormScreenState extends ConsumerState<PurchaseFormScreen> {
     super.dispose();
   }
 
+  // الجمع الصحيح لفاتورة المشتريات: مجموع (الكمية × سعر الشراء الحقيقي) بدون أي ضرائب أو هوامش بيع
   double get _subtotal => _items.fold(0.0, (sum, item) => sum + item.lineTotal);
-  double get _tax => _subtotal * AppStrings.TAX_RATE;
-  double get _totalWithTax => _subtotal + _tax;
+  double get _invoiceTotal => _subtotal;
   double get _paidAmount =>
       double.tryParse(_paidAmountController.text.trim()) ?? 0.0;
   double get _remainingOwed =>
-      (_totalWithTax - _paidAmount).clamp(0.0, double.infinity);
+      (_invoiceTotal - _paidAmount).clamp(0.0, double.infinity);
 
   void _addItem() {
     if (_selectedProduct == null) {
@@ -128,39 +143,64 @@ class _PurchaseFormScreenState extends ConsumerState<PurchaseFormScreen> {
       return;
     }
 
+    final isEdit = widget.purchaseToEdit != null;
+    if (isEdit) {
+      final isAdmin = ref.read(isAdminProvider);
+      if (!isAdmin) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            backgroundColor: AppColors.DANGER_RED,
+            content: Text('عفواً، تعديل فاتورة الشراء متاح للأدمن فقط'),
+          ),
+        );
+        return;
+      }
+    }
+
     final repo = ref.read(purchaseRepositoryProvider);
-    final invoiceId = const Uuid().v4();
-    final now = DateTime.now();
+    final invoiceId = isEdit ? widget.purchaseToEdit!.id : const Uuid().v4();
+    final createdAt = isEdit ? widget.purchaseToEdit!.createdAt : DateTime.now();
 
     final preparedItems = _items.map((item) {
       return item.copyWith(invoiceId: invoiceId);
     }).toList();
 
+    // يتم حفظ إجمالي الفاتورة بحاصل جمع أسعار الشراء للأصناف بدقة تامة
     final invoice = PurchaseInvoice(
       id: invoiceId,
       supplierId: _selectedSupplierId!,
       items: preparedItems,
-      total: _totalWithTax,
-      tax: _tax,
+      total: _invoiceTotal,
+      tax: 0.0,
       paidAmount: _paidAmount,
-      createdAt: now,
+      createdAt: createdAt,
     );
 
-    await repo.createPurchaseInvoice(
-      invoice: invoice,
-      items: preparedItems,
-      userId: ref.read(authProvider).user?.id,
-    );
+    if (isEdit) {
+      await repo.updatePurchaseInvoice(
+        invoice: invoice,
+        items: preparedItems,
+        userId: ref.read(authProvider).user?.id,
+      );
+    } else {
+      await repo.createPurchaseInvoice(
+        invoice: invoice,
+        items: preparedItems,
+        userId: ref.read(authProvider).user?.id,
+      );
+    }
 
     // Refresh affected providers
     refreshAfterPurchase(ref);
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           backgroundColor: AppColors.SUCCESS_GREEN,
           content: Text(
-            'تم تسجيل فاتورة الشراء وتحديث كميات وأسعار المخزون بنجاح',
+            isEdit
+                ? 'تم حفظ تعديل فاتورة الشراء وتحديث المخزون ورصيد المورد بنجاح'
+                : 'تم تسجيل فاتورة الشراء وتحديث كميات وأسعار المخزون بنجاح',
           ),
         ),
       );
@@ -170,10 +210,15 @@ class _PurchaseFormScreenState extends ConsumerState<PurchaseFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isEdit = widget.purchaseToEdit != null;
     final suppliersAsync = ref.watch(suppliersListProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('تسجيل فاتورة شراء وتوريد بضاعة')),
+      appBar: AppBar(
+        title: Text(
+          isEdit ? 'تعديل فاتورة شراء توريد بضاعة' : 'تسجيل فاتورة شراء وتوريد بضاعة',
+        ),
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(AppLayout.SPACING_UNIT * 3),
         child: Center(
@@ -564,7 +609,7 @@ class _PurchaseFormScreenState extends ConsumerState<PurchaseFormScreen> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              AppStrings.money(_totalWithTax),
+                              AppStrings.money(_invoiceTotal),
                               style: const TextStyle(
                                 fontSize: 22,
                                 fontWeight: FontWeight.bold,
@@ -662,9 +707,11 @@ class _PurchaseFormScreenState extends ConsumerState<PurchaseFormScreen> {
                       ),
                       onPressed: _savePurchase,
                       icon: const Icon(Icons.save_outlined),
-                      label: const Text(
-                        'حفظ الفاتورة وتحديث المخزون',
-                        style: TextStyle(
+                      label: Text(
+                        isEdit
+                            ? 'حفظ تعديلات الفاتورة'
+                            : 'حفظ الفاتورة وتحديث المخزون',
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),

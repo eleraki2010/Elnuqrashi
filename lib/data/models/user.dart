@@ -16,8 +16,10 @@ class User {
     required this.role,
   });
 
-  bool get isOwner => role == 'owner';
+  bool get isAdmin => role == 'admin' || role == 'owner';
+  bool get isOwner => isAdmin; // للتوافق العكسي
   bool get isCashier => role == 'cashier';
+  String get roleDisplayName => isAdmin ? 'أدمن' : 'كاشير';
 
   bool verifyPassword(String password) {
     return passwordHash == AppDatabase.hashPassword(password);

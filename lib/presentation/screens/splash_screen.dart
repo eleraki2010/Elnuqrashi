@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_constants.dart';
 import '../../providers/auth_provider.dart';
 import 'login_screen.dart';
-import 'main_layout_screen.dart';
 
 /// شاشة البداية والترحيب (Splash Screen) لنظام دُكّان POS.
 /// تعرض صورة الترحيب splash.jpg لمدة 3 ثوانٍ مع تثبيت الوضع الرأسي للأجهزة اللوحية
@@ -44,9 +43,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     );
     _animController.forward();
 
-    // بدء استرجاع جلسة المستخدم في الخلفية أثناء الثواني الـ 3
+    // تسجيل خروج لضمان طلب إدخال بيانات الأدمن دائماً وعدم الدخول التلقائي
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(authProvider.notifier).restore();
+      ref.read(authProvider.notifier).logout();
     });
 
     // الانتظار لمدة 3 ثوانٍ بالضبط ثم الانتقال
@@ -56,8 +55,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   void _goToNextScreen() {
     if (!mounted) return;
 
-    final auth = ref.read(authProvider);
-    final targetWidget = auth.isLoggedIn ? const MainLayoutScreen() : const LoginScreen();
+    const targetWidget = LoginScreen();
 
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(

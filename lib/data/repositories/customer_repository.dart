@@ -28,6 +28,10 @@ class CustomerStatement {
     required this.payments,
     this.returns = const [],
   });
+
+  double get totalSales => invoices.fold(0.0, (sum, i) => sum + i.total);
+  double get totalPayments => payments.fold(0.0, (sum, p) => sum + p.amount);
+  double get totalReturns => returns.fold(0.0, (sum, r) => sum + r.invoice.returnAmount);
 }
 
 class CustomerRepository {

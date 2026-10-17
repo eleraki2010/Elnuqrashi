@@ -223,5 +223,190 @@ void main() {
     expect(restoredExpenses.length, 1);
     expect(restoredExpenses.first['amount'], 350.0);
   });
+
+  test('Test RestoreMode.merge retains shelf stock and merges new items and balances', () async {
+    final db = await AppDatabase.instance;
+
+    // 1. Prepare current database state
+    await db.delete('products');
+    await db.delete('customers');
+    await db.delete('categories');
+
+    await db.insert('categories', {
+      'id': 'cat_merge_1',
+      'name': 'قسم الدمج',
+      'parent_id': null,
+    });
+
+    await db.insert('products', {
+      'id': 'prod_shelf_1',
+      'name': 'منتج على الرف حالياً',
+      'category_id': 'cat_merge_1',
+      'unit': 'قطعة',
+      'purchase_price': 50.0,
+      'sale_price': 80.0,
+      'quantity': 42, // Shelf count: 42
+      'min_quantity_alert': 5,
+      'created_at': DateTime.now().toIso8601String(),
+      'updated_at': DateTime.now().toIso8601String(),
+    });
+
+    // 2. Prepare backup snapshot with:
+    // - prod_shelf_1 (different price 90.0, old quantity 10)
+    // - prod_new_backup (new product, quantity 15)
+    // - cust_backup (new customer)
+    final snapshot = <String, dynamic>{
+      '_meta': {'app': 'alnokrashy_pos', 'db_version': 11},
+      'categories': [
+        {'id': 'cat_merge_1', 'name': 'قسم الدمج', 'parent_id': null}
+      ],
+      'products': [
+        {
+          'id': 'prod_shelf_1',
+          'name': 'منتج على الرف حالياً',
+          'category_id': 'cat_merge_1',
+          'unit': 'قطعة',
+          'purchase_price': 55.0,
+          'sale_price': 90.0,
+          'quantity': 10, // Backup has old quantity 10
+          'min_quantity_alert': 5,
+        },
+        {
+          'id': 'prod_new_backup',
+          'name': 'منتج جديد قادم من النسخة',
+          'category_id': 'cat_merge_1',
+          'unit': 'علبة',
+          'purchase_price': 20.0,
+          'sale_price': 30.0,
+          'quantity': 15,
+          'min_quantity_alert': 2,
+        }
+      ],
+      'customers': [
+        {
+          'id': 'cust_merged_1',
+          'name': 'عميل قادم من النسخة',
+          'phone': '01122334455',
+          'balance_due': 250.0,
+        }
+      ]
+    };
+
+    // 3. Restore in smart merge mode (updateStockQuantitiesInMerge: false)
+    await BackupService.restoreFromSnapshot(
+      snapshot,
+      options: const RestoreOptions(
+        mode: RestoreMode.mergeAll,
+        updateStockQuantitiesInMerge: false,
+      ),
+    );
+
+    // 4. Verify existing product retained shelf quantity (42) and updated its sale price (90.0)
+    final existingProd = await db.query('products', where: 'id = ?', whereArgs: ['prod_shelf_1']);
+    expect(existingProd.first['quantity'], 42); // Kept current shelf count!
+    expect(existingProd.first['sale_price'], 90.0);
+
+    // 5. Verify new product from backup was imported
+    final newProd = await db.query('products', where: 'id = ?', whereArgs: ['prod_new_backup']);
+    expect(newProd.isNotEmpty, isTrue);
+    expect(newProd.first['quantity'], 15);
+
+    // 6. Verify customer from backup was imported
+    final newCust = await db.query('customers', where: 'id = ?', whereArgs: ['cust_merged_1']);
+    expect(newCust.isNotEmpty, isTrue);
+    expect(newCust.first['name'], 'عميل قادم من النسخة');
+
+    // 7. Verify safety backup was created
+    final backups = await BackupService.listLocalBackupFiles();
+    final hasSafety = backups.any((f) => f.path.contains('safety_backup_before_restore_'));
+    expect(hasSafety, isTrue);
+  });
+
+  test('Test RestoreMode.custom selectively restores chosen tables', () async {
+    final db = await AppDatabase.instance;
+
+    await db.delete('products');
+    await db.delete('customers');
+    await db.delete('expenses');
+
+    await db.insert('expenses', {
+      'id': 'exp_keep_this',
+      'title': 'مصروف لا يجب حذفه',
+      'amount': 150.0,
+      'category': 'عام',
+      'created_at': DateTime.now().toIso8601String(),
+    });
+
+    final snapshot = <String, dynamic>{
+      '_meta': {'app': 'alnokrashy_pos', 'db_version': 11},
+      'categories': [
+        {'id': 'cat_custom', 'name': 'قسم مخصص', 'parent_id': null}
+      ],
+      'products': [
+        {
+          'id': 'prod_custom_1',
+          'name': 'منتج مخصص',
+          'category_id': 'cat_custom',
+          'unit': 'قطعة',
+          'purchase_price': 10.0,
+          'sale_price': 15.0,
+          'quantity': 5,
+        }
+      ],
+      'customers': [
+        {
+          'id': 'cust_custom_1',
+          'name': 'عميل مخصص',
+          'phone': '01000000000',
+          'balance_due': 0.0,
+        }
+      ],
+      'expenses': [
+        {
+          'id': 'exp_should_not_import',
+          'title': 'مصروف غير مختار',
+          'amount': 999.0,
+          'category': 'عام',
+        }
+      ]
+    };
+
+    // Custom restore: Only restore products and customers, NOT expenses!
+    await BackupService.restoreFromSnapshot(
+      snapshot,
+      options: const RestoreOptions(
+        mode: RestoreMode.custom,
+        customSelection: RestoreCustomSelection(
+          includeCategoriesAndProducts: true,
+          includeCustomers: true,
+          includeSuppliers: false,
+          includeSales: false,
+          includePurchases: false,
+          includePayments: false,
+          includeExpenses: false, // NOT SELECTED!
+          includeStockMovements: false,
+          includeAuditLogs: false,
+          includeShopSettings: false,
+          includeUsers: false,
+          mergeSelected: true,
+        ),
+      ),
+    );
+
+    // Products and customers imported
+    final prods = await db.query('products', where: 'id = ?', whereArgs: ['prod_custom_1']);
+    expect(prods.isNotEmpty, isTrue);
+
+    final custs = await db.query('customers', where: 'id = ?', whereArgs: ['cust_custom_1']);
+    expect(custs.isNotEmpty, isTrue);
+
+    // Expenses table was NOT affected, unselected expense from backup was NOT imported
+    final unselectedExp = await db.query('expenses', where: 'id = ?', whereArgs: ['exp_should_not_import']);
+    expect(unselectedExp.isEmpty, isTrue);
+
+    final keptExp = await db.query('expenses', where: 'id = ?', whereArgs: ['exp_keep_this']);
+    expect(keptExp.isNotEmpty, isTrue);
+  });
 }
+
 

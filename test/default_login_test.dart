@@ -33,7 +33,7 @@ void main() {
 
     expect(user, isNotNull);
     expect(user!.username, '1');
-    expect(user.role, 'owner');
+    expect(user.role, 'admin');
     expect(user.verifyPassword('123'), true);
   });
 
@@ -43,7 +43,7 @@ void main() {
 
     expect(user, isNotNull);
     expect(user!.username, '1');
-    expect(user.role, 'owner');
+    expect(user.role, 'admin');
   });
 
   test('Wrong password fails authentication', () async {

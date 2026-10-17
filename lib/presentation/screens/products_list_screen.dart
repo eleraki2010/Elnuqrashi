@@ -185,13 +185,12 @@ class _ProductsListScreenState extends ConsumerState<ProductsListScreen> {
                     padding: EdgeInsets.zero,
                     gridDelegate:
                         SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: ResponsiveUtils.posGridColumns(
-                          contentWidth),
+                      crossAxisCount: 5,
                       crossAxisSpacing: ResponsiveUtils.scaledSpacing(
                           8.0, contentWidth),
                       mainAxisSpacing: ResponsiveUtils.scaledSpacing(
                           8.0, contentWidth),
-                      childAspectRatio: 0.75,
+                      childAspectRatio: 0.72,
                     ),
                     itemCount: filteredProducts.length,
                     itemBuilder: (context, index) {

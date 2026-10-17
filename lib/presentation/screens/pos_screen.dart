@@ -935,16 +935,13 @@ class _POSScreenState extends ConsumerState<POSScreen> {
 
                 return LayoutBuilder(
                   builder: (context, constraints) {
-                    final paneWidth = constraints.maxWidth;
-                    final cols = (paneWidth / 150).floor().clamp(2, 6);
-
                     return GridView.builder(
                       padding: EdgeInsets.zero,
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: cols,
-                        crossAxisSpacing: 10.0,
-                        mainAxisSpacing: 10.0,
-                        childAspectRatio: 0.74,
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 5,
+                        crossAxisSpacing: 8.0,
+                        mainAxisSpacing: 8.0,
+                        childAspectRatio: 0.72,
                       ),
                       itemCount: filteredProducts.length,
                       itemBuilder: (context, index) {
@@ -991,20 +988,20 @@ class _POSScreenState extends ConsumerState<POSScreen> {
                                     children: [
                                       ProductImageView(
                                         imageUrl: product.imageUrl,
-                                        iconSize: 32,
+                                        iconSize: 26,
                                       ),
                                       if (isInCart)
                                         Positioned(
-                                          top: 6,
-                                          right: 6,
+                                          top: 4,
+                                          right: 4,
                                           child: Container(
                                             padding: const EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                              vertical: 3,
+                                              horizontal: 5,
+                                              vertical: 2,
                                             ),
                                             decoration: BoxDecoration(
                                               color: AppColors.PRIMARY_BLUE,
-                                              borderRadius: BorderRadius.circular(12),
+                                              borderRadius: BorderRadius.circular(10),
                                               boxShadow: [
                                                 BoxShadow(
                                                   color: Colors.black.withValues(alpha: 0.2),
@@ -1016,7 +1013,7 @@ class _POSScreenState extends ConsumerState<POSScreen> {
                                               '${cartItem.quantity} في السلة',
                                               style: const TextStyle(
                                                 color: Colors.white,
-                                                fontSize: 10.5,
+                                                fontSize: 9.5,
                                                 fontWeight: FontWeight.bold,
                                               ),
                                             ),
@@ -1029,23 +1026,24 @@ class _POSScreenState extends ConsumerState<POSScreen> {
                                 // Details (Name, Price, Stock)
                                 Padding(
                                   padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 6,
+                                    horizontal: 6,
+                                    vertical: 4,
                                   ),
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Text(
                                         product.name,
                                         maxLines: 2,
                                         overflow: TextOverflow.ellipsis,
                                         style: const TextStyle(
-                                          fontSize: 12.5,
+                                          fontSize: 11.5,
                                           fontWeight: FontWeight.bold,
-                                          height: 1.2,
+                                          height: 1.15,
                                         ),
                                       ),
-                                      const SizedBox(height: 4),
+                                      const SizedBox(height: 3),
                                       Row(
                                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                         children: [
@@ -1053,7 +1051,7 @@ class _POSScreenState extends ConsumerState<POSScreen> {
                                             child: Text(
                                               AppStrings.money(product.salePrice),
                                               style: const TextStyle(
-                                                fontSize: 13,
+                                                fontSize: 12,
                                                 fontWeight: FontWeight.w800,
                                                 color: AppColors.PRIMARY_BLUE,
                                               ),
@@ -1061,10 +1059,11 @@ class _POSScreenState extends ConsumerState<POSScreen> {
                                               overflow: TextOverflow.ellipsis,
                                             ),
                                           ),
+                                          const SizedBox(width: 4),
                                           Text(
                                             '${product.quantity} ${product.unit}',
                                             style: TextStyle(
-                                              fontSize: 11,
+                                              fontSize: 10,
                                               color: product.isOutOfStock
                                                   ? AppColors.DANGER_RED
                                                   : product.isLowStock

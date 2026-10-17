@@ -53,7 +53,10 @@ class UsersManagementContentState
     final nameController = TextEditingController(text: user?.name ?? '');
     final usernameController = TextEditingController(text: user?.username ?? '');
     final passwordController = TextEditingController();
-    final roleNotifier = ValueNotifier<String>(user?.role ?? 'cashier');
+    final initialRole = (user?.role == 'owner' || user?.role == 'admin')
+        ? 'admin'
+        : (user?.role ?? 'cashier');
+    final roleNotifier = ValueNotifier<String>(initialRole);
 
     final result = await showDialog<bool>(
       context: context,
@@ -100,8 +103,8 @@ class UsersManagementContentState
                     ),
                     items: const [
                       DropdownMenuItem(
-                        value: 'owner',
-                        child: Text('مالك (صلاحيات كاملة)'),
+                        value: 'admin',
+                        child: Text('أدمن (صلاحيات كاملة)'),
                       ),
                       DropdownMenuItem(
                         value: 'cashier',
@@ -286,7 +289,7 @@ class UsersManagementContentState
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     subtitle: Text(
-                      '${user.username} • ${user.isOwner ? "مالك" : "كاشير"}',
+                      '${user.username} • ${user.roleDisplayName}',
                       style: const TextStyle(color: AppColors.TEXT_SECONDARY),
                     ),
                     trailing: Row(

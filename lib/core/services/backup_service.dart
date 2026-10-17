@@ -641,8 +641,8 @@ class BackupService {
     return file.path;
   }
 
-  /// استرجاع نسخة احتياطية من ملف محدد مسبقاً (دون فتح حوار البحث).
-  static Future<bool> restoreFromSpecificFile(File file) async {
+  /// قراءة وفحص ملف نسخة احتياطية بصيغة JSON والتحقق من صحته.
+  static Future<Map<String, dynamic>> readSnapshotFromFile(File file) async {
     if (!await file.exists()) {
       throw const FormatException('ملف النسخة الاحتياطية المحدد غير موجود');
     }
@@ -673,20 +673,15 @@ class BackupService {
           'الملف المختار ليس نسخة احتياطية صالحة لنظام دُكّان POS');
     }
 
-    await restoreFromSnapshot(Map<String, dynamic>.from(json));
-    try {
-      await addKnownBackupDirectory(file.parent.path);
-    } catch (_) {}
-    return true;
+    return Map<String, dynamic>.from(json);
   }
 
-  /// استرجاع نسخة احتياطية من ملف يختاره المستخدم عبر متصفح الملفات.
-  static Future<bool> restoreFromBackupFile({String? initialDirectory}) async {
+  /// اختيار ملف نسخة احتياطية عبر مستكشف الملفات دون تنفيذه فوراً
+  static Future<File?> pickBackupFile({String? initialDirectory}) async {
     final initDir = initialDirectory ?? await getEffectiveBackupDirectoryPath();
 
     FilePickerResult? result;
     if (!kIsWeb && Platform.isAndroid) {
-      // على أندرويد: استخدام FileType.any ضروري لعدم تعتيم ملفات .json من قِبل مديري الملفات بالنظام
       try {
         result = await FilePicker.platform.pickFiles(
           dialogTitle: 'اختر ملف النسخة الاحتياطية',
@@ -704,7 +699,6 @@ class BackupService {
         );
       }
     } else {
-      // لأنظمة سطح المكتب (ويندوز / ماك / لينكس)
       try {
         result = await FilePicker.platform.pickFiles(
           dialogTitle: 'اختر ملف النسخة الاحتياطية',
@@ -726,89 +720,183 @@ class BackupService {
       }
     }
 
-    if (result == null || result.files.isEmpty) return false;
-
+    if (result == null || result.files.isEmpty) return null;
     final file = result.files.single;
-    List<int>? bytes = file.bytes;
 
-    if ((bytes == null || bytes.isEmpty) && file.readStream != null) {
-      try {
-        final streamData = <int>[];
-        await for (final chunk in file.readStream!) {
-          streamData.addAll(chunk);
-        }
-        if (streamData.isNotEmpty) bytes = streamData;
-      } catch (_) {}
-    }
-
-    if ((bytes == null || bytes.isEmpty) && file.path != null) {
-      try {
-        final f = File(file.path!);
-        if (await f.exists()) {
-          bytes = await f.readAsBytes();
-        }
-      } catch (_) {}
-    }
-
-    if (bytes == null || bytes.isEmpty) {
-      throw const FormatException('تعذّر قراءة الملف المختار — تأكد من صحة الملف وصلاحيات الوصول.');
-    }
-
-    var str = utf8.decode(bytes, allowMalformed: true);
-    str = str.replaceAll(RegExp(r'^[\uFEFF\u200B\s]+'), '').trim();
-    final dynamic json = jsonDecode(str);
-    if (json is! Map) {
-      throw const FormatException('ملف النسخة الاحتياطية غير صالح (ليس بتنسيق JSON صحيح)');
-    }
-
-    final meta = json['_meta'];
-    final isValidApp = meta is Map &&
-        (meta['app'] == 'dokkan_pos' || meta['app'] == 'alnokrashy_pos' || meta['app'] == 'elnuqrashi_pos');
-    final hasStoreTables = json['products'] is List ||
-        json['sale_invoices'] is List ||
-        json['categories'] is List ||
-        json['customers'] is List ||
-        json['suppliers'] is List;
-
-    if (!isValidApp && !hasStoreTables) {
-      throw const FormatException(
-          'الملف المختار ليس نسخة احتياطية صالحة لنظام دُكّان POS');
-    }
-
-    await restoreFromSnapshot(Map<String, dynamic>.from(json));
     if (file.path != null) {
-      try {
-        await addKnownBackupDirectory(File(file.path!).parent.path);
-      } catch (_) {}
+      final f = File(file.path!);
+      if (await f.exists()) return f;
     }
+
+    List<int>? bytes = file.bytes;
+    if ((bytes == null || bytes.isEmpty) && file.readStream != null) {
+      final streamData = <int>[];
+      await for (final chunk in file.readStream!) {
+        streamData.addAll(chunk);
+      }
+      if (streamData.isNotEmpty) bytes = streamData;
+    }
+
+    if (bytes != null && bytes.isNotEmpty) {
+      final tempDir = await getTemporaryDirectory();
+      final tempFile = File(p.join(tempDir.path, file.name));
+      await tempFile.writeAsBytes(bytes);
+      return tempFile;
+    }
+
+    return null;
+  }
+
+  /// إنشاء نسخة احتياطية احترازية فورية للبيانات الحالية قبل تطبيق أي عملية استرجاع
+  static Future<String?> createSafetyBackup() async {
+    try {
+      final snapshot = await exportSnapshot();
+      final dir = await getEffectiveBackupDirectoryPath();
+      final now = DateTime.now();
+      final timestamp =
+          '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}_${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}${now.second.toString().padLeft(2, '0')}';
+      final fileName = 'safety_backup_before_restore_$timestamp.json';
+      final file = File(p.join(dir, fileName));
+      await file.writeAsString(jsonEncode(snapshot), flush: true);
+      await addKnownBackupDirectory(dir);
+      return file.path;
+    } catch (e) {
+      debugPrint('تنبيه: تعذر إنشاء النسخة الاحتياطية الاحترازية: $e');
+      return null;
+    }
+  }
+
+  /// استرجاع نسخة احتياطية من ملف محدد مسبقاً مع خيارات الاسترجاع المحددة
+  static Future<bool> restoreFromSpecificFile(
+    File file, {
+    RestoreOptions? options,
+  }) async {
+    final snapshot = await readSnapshotFromFile(file);
+    await restoreFromSnapshot(snapshot, options: options);
+    try {
+      await addKnownBackupDirectory(file.parent.path);
+    } catch (_) {}
     return true;
   }
 
-  /// استعادة البيانات من كائن لقطة JSON تم التحقق منه بأعلى درجات الأمان والتوافق.
-  static Future<void> restoreFromSnapshot(Map<String, dynamic> snapshot) async {
+  /// استرجاع نسخة احتياطية من ملف يختاره المستخدم عبر متصفح الملفات
+  static Future<bool> restoreFromBackupFile({
+    String? initialDirectory,
+    RestoreOptions? options,
+  }) async {
+    final file = await pickBackupFile(initialDirectory: initialDirectory);
+    if (file == null) return false;
+    return await restoreFromSpecificFile(file, options: options);
+  }
+
+  /// استعادة البيانات من كائن لقطة JSON تم التحقق منه بأعلى درجات الأمان والتوافق،
+  /// مع دعم (الاستبدال الشامل، الدمج الذكي، التخصيص)، وتفادي مسح البيانات دون رغبة المستخدم.
+  static Future<void> restoreFromSnapshot(
+    Map<String, dynamic> snapshot, {
+    RestoreOptions? options,
+  }) async {
+    final opts = options ?? const RestoreOptions(mode: RestoreMode.replaceAll);
     final db = await AppDatabase.instance;
 
-    // تعطيل فحص المفاتيح الأجنبية مؤقتاً أثناء عملية الاسترجاع لتفادي فشل المعاملة
-    // بسبب سجلات قديمة أو اختلاف ترتيب العلاقات بين الإصدارات المختلفة.
+    // 1. أخذ نسخة أمان احترازية صامتة للبيانات الحالية لضمان إمكانية التراجع دائماً
+    await createSafetyBackup();
+
+    // 2. تحديد قائمة الجداول المستهدفة وطريقة معالجتها (مسح أو دمج)
+    final Set<String> targetTables = {};
+    bool isMergeMode = false;
+    bool updateStockInMerge = false;
+
+    if (opts.mode == RestoreMode.replaceAll) {
+      targetTables.addAll(_insertOrder);
+      isMergeMode = false;
+    } else if (opts.mode == RestoreMode.mergeAll) {
+      targetTables.addAll(_insertOrder);
+      isMergeMode = true;
+      updateStockInMerge = opts.updateStockQuantitiesInMerge;
+    } else {
+      // RestoreMode.custom
+      final sel = opts.customSelection;
+      isMergeMode = sel.mergeSelected;
+      updateStockInMerge = sel.updateStockQuantities;
+
+      if (sel.includeCategoriesAndProducts) {
+        targetTables.add('categories');
+        targetTables.add('products');
+      }
+      if (sel.includeCustomers) {
+        targetTables.add('customers');
+      }
+      if (sel.includeSuppliers) {
+        targetTables.add('suppliers');
+      }
+      if (sel.includeSales) {
+        targetTables.add('sale_invoices');
+        targetTables.add('sale_invoice_items');
+        targetTables.add('return_invoices');
+        targetTables.add('return_invoice_items');
+      }
+      if (sel.includePurchases) {
+        targetTables.add('purchase_invoices');
+        targetTables.add('purchase_invoice_items');
+        targetTables.add('purchase_return_invoices');
+        targetTables.add('purchase_return_invoice_items');
+      }
+      if (sel.includePayments) {
+        targetTables.add('payments');
+      }
+      if (sel.includeExpenses) {
+        targetTables.add('expense_categories');
+        targetTables.add('expenses');
+      }
+      if (sel.includeStockMovements) {
+        targetTables.add('stock_movements');
+      }
+      if (sel.includeAuditLogs) {
+        targetTables.add('audit_logs');
+      }
+      if (sel.includeUsers) {
+        targetTables.add('users');
+      }
+      if (sel.includeShopSettings) {
+        targetTables.add('shop_profile');
+      }
+    }
+
+    // تعطيل فحص المفاتيح الأجنبية مؤقتاً أثناء عملية الاسترجاع
     await db.execute('PRAGMA foreign_keys = OFF;');
 
     try {
       await db.transaction((txn) async {
-        // 1. تفريغ الجداول الحالية بالترتيب العكسي
-        for (final table in _insertOrder.reversed) {
-          try {
-            await txn.delete(table);
-          } catch (e) {
-            debugPrint('تنبيه: تعذر مسح الجدول $table أثناء الاسترجاع: $e');
+        // إذا كان النمط استبدال (وليس دمج): مسح الجداول المستهدفة فقط بالترتيب العكسي
+        if (!isMergeMode) {
+          for (final table in _insertOrder.reversed) {
+            if (targetTables.contains(table)) {
+              try {
+                await txn.delete(table);
+              } catch (e) {
+                debugPrint('تنبيه: تعذر مسح الجدول $table أثناء الاسترجاع: $e');
+              }
+            }
           }
         }
 
-        // 2. فحص وإدراج البيانات جدولاً بجدول مع مطابقة الأعمدة الحالية في قاعدة البيانات
+        // إذا كان نمط دمج: جلب الكميات الحالية للمنتجات لحمايتها من التصفير إذا لم يرغب المستخدم بتحديثها
+        final existingProductQuantities = <String, int>{};
+        if (isMergeMode && !updateStockInMerge && targetTables.contains('products')) {
+          final pRows = await txn.rawQuery('SELECT id, quantity FROM products');
+          for (final r in pRows) {
+            final id = r['id']?.toString();
+            final qty = (r['quantity'] as num?)?.toInt() ?? 0;
+            if (id != null) existingProductQuantities[id] = qty;
+          }
+        }
+
+        // إدراج وتحديث الجداول المستهدفة حسب ترتيب العلاقات
         for (final table in _insertOrder) {
+          if (!targetTables.contains(table)) continue;
           final rows = snapshot[table];
           if (rows is! List) continue;
 
-          // جلب الأعمدة الفعلية الموجودة في الجدول لتجنب خطأ (no such column)
           final colsInfo = await txn.rawQuery('PRAGMA table_info($table)');
           final validCols = <String>{};
           for (final col in colsInfo) {
@@ -825,14 +913,30 @@ class BackupService {
               }
             }
 
-            // ضمان تعبئة الأعمدة الإجبارية التي لا تحتوي على قيم افتراضية
             _fillMissingRequiredValues(table, cleanRow);
+
+            // في وضع الدمج للأصناف: الحفاظ على جرد المحل الفعلي إذا لم يُختر تحديث المخزون
+            if (isMergeMode && table == 'products' && !updateStockInMerge) {
+              final prodId = cleanRow['id']?.toString();
+              if (prodId != null && existingProductQuantities.containsKey(prodId)) {
+                cleanRow['quantity'] = existingProductQuantities[prodId];
+              }
+            }
+
+            // في وضع الدمج للحركات: استخدام ignore لمنع تكرار أو مسح الفواتير والسندات الموجودة
+            final conflictAlgo = (isMergeMode &&
+                    (table.contains('invoice') ||
+                        table == 'payments' ||
+                        table == 'stock_movements' ||
+                        table == 'audit_logs'))
+                ? ConflictAlgorithm.ignore
+                : ConflictAlgorithm.replace;
 
             try {
               await txn.insert(
                 table,
                 cleanRow,
-                conflictAlgorithm: ConflictAlgorithm.replace,
+                conflictAlgorithm: conflictAlgo,
               );
             } catch (e) {
               debugPrint('خطأ في إدراج سطر بالجدول $table: $e');
@@ -840,73 +944,156 @@ class BackupService {
           }
         }
 
-        // 3. فحص وإدراج أي جداول إضافية إن وجدت في النسخة الاحتياطية
-        for (final entry in snapshot.entries) {
-          final tName = entry.key;
-          if (tName.startsWith('_') || _insertOrder.contains(tName)) continue;
-          final rows = entry.value;
-          if (rows is! List) continue;
-
-          try {
-            final colsInfo = await txn.rawQuery('PRAGMA table_info($tName)');
-            if (colsInfo.isEmpty) continue;
-            final validCols = colsInfo.map((c) => c['name'] as String).toSet();
-            for (final rawRow in rows) {
-              if (rawRow is! Map) continue;
-              final cleanRow = <String, dynamic>{};
-              for (final e in rawRow.entries) {
-                if (validCols.contains(e.key.toString())) {
-                  cleanRow[e.key.toString()] = e.value;
-                }
-              }
-              if (cleanRow.isNotEmpty) {
-                await txn.insert(tName, cleanRow, conflictAlgorithm: ConflictAlgorithm.replace);
+        // حسم التبعيات الذكي (Smart Dependency Resolution):
+        // إذا تم استرجاع فواتير البيع دون استرجاع العملاء أو المنتجات، نضمن أن أي عميل أو منتج مذكور بالفاتورة يُدرج تلقائياً
+        if (targetTables.contains('sale_invoices') &&
+            !targetTables.contains('customers') &&
+            snapshot['customers'] is List) {
+          final missingCusts = await txn.rawQuery(
+            'SELECT DISTINCT customer_id FROM sale_invoices WHERE customer_id IS NOT NULL AND customer_id NOT IN (SELECT id FROM customers)',
+          );
+          if (missingCusts.isNotEmpty) {
+            final missingIds =
+                missingCusts.map((r) => r['customer_id']?.toString()).toSet();
+            for (final rawCust in (snapshot['customers'] as List)) {
+              if (rawCust is Map && missingIds.contains(rawCust['id']?.toString())) {
+                final cMap = Map<String, dynamic>.from(rawCust);
+                _fillMissingRequiredValues('customers', cMap);
+                await txn.insert('customers', cMap,
+                    conflictAlgorithm: ConflictAlgorithm.ignore);
               }
             }
-          } catch (_) {}
+          }
         }
 
-        // 4. التحقق من سلامة الجداول الأساسية وإعادة زرع البيانات الافتراضية إذا كانت فارغة
+        if (targetTables.contains('sale_invoice_items') &&
+            !targetTables.contains('products') &&
+            snapshot['products'] is List) {
+          final missingProds = await txn.rawQuery(
+            'SELECT DISTINCT product_id FROM sale_invoice_items WHERE product_id NOT IN (SELECT id FROM products)',
+          );
+          if (missingProds.isNotEmpty) {
+            final missingIds =
+                missingProds.map((r) => r['product_id']?.toString()).toSet();
+            for (final rawProd in (snapshot['products'] as List)) {
+              if (rawProd is Map && missingIds.contains(rawProd['id']?.toString())) {
+                final pMap = Map<String, dynamic>.from(rawProd);
+                _fillMissingRequiredValues('products', pMap);
+                await txn.insert('products', pMap,
+                    conflictAlgorithm: ConflictAlgorithm.ignore);
+              }
+            }
+          }
+        }
+
+        // نفس الأمر لفواتير المشتريات والموردين
+        if (targetTables.contains('purchase_invoices') &&
+            !targetTables.contains('suppliers') &&
+            snapshot['suppliers'] is List) {
+          final missingSupps = await txn.rawQuery(
+            'SELECT DISTINCT supplier_id FROM purchase_invoices WHERE supplier_id IS NOT NULL AND supplier_id NOT IN (SELECT id FROM suppliers)',
+          );
+          if (missingSupps.isNotEmpty) {
+            final missingIds =
+                missingSupps.map((r) => r['supplier_id']?.toString()).toSet();
+            for (final rawSupp in (snapshot['suppliers'] as List)) {
+              if (rawSupp is Map && missingIds.contains(rawSupp['id']?.toString())) {
+                final sMap = Map<String, dynamic>.from(rawSupp);
+                _fillMissingRequiredValues('suppliers', sMap);
+                await txn.insert('suppliers', sMap,
+                    conflictAlgorithm: ConflictAlgorithm.ignore);
+              }
+            }
+          }
+        }
+
+        // إدراج أي جداول إضافية إن وجد نمط ReplaceAll
+        if (opts.mode == RestoreMode.replaceAll) {
+          for (final entry in snapshot.entries) {
+            final tName = entry.key;
+            if (tName.startsWith('_') || _insertOrder.contains(tName)) continue;
+            final rows = entry.value;
+            if (rows is! List) continue;
+
+            try {
+              final colsInfo = await txn.rawQuery('PRAGMA table_info($tName)');
+              if (colsInfo.isEmpty) continue;
+              final validCols = colsInfo.map((c) => c['name'] as String).toSet();
+              for (final rawRow in rows) {
+                if (rawRow is! Map) continue;
+                final cleanRow = <String, dynamic>{};
+                for (final e in rawRow.entries) {
+                  if (validCols.contains(e.key.toString())) {
+                    cleanRow[e.key.toString()] = e.value;
+                  }
+                }
+                if (cleanRow.isNotEmpty) {
+                  await txn.insert(tName, cleanRow,
+                      conflictAlgorithm: ConflictAlgorithm.replace);
+                }
+              }
+            } catch (_) {}
+          }
+        }
+
+        // التحقق من سلامة الجداول الأساسية
         await _ensureEssentialDefaults(txn);
+
+        // إعادة ضبط الأرصدة بدقة في حال تم دمج فواتير أو سندات
+        if (isMergeMode &&
+            (targetTables.contains('sale_invoices') ||
+                targetTables.contains('payments') ||
+                targetTables.contains('purchase_invoices'))) {
+          await _recalculateMergedBalances(txn);
+        }
       });
     } finally {
-      // إعادة تفعيل فحص المفاتيح الأجنبية دائماً
       await db.execute('PRAGMA foreign_keys = ON;');
     }
 
-    // استعادة إعدادات المتجر إلى SharedPreferences
-    if (snapshot['_store_settings'] is Map) {
-      try {
-        final settings = snapshot['_store_settings'] as Map;
-        final prefs = await SharedPreferences.getInstance();
-        if (settings['store_name'] != null) {
-          await prefs.setString('store_name', settings['store_name'].toString());
-        }
-        if (settings['store_phone'] != null) {
-          await prefs.setString('store_phone', settings['store_phone'].toString());
-        }
-        if (settings['store_address'] != null) {
-          await prefs.setString('store_address', settings['store_address'].toString());
-        }
-        if (settings['vat_enabled'] != null) {
-          await prefs.setBool('vat_enabled', settings['vat_enabled'] == true);
-        }
-      } catch (_) {}
+    // استعادة الإعدادات والشعار (إذا كان النمط ReplaceAll أو Custom باختيار ShopSettings)
+    final shouldRestoreSettings = opts.mode == RestoreMode.replaceAll ||
+        (opts.mode == RestoreMode.custom && opts.customSelection.includeShopSettings);
+
+    if (shouldRestoreSettings) {
+      if (snapshot['_store_settings'] is Map) {
+        try {
+          final settings = snapshot['_store_settings'] as Map;
+          final prefs = await SharedPreferences.getInstance();
+          if (settings['store_name'] != null) {
+            await prefs.setString('store_name', settings['store_name'].toString());
+          }
+          if (settings['store_phone'] != null) {
+            await prefs.setString('store_phone', settings['store_phone'].toString());
+          }
+          if (settings['store_address'] != null) {
+            await prefs.setString('store_address', settings['store_address'].toString());
+          }
+          if (settings['vat_enabled'] != null) {
+            await prefs.setBool('vat_enabled', settings['vat_enabled'] == true);
+          }
+        } catch (_) {}
+      }
+
+      if (snapshot['_logo_base64'] is String &&
+          (snapshot['_logo_base64'] as String).isNotEmpty) {
+        try {
+          final logoBytes = base64Decode(snapshot['_logo_base64'] as String);
+          final dir = await getApplicationDocumentsDirectory();
+          final logoFile = File(p.join(dir.path, 'shop_logo.png'));
+          await logoFile.writeAsBytes(logoBytes);
+          await ShopProfileRepository().saveLogoPath(logoFile.path);
+        } catch (_) {}
+      }
     }
 
-    // استعادة ملف الشعار من Base64 وحفظه في مجلد المستندات
-    if (snapshot['_logo_base64'] is String && (snapshot['_logo_base64'] as String).isNotEmpty) {
-      try {
-        final logoBytes = base64Decode(snapshot['_logo_base64'] as String);
-        final dir = await getApplicationDocumentsDirectory();
-        final logoFile = File(p.join(dir.path, 'shop_logo.png'));
-        await logoFile.writeAsBytes(logoBytes);
-        await ShopProfileRepository().saveLogoPath(logoFile.path);
-      } catch (_) {}
-    }
+    // استعادة صور المنتجات
+    final shouldRestoreImages = opts.mode == RestoreMode.replaceAll ||
+        opts.mode == RestoreMode.mergeAll ||
+        (opts.mode == RestoreMode.custom &&
+            opts.customSelection.includeCategoriesAndProducts);
 
-    // استعادة صور المنتجات من Base64 وتحديث مساراتها على الجهاز الجديد
-    if (snapshot['_product_images_base64'] is Map) {
+    if (shouldRestoreImages && snapshot['_product_images_base64'] is Map) {
       try {
         final productImages = snapshot['_product_images_base64'] as Map;
         final appDir = await getApplicationDocumentsDirectory();
@@ -922,13 +1109,14 @@ class BackupService {
             final base64Str = entry.value.toString();
             if (base64Str.isNotEmpty) {
               final targetFile = File(p.join(imagesDir.path, fileName));
-              await targetFile.writeAsBytes(base64Decode(base64Str));
+              if (!await targetFile.exists() || opts.mode == RestoreMode.replaceAll) {
+                await targetFile.writeAsBytes(base64Decode(base64Str));
+              }
               fileNameToNewPath[fileName] = targetFile.path;
             }
           } catch (_) {}
         }
 
-        // تحديث مسارات الصور للمنتجات في قاعدة البيانات لتشير إلى مكان الملف الجديد على الجهاز
         if (fileNameToNewPath.isNotEmpty) {
           for (final entry in fileNameToNewPath.entries) {
             await db.rawUpdate(
@@ -940,6 +1128,83 @@ class BackupService {
       } catch (e) {
         debugPrint('تنبيه أثناء استعادة صور المنتجات: $e');
       }
+    }
+  }
+
+  /// إعادة حساب أرصدة العملاء والموردين بدقة عند الدمج لضمان المطابقة المحاسبية 100%
+  static Future<void> _recalculateMergedBalances(Transaction txn) async {
+    // 1. أرصدة العملاء
+    final customers = await txn.rawQuery('SELECT id FROM customers');
+    for (final c in customers) {
+      final custId = c['id']?.toString();
+      if (custId == null) continue;
+
+      final salesResult = await txn.rawQuery('''
+        SELECT COALESCE(SUM(total - paid_amount), 0.0) as remaining
+        FROM sale_invoices
+        WHERE customer_id = ? AND status != 'cancelled'
+      ''', [custId]);
+      final creditSales =
+          (salesResult.first['remaining'] as num?)?.toDouble() ?? 0.0;
+
+      final paymentsResult = await txn.rawQuery('''
+        SELECT COALESCE(SUM(amount), 0.0) as paid
+        FROM payments
+        WHERE party_id = ? AND party_type = 'customer'
+      ''', [custId]);
+      final customerPayments =
+          (paymentsResult.first['paid'] as num?)?.toDouble() ?? 0.0;
+
+      final returnsResult = await txn.rawQuery('''
+        SELECT COALESCE(SUM(debt_reduction), 0.0) as reduced
+        FROM return_invoices
+        WHERE customer_id = ?
+      ''', [custId]);
+      final returnsReduction =
+          (returnsResult.first['reduced'] as num?)?.toDouble() ?? 0.0;
+
+      final newBalance = creditSales - customerPayments - returnsReduction;
+      await txn.rawUpdate(
+        'UPDATE customers SET balance_due = ?, updated_at = ? WHERE id = ?',
+        [newBalance, DateTime.now().toIso8601String(), custId],
+      );
+    }
+
+    // 2. أرصدة الموردين
+    final suppliers = await txn.rawQuery('SELECT id FROM suppliers');
+    for (final s in suppliers) {
+      final suppId = s['id']?.toString();
+      if (suppId == null) continue;
+
+      final purchaseResult = await txn.rawQuery('''
+        SELECT COALESCE(SUM(total - paid_amount), 0.0) as remaining
+        FROM purchase_invoices
+        WHERE supplier_id = ?
+      ''', [suppId]);
+      final creditPurchases =
+          (purchaseResult.first['remaining'] as num?)?.toDouble() ?? 0.0;
+
+      final paymentsResult = await txn.rawQuery('''
+        SELECT COALESCE(SUM(amount), 0.0) as paid
+        FROM payments
+        WHERE party_id = ? AND party_type = 'supplier'
+      ''', [suppId]);
+      final supplierPayments =
+          (paymentsResult.first['paid'] as num?)?.toDouble() ?? 0.0;
+
+      final returnsResult = await txn.rawQuery('''
+        SELECT COALESCE(SUM(return_amount), 0.0) as reduced
+        FROM purchase_return_invoices
+        WHERE supplier_id = ?
+      ''', [suppId]);
+      final returnsReduction =
+          (returnsResult.first['reduced'] as num?)?.toDouble() ?? 0.0;
+
+      final newBalance = creditPurchases - supplierPayments - returnsReduction;
+      await txn.rawUpdate(
+        'UPDATE suppliers SET balance_owed = ?, updated_at = ? WHERE id = ?',
+        [newBalance, DateTime.now().toIso8601String(), suppId],
+      );
     }
   }
 
@@ -1018,17 +1283,17 @@ class BackupService {
 
   /// ضمان عدم ترك الجداول الحيوية فارغة بعد الاسترجاع حتى لو كانت النسخة خالية منها
   static Future<void> _ensureEssentialDefaults(Transaction txn) async {
-    // 1. ضمان وجود حساب المالك على الأقل
+    // 1. ضمان وجود حساب الأدمن على الأقل
     final userCount = Sqflite.firstIntValue(
           await txn.rawQuery('SELECT COUNT(*) FROM users'),
         ) ?? 0;
     if (userCount == 0) {
       await txn.insert('users', {
-        'id': 'user_owner_default',
-        'name': 'المالك',
+        'id': 'user_admin_default',
+        'name': 'أدمن',
         'username': '1',
         'password_hash': AppDatabase.hashPassword('123'),
-        'role': 'owner',
+        'role': 'admin',
       }, conflictAlgorithm: ConflictAlgorithm.replace);
     }
 
@@ -1075,3 +1340,237 @@ class BackupService {
     }
   }
 }
+
+/// أنماط استرجاع النسخة الاحتياطية
+enum RestoreMode {
+  /// استبدال شامل: مسح البيانات الحالية وتنزيل النسخة كاملة
+  replaceAll,
+
+  /// دمج ذكي مع البيانات الحالية دون مسح
+  mergeAll,
+
+  /// تخصيص محتويات معينة للاسترجاع (أصناف/عملاء/فواتير...)
+  custom,
+}
+
+/// خيارات التخصيص عند اختيار الاسترجاع المخصص
+class RestoreCustomSelection {
+  final bool includeCategoriesAndProducts;
+  final bool includeCustomers;
+  final bool includeSuppliers;
+  final bool includeSales;
+  final bool includePurchases;
+  final bool includePayments;
+  final bool includeExpenses;
+  final bool includeStockMovements;
+  final bool includeAuditLogs;
+  final bool includeShopSettings;
+  final bool includeUsers;
+
+  /// في وضع التخصيص: هل يتم دمج الأقسام المختارة (true) أم استبدالها فقط (false)
+  final bool mergeSelected;
+
+  /// في وضع الدمج: هل يتم اعتماد كميات المخزون من النسخة أم الحفاظ على الجرد الفعلي للمحل
+  final bool updateStockQuantities;
+
+  const RestoreCustomSelection({
+    this.includeCategoriesAndProducts = true,
+    this.includeCustomers = true,
+    this.includeSuppliers = true,
+    this.includeSales = true,
+    this.includePurchases = true,
+    this.includePayments = true,
+    this.includeExpenses = true,
+    this.includeStockMovements = true,
+    this.includeAuditLogs = true,
+    this.includeShopSettings = true,
+    this.includeUsers = false,
+    this.mergeSelected = true,
+    this.updateStockQuantities = false,
+  });
+
+  bool get hasAnySelected =>
+      includeCategoriesAndProducts ||
+      includeCustomers ||
+      includeSuppliers ||
+      includeSales ||
+      includePurchases ||
+      includePayments ||
+      includeExpenses ||
+      includeStockMovements ||
+      includeAuditLogs ||
+      includeShopSettings ||
+      includeUsers;
+
+  RestoreCustomSelection copyWith({
+    bool? includeCategoriesAndProducts,
+    bool? includeCustomers,
+    bool? includeSuppliers,
+    bool? includeSales,
+    bool? includePurchases,
+    bool? includePayments,
+    bool? includeExpenses,
+    bool? includeStockMovements,
+    bool? includeAuditLogs,
+    bool? includeShopSettings,
+    bool? includeUsers,
+    bool? mergeSelected,
+    bool? updateStockQuantities,
+  }) {
+    return RestoreCustomSelection(
+      includeCategoriesAndProducts:
+          includeCategoriesAndProducts ?? this.includeCategoriesAndProducts,
+      includeCustomers: includeCustomers ?? this.includeCustomers,
+      includeSuppliers: includeSuppliers ?? this.includeSuppliers,
+      includeSales: includeSales ?? this.includeSales,
+      includePurchases: includePurchases ?? this.includePurchases,
+      includePayments: includePayments ?? this.includePayments,
+      includeExpenses: includeExpenses ?? this.includeExpenses,
+      includeStockMovements:
+          includeStockMovements ?? this.includeStockMovements,
+      includeAuditLogs: includeAuditLogs ?? this.includeAuditLogs,
+      includeShopSettings: includeShopSettings ?? this.includeShopSettings,
+      includeUsers: includeUsers ?? this.includeUsers,
+      mergeSelected: mergeSelected ?? this.mergeSelected,
+      updateStockQuantities:
+          updateStockQuantities ?? this.updateStockQuantities,
+    );
+  }
+}
+
+/// خيارات تنفيذ استرجاع النسخة الاحتياطية
+class RestoreOptions {
+  final RestoreMode mode;
+  final RestoreCustomSelection customSelection;
+  final bool updateStockQuantitiesInMerge;
+
+  const RestoreOptions({
+    this.mode = RestoreMode.replaceAll,
+    this.customSelection = const RestoreCustomSelection(),
+    this.updateStockQuantitiesInMerge = false,
+  });
+}
+
+/// ملخص فحص محتويات ملف النسخة الاحتياطية
+class BackupInspection {
+  final String? appName;
+  final int? dbVersion;
+  final DateTime? exportedAt;
+  final String? storeName;
+  final String? storePhone;
+  final int productsCount;
+  final int categoriesCount;
+  final int customersCount;
+  final int suppliersCount;
+  final int salesCount;
+  final int saleReturnsCount;
+  final int purchasesCount;
+  final int purchaseReturnsCount;
+  final int paymentsCount;
+  final int expensesCount;
+  final int stockMovementsCount;
+  final int auditLogsCount;
+  final int usersCount;
+  final bool hasLogo;
+  final int productImagesCount;
+  final int totalRecords;
+  final Map<String, dynamic> rawSnapshot;
+
+  const BackupInspection({
+    this.appName,
+    this.dbVersion,
+    this.exportedAt,
+    this.storeName,
+    this.storePhone,
+    required this.productsCount,
+    required this.categoriesCount,
+    required this.customersCount,
+    required this.suppliersCount,
+    required this.salesCount,
+    required this.saleReturnsCount,
+    required this.purchasesCount,
+    required this.purchaseReturnsCount,
+    required this.paymentsCount,
+    required this.expensesCount,
+    required this.stockMovementsCount,
+    required this.auditLogsCount,
+    required this.usersCount,
+    required this.hasLogo,
+    required this.productImagesCount,
+    required this.totalRecords,
+    required this.rawSnapshot,
+  });
+
+  factory BackupInspection.fromSnapshot(Map<String, dynamic> snapshot) {
+    final meta = snapshot['_meta'] is Map ? (snapshot['_meta'] as Map) : null;
+    final storeSettings = snapshot['_store_settings'] is Map
+        ? (snapshot['_store_settings'] as Map)
+        : null;
+
+    DateTime? expDate;
+    if (meta?['exported_at'] != null) {
+      expDate = DateTime.tryParse(meta!['exported_at'].toString());
+    }
+
+    final productsCount = (snapshot['products'] as List?)?.length ?? 0;
+    final categoriesCount = (snapshot['categories'] as List?)?.length ?? 0;
+    final customersCount = (snapshot['customers'] as List?)?.length ?? 0;
+    final suppliersCount = (snapshot['suppliers'] as List?)?.length ?? 0;
+    final salesCount = (snapshot['sale_invoices'] as List?)?.length ?? 0;
+    final saleReturnsCount = (snapshot['return_invoices'] as List?)?.length ?? 0;
+    final purchasesCount = (snapshot['purchase_invoices'] as List?)?.length ?? 0;
+    final purchaseReturnsCount =
+        (snapshot['purchase_return_invoices'] as List?)?.length ?? 0;
+    final paymentsCount = (snapshot['payments'] as List?)?.length ?? 0;
+    final expensesCount = (snapshot['expenses'] as List?)?.length ?? 0;
+    final stockMovementsCount =
+        (snapshot['stock_movements'] as List?)?.length ?? 0;
+    final auditLogsCount = (snapshot['audit_logs'] as List?)?.length ?? 0;
+    final usersCount = (snapshot['users'] as List?)?.length ?? 0;
+    final hasLogo = snapshot['_logo_base64'] != null &&
+        snapshot['_logo_base64'].toString().isNotEmpty;
+    final productImagesCount = snapshot['_product_images_base64'] is Map
+        ? (snapshot['_product_images_base64'] as Map).length
+        : 0;
+
+    final totalRecords = productsCount +
+        categoriesCount +
+        customersCount +
+        suppliersCount +
+        salesCount +
+        saleReturnsCount +
+        purchasesCount +
+        purchaseReturnsCount +
+        paymentsCount +
+        expensesCount +
+        stockMovementsCount +
+        auditLogsCount +
+        usersCount;
+
+    return BackupInspection(
+      appName: meta?['app']?.toString(),
+      dbVersion: meta?['db_version'] as int?,
+      exportedAt: expDate,
+      storeName: storeSettings?['store_name']?.toString(),
+      storePhone: storeSettings?['store_phone']?.toString(),
+      productsCount: productsCount,
+      categoriesCount: categoriesCount,
+      customersCount: customersCount,
+      suppliersCount: suppliersCount,
+      salesCount: salesCount,
+      saleReturnsCount: saleReturnsCount,
+      purchasesCount: purchasesCount,
+      purchaseReturnsCount: purchaseReturnsCount,
+      paymentsCount: paymentsCount,
+      expensesCount: expensesCount,
+      stockMovementsCount: stockMovementsCount,
+      auditLogsCount: auditLogsCount,
+      usersCount: usersCount,
+      hasLogo: hasLogo,
+      productImagesCount: productImagesCount,
+      totalRecords: totalRecords,
+      rawSnapshot: snapshot,
+    );
+  }
+}
+

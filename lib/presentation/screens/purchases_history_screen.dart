@@ -4,12 +4,78 @@ import 'package:intl/intl.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../data/models/purchase_invoice.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/data_refresh_service.dart';
 import '../../providers/phase2_providers.dart';
 import '../widgets/max_width_container.dart';
 import 'purchase_form_screen.dart';
 
 class PurchasesHistoryScreen extends ConsumerWidget {
   const PurchasesHistoryScreen({super.key});
+
+  Future<void> _editPurchase(
+    BuildContext context,
+    WidgetRef ref,
+    String invoiceId,
+  ) async {
+    final repo = ref.read(purchaseRepositoryProvider);
+    final fullInvoice = await repo.getPurchaseInvoiceWithItems(invoiceId);
+    if (fullInvoice == null || !context.mounted) return;
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => PurchaseFormScreen(purchaseToEdit: fullInvoice),
+      ),
+    );
+  }
+
+  Future<void> _confirmDelete(
+    BuildContext context,
+    WidgetRef ref,
+    PurchaseInvoice invoice,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('تأكيد حذف فاتورة الشراء'),
+        content: Text(
+          'هل أنت متأكد من حذف فاتورة الشراء للمورد "${invoice.supplierName ?? "المورد"}" بقيمة ${AppStrings.money(invoice.total)}؟\n\n'
+          'تنبيه: سيتم عكس كميات الأصناف المضافة للمخزن وخصم المديونية من رصيد المورد تلقائياً.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('إلغاء'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.DANGER_RED,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('نعم، حذف الفاتورة'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      final repo = ref.read(purchaseRepositoryProvider);
+      await repo.deletePurchaseInvoice(
+        invoice.id,
+        userId: ref.read(authProvider).user?.id,
+      );
+      refreshAfterPurchase(ref);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            backgroundColor: AppColors.SUCCESS_GREEN,
+            content: Text('تم حذف فاتورة الشراء وعكس المخزون ورصيد المورد بنجاح'),
+          ),
+        );
+      }
+    }
+  }
 
   void _showPurchaseDetails(
     BuildContext context,
@@ -21,6 +87,7 @@ class PurchasesHistoryScreen extends ConsumerWidget {
     if (fullInvoice == null || !context.mounted) return;
 
     final dateFormat = DateFormat('yyyy/MM/dd - hh:mm a');
+    final isAdmin = ref.read(isAdminProvider);
 
     showDialog(
       context: context,
@@ -116,6 +183,29 @@ class PurchasesHistoryScreen extends ConsumerWidget {
           ),
         ),
         actions: [
+          if (isAdmin) ...[
+            TextButton.icon(
+              style: TextButton.styleFrom(foregroundColor: AppColors.DANGER_RED),
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                _confirmDelete(context, ref, fullInvoice);
+              },
+              icon: const Icon(Icons.delete_outline, size: 18),
+              label: const Text('حذف الفاتورة'),
+            ),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.PRIMARY_BLUE,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                _editPurchase(context, ref, fullInvoice.id);
+              },
+              icon: const Icon(Icons.edit_outlined, size: 18),
+              label: const Text('تعديل الفاتورة'),
+            ),
+          ],
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
             child: const Text('إغلاق'),
@@ -335,6 +425,23 @@ class PurchasesHistoryScreen extends ConsumerWidget {
                                       style: TextStyle(fontSize: 12),
                                     ),
                                   ),
+                                  if (ref.watch(isAdminProvider)) ...[
+                                    const SizedBox(width: 4),
+                                    IconButton(
+                                      icon: const Icon(Icons.edit_outlined, size: 18),
+                                      tooltip: 'تعديل الفاتورة (للأدمن)',
+                                      onPressed: () => _editPurchase(context, ref, p.id),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.delete_outline,
+                                        color: AppColors.DANGER_RED,
+                                        size: 18,
+                                      ),
+                                      tooltip: 'حذف الفاتورة (للأدمن)',
+                                      onPressed: () => _confirmDelete(context, ref, p),
+                                    ),
+                                  ],
                                 ],
                               ),
                             );

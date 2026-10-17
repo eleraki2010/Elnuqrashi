@@ -170,8 +170,8 @@ class GoogleDriveBackupService {
     return fileList.files ?? [];
   }
 
-  /// استعادة البيانات من ملف محدد على Google Drive
-  static Future<bool> restoreBackup(String fileId) async {
+  /// تنزيل لقطة النسخة الاحتياطية من Google Drive والتحقق منها
+  static Future<Map<String, dynamic>> downloadBackupSnapshot(String fileId) async {
     final driveApi = await _getDriveApi();
     if (driveApi == null) {
       throw Exception('يرجى تسجيل الدخول بحساب Google أولاً.');
@@ -215,7 +215,13 @@ class GoogleDriveBackupService {
       throw Exception('الملف المختار ليس نسخة احتياطية صالحة لنظام دُكّان POS.');
     }
 
-    await BackupService.restoreFromSnapshot(Map<String, dynamic>.from(json));
+    return Map<String, dynamic>.from(json);
+  }
+
+  /// استعادة البيانات من ملف محدد على Google Drive مع دعم خيارات الاسترجاع
+  static Future<bool> restoreBackup(String fileId, {RestoreOptions? options}) async {
+    final snapshot = await downloadBackupSnapshot(fileId);
+    await BackupService.restoreFromSnapshot(snapshot, options: options);
     return true;
   }
 

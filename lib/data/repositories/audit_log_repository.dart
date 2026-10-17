@@ -18,7 +18,7 @@ class DetailedAuditLog {
 
   /// اسم المستخدم كما يُعرض للمالك (الاسم الكامل مع الدور بين قوسين).
   String get userDisplayName =>
-      userName != null ? '$userName (${userRole == 'owner' ? 'مالك' : 'كاشير'})' : 'غير مسجَّل';
+      userName != null ? '$userName (${userRole == 'owner' || userRole == 'admin' ? 'أدمن' : 'كاشير'})' : 'غير مسجَّل';
 }
 
 class AuditLogRepository {

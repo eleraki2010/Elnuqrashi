@@ -19,6 +19,25 @@ class _BuiltReceipt {
   _BuiltReceipt(this.bytes, this.heightPt, this.widthPt);
 }
 
+/// خلية شبكة الإيصال لضمان تطابق الأبعاد والمحاذاة التامة مع تطبيق الكاشير
+class _PdfGridCell {
+  final String text;
+  final int flex;
+  final pw.Alignment align;
+  final bool bold;
+  final bool isProductName;
+  final double fontSize;
+
+  const _PdfGridCell(
+    this.text, {
+    required this.flex,
+    required this.align,
+    this.bold = false,
+    this.isProductName = false,
+    required this.fontSize,
+  });
+}
+
 /// طباعة فاتورة حرارية (Phase 3.14).
 ///
 /// يولّد PDF بمقاس لفة حرارية 58mm أو 80mm، ثم يفتح نافذة الطباعة
@@ -68,7 +87,7 @@ class ThermalReceiptPrinter {
       widthPt > 0 && widthPt <= _thermalMaxWidthPt;
 
   /// حساب الارتفاع الدقيق الفعلي لمحتوى الفاتورة الحرارية بالنقاط (Points).
-  /// يمنع تماماً الوقوع في الارتفاع الافتراضي (612pt / Letter) أو مط الفاتورة عمودياً.
+  /// يمنع تماماً الوقوع في الارتفاع الافتراضي أو مط الفاتورة عمودياً.
   static double _calculateReceiptHeight({
     required SaleInvoice invoice,
     required bool width80mm,
@@ -77,55 +96,52 @@ class ThermalReceiptPrinter {
   }) {
     double h = 0.0;
     // هوامش الصفحة والحاوية
-    h += 32.0;
+    h += 26.0;
 
     // ترويسة المحل
     if (hasLogo) {
-      h += (width80mm ? 36.0 : 30.0) + 8.0;
+      h += (width80mm ? 34.0 : 28.0) + 6.0;
     } else {
-      h += (width80mm ? 22.0 : 18.0);
+      h += (width80mm ? 20.0 : 16.0);
     }
     if (hasPhone) {
-      h += 18.0;
+      h += 16.0;
     }
-    h += 20.0; // نوع الفاتورة
-    h += 16.0; // فاصل
+    h += 18.0; // نوع الفاتورة
+    h += 12.0; // فاصل
 
     // بطاقة بيانات الفاتورة
-    h += 86.0;
+    h += 76.0;
 
     // جدول الأصناف
-    h += 28.0; // عنوان الجدول
+    h += 24.0; // عنوان الجدول
     for (final item in invoice.items) {
       final nameLen = (item.productName ?? '').length;
       final maxChars = width80mm ? 20 : 12;
       final extraLines = (nameLen / maxChars).ceil().clamp(1, 4) - 1;
-      h += 22.0 + (extraLines * 14.0);
+      h += 20.0 + (extraLines * 12.0);
     }
-    h += 12.0;
+    h += 10.0;
 
     // بطاقة المبالغ المالية
     int extraRows = 0;
-    if (invoice.discount > 0 || invoice.tax > 0) {
-      extraRows += 1;
-      if (invoice.discount > 0) extraRows += 1;
-      if (invoice.tax > 0) extraRows += 1;
-      extraRows += 1; // فاصل داخلي
-    }
-    h += 92.0 + (extraRows * 18.0);
-    h += 12.0;
-
-    // الفاصل وتذييل الشكر وسياسة الاسترجاع
-    h += 16.0; // فاصل
-    h += 18.0; // سياسة الاسترجاع
-    h += 20.0; // الشكر
+    if (invoice.discount > 0) extraRows += 1;
+    if (invoice.tax > 0) extraRows += 1;
+    if (invoice.discount > 0 || invoice.tax > 0) extraRows += 1; // فاصل داخلي
+    h += 72.0 + (extraRows * 15.0);
     h += 10.0;
 
-    // باركود الفاتورة
-    h += (width80mm ? 28.0 : 22.0) + 24.0 + 16.0;
+    // الفاصل وتذييل الشكر وسياسة الاسترجاع
+    h += 12.0; // فاصل
+    h += 16.0; // سياسة الاسترجاع
+    h += 18.0; // الشكر
+    h += 8.0;
 
-    // هامش أمان مدروس لمنع قص أي بيانات مع الحفاظ على النسبة القياسية للورق
-    h += 35.0;
+    // باركود الفاتورة
+    h += (width80mm ? 26.0 : 20.0) + 20.0 + 12.0;
+
+    // هامش أمان مدروس لمنع قص أي بيانات مع الحفاظ على النسبة المتناسقة للورق
+    h += 20.0;
 
     return h;
   }
@@ -477,58 +493,61 @@ class ThermalReceiptPrinter {
           );
         },
         build: (context) => [
-          pw.Table(
-            border: pw.TableBorder.all(color: _colorBorder, width: 0.5),
-            columnWidths: {
-              0: const pw.FlexColumnWidth(1),
-              1: const pw.FlexColumnWidth(5),
-              2: const pw.FlexColumnWidth(1.5),
-              3: const pw.FlexColumnWidth(2),
-              4: const pw.FlexColumnWidth(2),
-            },
-            children: [
-              pw.TableRow(
-                decoration: pw.BoxDecoration(color: _colorHeaderBg),
-                children: [
-                  _tableCell('#', boldFont, 10, bold: true, align: pw.Alignment.center),
-                  _tableCell('الصنف / البيان', boldFont, 10, bold: true, align: pw.Alignment.centerRight),
-                  _tableCell('الكمية', boldFont, 10, bold: true, align: pw.Alignment.center),
-                  _tableCell('سعر الوحدة', boldFont, 10, bold: true, align: pw.Alignment.center),
-                  _tableCell('الإجمالي', boldFont, 10, bold: true, align: pw.Alignment.center),
-                ],
-              ),
-              for (var i = 0; i < invoice.items.length; i++)
-                pw.TableRow(
-                  decoration: pw.BoxDecoration(color: i.isEven ? _colorCardBg : PdfColors.white),
-                  children: [
-                    _tableCell('${i + 1}', baseFont, 9.5, align: pw.Alignment.center),
-                    _tableCell(
-                      invoice.items[i].productName ?? 'منتج',
-                      baseFont,
-                      9.5,
-                      align: pw.Alignment.centerRight,
-                    ),
-                    _tableCell('${invoice.items[i].quantity}', baseFont, 9.5, align: pw.Alignment.center),
-                    _tableCell(
-                      invoice.items[i].unitPrice % 1 == 0
-                          ? invoice.items[i].unitPrice.toInt().toString()
-                          : invoice.items[i].unitPrice.toStringAsFixed(2),
-                      baseFont,
-                      9.5,
-                      align: pw.Alignment.center,
-                    ),
-                    _tableCell(
-                      invoice.items[i].lineTotal % 1 == 0
-                          ? invoice.items[i].lineTotal.toInt().toString()
-                          : invoice.items[i].lineTotal.toStringAsFixed(2),
-                      boldFont,
-                      9.5,
-                      align: pw.Alignment.center,
-                      bold: true,
-                    ),
+          pw.Container(
+            decoration: pw.BoxDecoration(
+              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+              border: pw.Border.all(color: _colorTableBorder, width: 0.8),
+            ),
+            child: pw.Column(
+              children: [
+                _pdfGridRow(
+                  isHeader: true,
+                  baseFont: baseFont,
+                  boldFont: boldFont,
+                  cells: [
+                    const _PdfGridCell('#', flex: 6, align: pw.Alignment.center, bold: true, fontSize: 10),
+                    const _PdfGridCell('الصنف / البيان', flex: 48, align: pw.Alignment.centerRight, bold: true, isProductName: true, fontSize: 10),
+                    const _PdfGridCell('الكمية', flex: 14, align: pw.Alignment.center, bold: true, fontSize: 10),
+                    const _PdfGridCell('سعر الوحدة', flex: 16, align: pw.Alignment.center, bold: true, fontSize: 10),
+                    const _PdfGridCell('الإجمالي', flex: 16, align: pw.Alignment.center, bold: true, fontSize: 10),
                   ],
                 ),
-            ],
+                for (var i = 0; i < invoice.items.length; i++)
+                  _pdfGridRow(
+                    zebra: i.isEven,
+                    baseFont: baseFont,
+                    boldFont: boldFont,
+                    cells: [
+                      _PdfGridCell('${i + 1}', flex: 6, align: pw.Alignment.center, fontSize: 9.5),
+                      _PdfGridCell(
+                        invoice.items[i].productName ?? 'منتج',
+                        flex: 48,
+                        align: pw.Alignment.centerRight,
+                        isProductName: true,
+                        fontSize: 9.5,
+                      ),
+                      _PdfGridCell('${invoice.items[i].quantity}', flex: 14, align: pw.Alignment.center, fontSize: 9.5),
+                      _PdfGridCell(
+                        invoice.items[i].unitPrice % 1 == 0
+                            ? invoice.items[i].unitPrice.toInt().toString()
+                            : invoice.items[i].unitPrice.toStringAsFixed(2),
+                        flex: 16,
+                        align: pw.Alignment.center,
+                        fontSize: 9.5,
+                      ),
+                      _PdfGridCell(
+                        invoice.items[i].lineTotal % 1 == 0
+                            ? invoice.items[i].lineTotal.toInt().toString()
+                            : invoice.items[i].lineTotal.toStringAsFixed(2),
+                        flex: 16,
+                        align: pw.Alignment.center,
+                        bold: true,
+                        fontSize: 9.5,
+                      ),
+                    ],
+                  ),
+              ],
+            ),
           ),
           pw.SizedBox(height: 16),
           pw.Row(
@@ -895,73 +914,62 @@ class ThermalReceiptPrinter {
         ),
         pw.SizedBox(height: isLargePaper ? 8 : 5),
 
-        // جدول الأصناف: الأعمدة (الكمية - السعر - الإجمالي) نفس العرض 18:18:18
-        // والكتابة داخل الخلية دون اقتصاص ومحاذاة متطابقة مع التطبيق
+        // جدول الأصناف المتناسق المطابق لتطبيق الكاشير (ReceiptDialog)
         pw.Container(
           decoration: pw.BoxDecoration(
+            color: PdfColors.white,
             borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
             border: pw.Border.all(color: _colorTableBorder, width: 0.8),
           ),
-          child: pw.Table(
-            border: pw.TableBorder.all(
-              color: _colorBorder,
-              width: 0.5,
-            ),
-            columnWidths: {
-              0: const pw.FlexColumnWidth(48),
-              1: const pw.FlexColumnWidth(14),
-              2: const pw.FlexColumnWidth(19),
-              3: const pw.FlexColumnWidth(19),
-            },
+          child: pw.Column(
+            mainAxisSize: pw.MainAxisSize.min,
             children: [
-              pw.TableRow(
-                decoration: pw.BoxDecoration(color: _colorHeaderBg),
-                children: [
-                  _tableCell('الصنف', boldFont, tableHeaderSize,
-                      bold: true, align: pw.Alignment.centerRight, isProductName: true),
-                  _tableCell('الكمية', boldFont, tableHeaderSize,
-                      bold: true, align: pw.Alignment.center),
-                  _tableCell('السعر', boldFont, tableHeaderSize,
-                      bold: true, align: pw.Alignment.center),
-                  _tableCell('الإجمالي', boldFont, tableHeaderSize,
-                      bold: true, align: pw.Alignment.center),
+              _pdfGridRow(
+                isHeader: true,
+                baseFont: baseFont,
+                boldFont: boldFont,
+                cells: [
+                  _PdfGridCell('الصنف', flex: 48, align: pw.Alignment.centerRight, bold: true, isProductName: true, fontSize: tableHeaderSize),
+                  _PdfGridCell('الكمية', flex: 14, align: pw.Alignment.center, bold: true, fontSize: tableHeaderSize),
+                  _PdfGridCell('السعر', flex: 19, align: pw.Alignment.center, bold: true, fontSize: tableHeaderSize),
+                  _PdfGridCell('الإجمالي', flex: 19, align: pw.Alignment.center, bold: true, fontSize: tableHeaderSize),
                 ],
               ),
               for (var i = 0; i < invoice.items.length; i++)
-                pw.TableRow(
-                  decoration: pw.BoxDecoration(
-                    color: i.isEven ? _colorCardBg : PdfColors.white,
-                  ),
-                  children: [
-                    _tableCell(
+                _pdfGridRow(
+                  zebra: i.isEven,
+                  baseFont: baseFont,
+                  boldFont: boldFont,
+                  cells: [
+                    _PdfGridCell(
                       invoice.items[i].productName ?? 'منتج',
-                      baseFont,
-                      tableDataSize,
+                      flex: 48,
                       align: pw.Alignment.centerRight,
                       isProductName: true,
+                      fontSize: tableDataSize,
                     ),
-                    _tableCell(
+                    _PdfGridCell(
                       '${invoice.items[i].quantity}',
-                      baseFont,
-                      tableDataSize,
+                      flex: 14,
                       align: pw.Alignment.center,
+                      fontSize: tableDataSize,
                     ),
-                    _tableCell(
+                    _PdfGridCell(
                       invoice.items[i].unitPrice % 1 == 0
                           ? invoice.items[i].unitPrice.toInt().toString()
                           : invoice.items[i].unitPrice.toStringAsFixed(2),
-                      baseFont,
-                      tableDataSize,
+                      flex: 19,
                       align: pw.Alignment.center,
+                      fontSize: tableDataSize,
                     ),
-                    _tableCell(
+                    _PdfGridCell(
                       invoice.items[i].lineTotal % 1 == 0
                           ? invoice.items[i].lineTotal.toInt().toString()
                           : invoice.items[i].lineTotal.toStringAsFixed(2),
-                      boldFont,
-                      tableDataSize,
+                      flex: 19,
                       align: pw.Alignment.center,
                       bold: true,
+                      fontSize: tableDataSize,
                     ),
                   ],
                 ),
@@ -973,8 +981,8 @@ class ThermalReceiptPrinter {
         // بطاقة المبالغ المالية
         pw.Container(
           padding: pw.EdgeInsets.symmetric(
-            horizontal: isLargePaper ? 12 : 7,
-            vertical: isLargePaper ? 9 : 5,
+            horizontal: isLargePaper ? 12 : 8,
+            vertical: isLargePaper ? 9 : 6,
           ),
           decoration: pw.BoxDecoration(
             color: _colorCardBg,
@@ -984,13 +992,14 @@ class ThermalReceiptPrinter {
           child: pw.Column(
             children: [
               if (invoice.discount > 0 || invoice.tax > 0) ...[
-                _row('الإجمالي الفرعي', AppStrings.money(invoice.subtotal), baseFont, size: paidSize),
+                _row('الإجمالي الفرعي:', AppStrings.money(invoice.subtotal), baseFont, size: paidSize),
                 if (invoice.discount > 0)
-                  _row('الخصم', '- ${AppStrings.money(invoice.discount)}', baseFont, size: paidSize, valueColor: _colorRedText),
+                  _row('الخصم:', '- ${AppStrings.money(invoice.discount)}', baseFont, size: paidSize, valueColor: _colorRedText),
                 if (invoice.tax > 0)
-                  _row('الضريبة', AppStrings.money(invoice.tax), baseFont, size: paidSize),
+                  _row('الضريبة:', AppStrings.money(invoice.tax), baseFont, size: paidSize),
+                pw.SizedBox(height: 2),
                 _divider(),
-                pw.SizedBox(height: 3),
+                pw.SizedBox(height: 2),
               ],
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
@@ -1013,10 +1022,10 @@ class ThermalReceiptPrinter {
                   ),
                 ],
               ),
-              pw.SizedBox(height: isLargePaper ? 6 : 3),
+              pw.SizedBox(height: isLargePaper ? 5 : 3),
               _row('${AppStrings.LABEL_PAID}:', AppStrings.money(invoice.paidAmount), baseFont, size: paidSize),
-              pw.SizedBox(height: isLargePaper ? 4 : 2),
-              if (invoice.isChangePositive)
+              if (invoice.isChangePositive) ...[
+                pw.SizedBox(height: isLargePaper ? 3 : 2),
                 _row(
                   '${AppStrings.LABEL_CHANGE}:',
                   AppStrings.money(invoice.changeDue),
@@ -1024,8 +1033,9 @@ class ThermalReceiptPrinter {
                   size: changeSize,
                   labelColor: _colorGreenText,
                   valueColor: _colorGreenText,
-                )
-              else if (invoice.remainingOnCustomer > 0)
+                ),
+              ] else if (invoice.remainingOnCustomer > 0) ...[
+                pw.SizedBox(height: isLargePaper ? 3 : 2),
                 _row(
                   '${AppStrings.LABEL_REMAINING_ON_CUSTOMER}:',
                   AppStrings.money(invoice.remainingOnCustomer),
@@ -1034,6 +1044,7 @@ class ThermalReceiptPrinter {
                   labelColor: _colorRedText,
                   valueColor: _colorRedText,
                 ),
+              ],
             ],
           ),
         ),
@@ -1094,46 +1105,61 @@ class ThermalReceiptPrinter {
     );
   }
 
-  /// خلية جدول: نص محاذي مع FittedBox ليتم تغيير حجم الخط تلقائياً دون اقتصاص
-  static pw.Widget _tableCell(
-    String text,
-    pw.Font font,
-    double size, {
-    bool bold = false,
-    pw.Alignment align = pw.Alignment.center,
-    PdfColor? color,
-    bool isProductName = false,
+  /// خلية جدول متناسقة مع دعم الحجم والمحاذاة
+  static pw.Widget _pdfGridRow({
+    required List<_PdfGridCell> cells,
+    required pw.Font baseFont,
+    required pw.Font boldFont,
+    bool isHeader = false,
+    bool zebra = false,
   }) {
-    return pw.Padding(
-      padding: const pw.EdgeInsets.symmetric(horizontal: 2.5, vertical: 3.5),
-      child: isProductName
-          ? pw.Align(
-              alignment: align,
-              child: pw.Text(
-                text,
-                style: pw.TextStyle(
-                  font: font,
-                  fontSize: size,
-                  fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
-                  color: color ?? (bold ? _colorNavy : const PdfColor(0.2, 0.25, 0.33)),
-                ),
-                maxLines: 2,
-                softWrap: true,
+    return pw.Row(
+      children: [
+        for (final c in cells)
+          pw.Expanded(
+            flex: c.flex,
+            child: pw.Container(
+              padding: const pw.EdgeInsets.symmetric(horizontal: 3.5, vertical: 4),
+              decoration: pw.BoxDecoration(
+                color: isHeader
+                    ? _colorHeaderBg
+                    : (zebra ? _colorCardBg : PdfColors.white),
+                border: pw.Border.all(color: _colorTableBorder, width: 0.5),
               ),
-            )
-          : pw.FittedBox(
-              fit: pw.BoxFit.scaleDown,
-              alignment: align,
-              child: pw.Text(
-                text,
-                style: pw.TextStyle(
-                  font: font,
-                  fontSize: size,
-                  fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
-                  color: color ?? (bold ? _colorNavy : const PdfColor(0.2, 0.25, 0.33)),
-                ),
-              ),
+              child: c.isProductName
+                  ? pw.Align(
+                      alignment: c.align,
+                      child: pw.Text(
+                        c.text,
+                        textAlign: pw.TextAlign.right,
+                        maxLines: 2,
+                        softWrap: true,
+                        style: pw.TextStyle(
+                          font: c.bold ? boldFont : baseFont,
+                          fontSize: c.fontSize,
+                          color: isHeader
+                              ? const PdfColor(0.12, 0.16, 0.23)
+                              : const PdfColor(0.2, 0.25, 0.33),
+                        ),
+                      ),
+                    )
+                  : pw.FittedBox(
+                      fit: pw.BoxFit.scaleDown,
+                      alignment: c.align,
+                      child: pw.Text(
+                        c.text,
+                        style: pw.TextStyle(
+                          font: c.bold ? boldFont : baseFont,
+                          fontSize: c.fontSize,
+                          color: isHeader
+                              ? const PdfColor(0.12, 0.16, 0.23)
+                              : (c.bold ? _colorNavy : const PdfColor(0.2, 0.25, 0.33)),
+                        ),
+                      ),
+                    ),
             ),
+          ),
+      ],
     );
   }
 

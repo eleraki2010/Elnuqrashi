@@ -68,7 +68,12 @@ class AuthNotifier extends Notifier<AuthState> {
 
 final authProvider = NotifierProvider<AuthNotifier, AuthState>(AuthNotifier.new);
 
-/// اختصار للتحقق من صلاحية المالك.
+/// التحقق من صلاحية الأدمن.
+final isAdminProvider = Provider<bool>((ref) {
+  return ref.watch(authProvider).user?.isAdmin ?? false;
+});
+
+/// اختصار للتحقق من صلاحية الأدمن (متوافق مع الاسم القديم).
 final isOwnerProvider = Provider<bool>((ref) {
-  return ref.watch(authProvider).user?.isOwner ?? false;
+  return ref.watch(authProvider).user?.isAdmin ?? false;
 });

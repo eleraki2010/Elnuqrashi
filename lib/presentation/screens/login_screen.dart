@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 
 import '../../core/constants/app_constants.dart';
 import '../../core/services/backup_service.dart';
+import '../widgets/backup_restore_dialog.dart';
 import '../../providers/auth_provider.dart';
 import 'main_layout_screen.dart';
 
@@ -17,8 +18,8 @@ class LoginScreen extends ConsumerStatefulWidget {
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _usernameController = TextEditingController(text: '1');
-  final _passwordController = TextEditingController(text: '123');
+  final _usernameController = TextEditingController();
+  final _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
   File? _detectedBackup;
@@ -43,90 +44,29 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _restoreDetectedBackup(File file) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.restore, color: AppColors.SUCCESS_GREEN),
-            SizedBox(width: 8),
-            Text('استعادة بيانات المحل'),
-          ],
-        ),
-        content: Text(
-          'سيتم استرجاع كافة المنتجات، الفواتير، والعملاء من النسخة الاحتياطية:\n(${p.basename(file.path)})\n\nهل تريد المتابعة؟',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('إلغاء'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.SUCCESS_GREEN,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('استعادة الآن'),
-          ),
-        ],
-      ),
+    final success = await BackupRestoreWorkflow.startRestore(
+      context,
+      ref,
+      file: file,
     );
-    if (confirmed != true) return;
-
-    setState(() => _isLoading = true);
-    try {
-      await BackupService.restoreFromSpecificFile(file);
-      if (mounted) {
-        ref.invalidate(authProvider);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            backgroundColor: AppColors.SUCCESS_GREEN,
-            duration: Duration(seconds: 4),
-            content: Text('تم استرجاع كافة بياناتك بنجاح! يمكنك الآن تسجيل الدخول.'),
-          ),
-        );
-        setState(() => _detectedBackup = null);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: AppColors.DANGER_RED,
-            content: Text('تعذر استعادة النسخة: $e'),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+    if (success && mounted) {
+      ref.invalidate(authProvider);
+      setState(() => _detectedBackup = null);
     }
   }
 
   Future<void> _pickAndRestoreFile() async {
-    setState(() => _isLoading = true);
-    try {
-      final success = await BackupService.restoreFromBackupFile();
-      if (mounted && success) {
-        ref.invalidate(authProvider);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            backgroundColor: AppColors.SUCCESS_GREEN,
-            content: Text('تم استعادة البيانات بنجاح! يمكنك الآن تسجيل الدخول.'),
-          ),
-        );
-        setState(() => _detectedBackup = null);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: AppColors.DANGER_RED,
-            content: Text('فشلت الاستعادة: $e'),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+    final file = await BackupService.pickBackupFile();
+    if (file == null || !mounted) return;
+
+    final success = await BackupRestoreWorkflow.startRestore(
+      context,
+      ref,
+      file: file,
+    );
+    if (success && mounted) {
+      ref.invalidate(authProvider);
+      setState(() => _detectedBackup = null);
     }
   }
 

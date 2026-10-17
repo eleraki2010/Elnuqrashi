@@ -39,16 +39,16 @@ class ProductCard extends StatelessWidget {
                 children: [
                   ProductImageView(
                     imageUrl: product.imageUrl,
-                    iconSize: 36 * scale,
+                    iconSize: 26 * scale,
                   ),
                   // شارة انخفاض المخزون إن وجدت
                   if (product.isOutOfStock)
                     Positioned(
-                      top: 6,
-                      right: 6,
+                      top: 4,
+                      right: 4,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
+                          horizontal: 5,
                           vertical: 2,
                         ),
                         decoration: BoxDecoration(
@@ -59,7 +59,7 @@ class ProductCard extends StatelessWidget {
                           'نفد المخزون',
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: 10,
+                            fontSize: 9.5,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -67,11 +67,11 @@ class ProductCard extends StatelessWidget {
                     )
                   else if (product.isLowStock)
                     Positioned(
-                      top: 6,
-                      right: 6,
+                      top: 4,
+                      right: 4,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
+                          horizontal: 5,
                           vertical: 2,
                         ),
                         decoration: BoxDecoration(
@@ -82,7 +82,7 @@ class ProductCard extends StatelessWidget {
                           'مخزون منخفض',
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: 10,
+                            fontSize: 9.5,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -90,8 +90,8 @@ class ProductCard extends StatelessWidget {
                     ),
                   // زر التعديل ✏️
                   Positioned(
-                    top: 6,
-                    left: 6,
+                    top: 4,
+                    left: 4,
                     child: Material(
                       color: Colors.black.withValues(alpha: 0.5),
                       shape: const CircleBorder(),
@@ -99,10 +99,10 @@ class ProductCard extends StatelessWidget {
                         customBorder: const CircleBorder(),
                         onTap: onEdit ?? onTap,
                         child: const Padding(
-                          padding: EdgeInsets.all(6.0),
+                          padding: EdgeInsets.all(5.0),
                           child: Icon(
                             Icons.edit_outlined,
-                            size: 16,
+                            size: 14,
                             color: Colors.white,
                           ),
                         ),
@@ -114,41 +114,47 @@ class ProductCard extends StatelessWidget {
             ),
             // بيانات المنتج
             Padding(
-              padding: EdgeInsets.all(
-                ResponsiveUtils.scaledSpacing(8.0, contentWidth),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 6.0,
+                vertical: 4.0,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     product.name,
                     style: TextStyle(
-                      fontSize: ResponsiveUtils.scaledFont(13.0, contentWidth),
+                      fontSize: ResponsiveUtils.scaledFont(11.5, contentWidth),
                       fontWeight: FontWeight.bold,
+                      height: 1.15,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  SizedBox(
-                    height: ResponsiveUtils.scaledSpacing(4.0, contentWidth),
-                  ),
+                  const SizedBox(height: 3),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        AppStrings.money(product.salePrice),
-                        style: TextStyle(
-                          fontSize:
-                              ResponsiveUtils.scaledFont(14.0, contentWidth),
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.PRIMARY_BLUE,
+                      Flexible(
+                        child: Text(
+                          AppStrings.money(product.salePrice),
+                          style: TextStyle(
+                            fontSize:
+                                ResponsiveUtils.scaledFont(12.0, contentWidth),
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.PRIMARY_BLUE,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
+                      const SizedBox(width: 4),
                       Text(
                         '${product.quantity} ${product.unit}',
                         style: TextStyle(
                           fontSize:
-                              ResponsiveUtils.scaledFont(11.0, contentWidth),
+                              ResponsiveUtils.scaledFont(10.0, contentWidth),
                           color: product.isOutOfStock
                               ? AppColors.DANGER_RED
                               : AppColors.TEXT_SECONDARY,

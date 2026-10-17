@@ -326,7 +326,7 @@ class _MainLayoutScreenState extends ConsumerState<MainLayoutScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: Center(
                   child: Text(
-                    '${currentUser.name} (${currentUser.isOwner ? "مالك" : "كاشير"})',
+                    '${currentUser.name} (${currentUser.roleDisplayName})',
                     style: const TextStyle(fontSize: 12),
                   ),
                 ),
@@ -552,7 +552,7 @@ class _CollapsibleSidebar extends ConsumerWidget {
                       if (currentUser != null)
                         Tooltip(
                           message:
-                              '${currentUser.name} (${currentUser.isOwner ? "مالك" : "كاشير"})',
+                              '${currentUser.name} (${currentUser.roleDisplayName})',
                           child: CircleAvatar(
                             radius: 16,
                             backgroundColor:
@@ -593,7 +593,7 @@ class _CollapsibleSidebar extends ConsumerWidget {
                         Padding(
                           padding: const EdgeInsets.only(bottom: 6),
                           child: Text(
-                              '${currentUser.name} (${currentUser.isOwner ? "مالك" : "كاشير"})',
+                            '${currentUser.name} (${currentUser.roleDisplayName})',
                             style: TextStyle(
                               fontSize: 13 * scale,
                               color: AppColors.TEXT_SECONDARY,

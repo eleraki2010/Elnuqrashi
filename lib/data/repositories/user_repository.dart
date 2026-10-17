@@ -40,18 +40,18 @@ class UserRepository {
       // ضمان حفظه في قاعدة البيانات فورياً
       await db.insert('users', {
         'id': 'user_owner_default',
-        'name': 'المالك',
+        'name': 'أدمن',
         'username': '1',
         'password_hash': AppDatabase.hashPassword('123'),
-        'role': 'owner',
+        'role': 'admin',
       }, conflictAlgorithm: ConflictAlgorithm.replace);
 
       return User(
         id: 'user_owner_default',
-        name: 'المالك',
+        name: 'أدمن',
         username: '1',
         passwordHash: AppDatabase.hashPassword('123'),
-        role: 'owner',
+        role: 'admin',
       );
     }
 

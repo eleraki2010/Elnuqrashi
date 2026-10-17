@@ -14,6 +14,7 @@ import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:intl/intl.dart';
 import '../../core/services/backup_service.dart';
 import '../../core/services/google_drive_backup_service.dart';
+import '../widgets/backup_restore_dialog.dart';
 import '../../core/services/printer_settings_service.dart';
 import 'package:printing/printing.dart';
 import '../../data/repositories/shop_profile_repository.dart';
@@ -215,7 +216,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     'المستخدمين والصلاحيات',
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  subtitle: const Text('إدارة الحسابات والأدوار (مالك / كاشير)'),
+                  subtitle: const Text('إدارة الحسابات والأدوار (أدمن / كاشير)'),
                   children: const [
                     Padding(
                       padding: EdgeInsets.all(AppLayout.SPACING_UNIT * 3),
@@ -1378,69 +1379,14 @@ class _BackupRestoreSectionState extends ConsumerState<_BackupRestoreSection> {
   }
 
   Future<void> _restoreSpecificLocalBackup(File file) async {
-    final fileName = p.basename(file.path);
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.warning_amber_rounded, color: AppColors.DANGER_RED),
-            SizedBox(width: 8),
-            Text('استعادة نسخة احتياطية محلية'),
-          ],
-        ),
-        content: Text(
-          'سيتم استبدال جميع البيانات الحالية بالنسخة الاحتياطية ($fileName).\n'
-          'هذا الإجراء سيقوم بحذف أية بيانات غير محفوظة واسترجاع حالة المحل من تلك النسخة. هل تريد المتابعة؟',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('إلغاء'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.DANGER_RED,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('استعادة الآن'),
-          ),
-        ],
-      ),
+    final success = await BackupRestoreWorkflow.startRestore(
+      context,
+      ref,
+      file: file,
     );
-    if (confirmed != true) return;
-
-    setState(() => _localBusy = true);
-    try {
-      final success = await BackupService.restoreFromSpecificFile(file);
-      if (mounted) {
-        if (success) {
-          _invalidateAllData();
-          await _loadLocalBackupInfo();
-        }
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor:
-                success ? AppColors.SUCCESS_GREEN : AppColors.DANGER_RED,
-            content: Text(success
-                ? 'تم استعادة النسخة الاحتياطية ($fileName) بنجاح وتحديث كافة البيانات في التطبيق.'
-                : 'فشلت الاستعادة'),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: AppColors.DANGER_RED,
-            content: Text('فشل الاستعادة: $e'),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _localBusy = false);
+    if (success && mounted) {
+      _invalidateAllData();
+      await _loadLocalBackupInfo();
     }
   }
 
@@ -1567,68 +1513,35 @@ class _BackupRestoreSectionState extends ConsumerState<_BackupRestoreSection> {
   }
 
   Future<void> _restoreCloudBackup(drive.File file) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.warning_amber_rounded, color: AppColors.DANGER_RED),
-            SizedBox(width: 8),
-            Text('استعادة نسخة سحابية'),
-          ],
-        ),
-        content: Text(
-          'سيتم استبدال جميع البيانات الحالية بالنسخة السحابية (${file.name ?? ""}).\n'
-          'هذا الإجراء سيقوم بحذف أية بيانات غير محفوظة واسترجاع حالة المحل من تلك النسخة. هل تريد المتابعة؟',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('إلغاء'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.DANGER_RED,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('استعادة الآن'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true) return;
-
     setState(() => _cloudBusy = true);
+    Map<String, dynamic>? snapshot;
     try {
-      final success = await GoogleDriveBackupService.restoreBackup(file.id!);
-      if (mounted) {
-        if (success) {
-          _invalidateAllData();
-          await _loadLocalBackupInfo();
-        }
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor:
-                success ? AppColors.SUCCESS_GREEN : AppColors.DANGER_RED,
-            content: Text(success
-                ? 'تم استعادة النسخة السحابية بنجاح وتحديث كافة البيانات في التطبيق.'
-                : 'فشلت الاستعادة'),
-          ),
-        );
-      }
+      snapshot = await GoogleDriveBackupService.downloadBackupSnapshot(file.id!);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor: AppColors.DANGER_RED,
-            content: Text('فشل استعادة النسخة السحابية: $e'),
+            content: Text('تعذر تنزيل النسخة السحابية: $e'),
           ),
         );
       }
+      return;
     } finally {
       if (mounted) setState(() => _cloudBusy = false);
+    }
+
+    if (!mounted) return;
+
+    final success = await BackupRestoreWorkflow.startRestore(
+      context,
+      ref,
+      snapshot: snapshot,
+      sourceTitle: file.name ?? 'نسخة سحابية',
+    );
+    if (success && mounted) {
+      _invalidateAllData();
+      await _loadLocalBackupInfo();
     }
   }
 
@@ -1671,64 +1584,19 @@ class _BackupRestoreSectionState extends ConsumerState<_BackupRestoreSection> {
   }
 
   Future<void> _restoreLocalBackup() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('استعادة نسخة احتياطية محلية'),
-        content: const Text(
-          'سيتم استبدال جميع البيانات الحالية بمحتوى النسخة الاحتياطية. '
-          'هذا الإجراء لا يمكن التراجع عنه. هل تريد المتابعة؟',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('إلغاء'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.DANGER_RED,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('استعادة'),
-          ),
-        ],
-      ),
+    final file = await BackupService.pickBackupFile(
+      initialDirectory: _backupDirPath.isNotEmpty ? _backupDirPath : null,
     );
-    if (confirmed != true) return;
+    if (file == null || !mounted) return;
 
-    setState(() => _localBusy = true);
-    try {
-      final success = await BackupService.restoreFromBackupFile(
-        initialDirectory: _backupDirPath.isNotEmpty ? _backupDirPath : null,
-      );
-      if (mounted) {
-        if (success) {
-          _invalidateAllData();
-          await _loadLocalBackupInfo();
-        }
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor:
-                success ? AppColors.SUCCESS_GREEN : AppColors.NEUTRAL_BG,
-            content: Text(success
-                ? 'تم استعادة النسخة الاحتياطية بنجاح وتحديث كافة البيانات في التطبيق.'
-                : 'تم إلغاء الاستعادة'),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: AppColors.DANGER_RED,
-            content: Text('فشل الاستعادة: $e'),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _localBusy = false);
+    final success = await BackupRestoreWorkflow.startRestore(
+      context,
+      ref,
+      file: file,
+    );
+    if (success && mounted) {
+      _invalidateAllData();
+      await _loadLocalBackupInfo();
     }
   }
 

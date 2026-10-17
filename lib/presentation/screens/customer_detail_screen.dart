@@ -532,6 +532,62 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
     );
   }
 
+  /// تأكيد وإلغاء فاتورة بيع من كشف الحساب للأدمن
+  void _confirmCancelSaleFromStatement(SaleInvoice invoice) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('تأكيد إلغاء الفاتورة'),
+        content: Text(
+          'هل أنت متأكد من رغبتك في إلغاء الفاتورة رقم (${invoice.invoiceNumber})؟\nسيتم إعادة كميات المنتجات إلى المخزن وتحديث رصيد العميل تلقائيًا.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('تراجع'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.DANGER_RED,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              Navigator.of(ctx).pop();
+              final repo = ref.read(saleRepositoryProvider);
+              final userId = ref.read(authProvider).user?.id;
+              try {
+                await repo.cancelSaleInvoice(invoice.id, userId: userId);
+                refreshAfterSale(ref);
+                await _loadStatement();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      backgroundColor: AppColors.SUCCESS_GREEN,
+                      content: Text('تم إلغاء الفاتورة وتحديث رصيد العميل بنجاح'),
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      backgroundColor: AppColors.DANGER_RED,
+                      content: Text(
+                        e.toString().replaceFirst('StateError: ', ''),
+                      ),
+                      duration: const Duration(seconds: 7),
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('إلغاء الفاتورة'),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// عرض دفعة تحصيل عند الضغط عليها من كشف الحساب.
   void _showPaymentDetails(Payment p) {
     final dateFormat = DateFormat('yyyy/MM/dd - hh:mm a');
@@ -706,16 +762,6 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
     );
   }
 
-  void _openEntryDetails(_StatementEntry entry) {
-    if (entry.invoice != null) {
-      _showInvoiceDetails(entry.invoice!);
-    } else if (entry.payment != null) {
-      _showPaymentDetails(entry.payment!);
-    } else if (entry.ret != null) {
-      _showReturnDetails(entry.ret!);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     // استماع تلقائي لأي تغيير في بيانات العملاء أو المبيعات أو الدفعات لإعادة التحميل فوراً
@@ -815,138 +861,172 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // بطاقة العميل والرصيد
+              // 1. بطاقة العميل ومعلومات الاتصال والإجراءات المنسقة
               Container(
-                padding: const EdgeInsets.all(AppLayout.SPACING_UNIT * 3),
+                padding: const EdgeInsets.all(AppLayout.SPACING_UNIT * 2.5),
                 decoration: BoxDecoration(
-                  color: AppColors.NEUTRAL_SURFACE,
+                  color: Colors.white,
                   borderRadius: BorderRadius.circular(AppLayout.BORDER_RADIUS),
                   border: Border.all(color: const Color(0xFFE5E7EB)),
-                ),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 32,
-                      backgroundColor: AppColors.PRIMARY_BLUE.withValues(
-                        alpha: 0.12,
-                      ),
-                      child: const Icon(
-                        Icons.person,
-                        size: 36,
-                        color: AppColors.PRIMARY_BLUE,
-                      ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.03),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
                     ),
-                    const SizedBox(width: 20),
-                     Expanded(
-                       child: Column(
-                         crossAxisAlignment: CrossAxisAlignment.start,
-                         children: [
-                           Text(
-                             c.name,
-                             style: TextStyle(
-                               fontSize: AppTypography.HEADING_2 * scale,
-                               fontWeight: FontWeight.bold,
-                               color: AppColors.PRIMARY_BLUE_DARK,
-                             ),
-                             softWrap: true,
-                           ),
-                          const SizedBox(height: 4),
-                          Wrap(
-                            spacing: 12,
-                            runSpacing: 4,
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            children: [
-                              if (c.phone != null && c.phone!.isNotEmpty)
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(
-                                      Icons.phone,
-                                      size: 16,
-                                      color: AppColors.TEXT_SECONDARY,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      c.phone!,
-                                      style: const TextStyle(
-                                        color: AppColors.TEXT_SECONDARY,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              if (c.address != null &&
-                                  c.address!.isNotEmpty)
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(
-                                      Icons.location_on_outlined,
-                                      size: 16,
-                                      color: AppColors.TEXT_SECONDARY,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      c.address!,
-                                      style: const TextStyle(
-                                        color: AppColors.TEXT_SECONDARY,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                            ],
+                  ],
+                ),
+                child: Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 16,
+                  runSpacing: 16,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircleAvatar(
+                          radius: 30,
+                          backgroundColor:
+                              AppColors.PRIMARY_BLUE.withValues(alpha: 0.12),
+                          child: const Icon(
+                            Icons.person,
+                            size: 32,
+                            color: AppColors.PRIMARY_BLUE,
                           ),
-                          if (c.notes != null && c.notes!.isNotEmpty) ...[
-                            const SizedBox(height: 4),
+                        ),
+                        const SizedBox(width: 16),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
                             Text(
-                              'ملاحظات: ${c.notes!}',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: AppColors.TEXT_SECONDARY,
+                              c.name,
+                              style: TextStyle(
+                                fontSize: 20 * scale,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.PRIMARY_BLUE_DARK,
                               ),
                             ),
-                          ],
-                          // موعد السداد + حالة التأخر
-                          if (c.paymentDueDate != null) ...[
                             const SizedBox(height: 6),
                             Wrap(
-                              spacing: 8,
-                              runSpacing: 4,
+                              spacing: 12,
+                              runSpacing: 6,
                               crossAxisAlignment: WrapCrossAlignment.center,
                               children: [
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(
-                                      Icons.event,
-                                      size: 15,
-                                      color: AppColors.TEXT_SECONDARY,
+                                if (c.phone != null && c.phone!.isNotEmpty)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 3,
                                     ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      'موعد السداد: ${DateFormat('d MMMM yyyy', 'ar').format(c.paymentDueDate!)}',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: c.isOverdue
-                                            ? AppColors.DANGER_RED
-                                            : AppColors.TEXT_SECONDARY,
-                                        fontWeight: c.isOverdue
-                                            ? FontWeight.bold
-                                            : FontWeight.normal,
-                                      ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey.shade100,
+                                      borderRadius: BorderRadius.circular(6),
                                     ),
-                                  ],
-                                ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(
+                                          Icons.phone,
+                                          size: 14,
+                                          color: AppColors.TEXT_SECONDARY,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          c.phone!,
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: AppColors.TEXT_SECONDARY,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                if (c.address != null && c.address!.isNotEmpty)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 3,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey.shade100,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(
+                                          Icons.location_on_outlined,
+                                          size: 14,
+                                          color: AppColors.TEXT_SECONDARY,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          c.address!,
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: AppColors.TEXT_SECONDARY,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                if (c.paymentDueDate != null)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 3,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: c.isOverdue
+                                          ? AppColors.DANGER_RED.withValues(alpha: 0.1)
+                                          : Colors.grey.shade100,
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: c.isOverdue
+                                          ? Border.all(
+                                              color: AppColors.DANGER_RED.withValues(alpha: 0.4),
+                                              width: 0.8,
+                                            )
+                                          : null,
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.event,
+                                          size: 14,
+                                          color: c.isOverdue
+                                              ? AppColors.DANGER_RED
+                                              : AppColors.TEXT_SECONDARY,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          'موعد السداد: ${DateFormat('d MMMM yyyy', 'ar').format(c.paymentDueDate!)}',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: c.isOverdue
+                                                ? AppColors.DANGER_RED
+                                                : AppColors.TEXT_SECONDARY,
+                                            fontWeight: c.isOverdue
+                                                ? FontWeight.bold
+                                                : FontWeight.normal,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                 if (c.isOverdue)
                                   Container(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 8,
-                                      vertical: 2,
+                                      vertical: 3,
                                     ),
                                     decoration: BoxDecoration(
                                       color: AppColors.DANGER_RED.withValues(
                                         alpha: 0.12,
                                       ),
-                                      borderRadius: BorderRadius.circular(10),
+                                      borderRadius: BorderRadius.circular(6),
                                     ),
                                     child: const Text(
                                       'متأخر عن السداد',
@@ -959,173 +1039,133 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
                                   ),
                               ],
                             ),
+                            if (c.notes != null && c.notes!.isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                'ملاحظات: ${c.notes!}',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.TEXT_SECONDARY,
+                                ),
+                              ),
+                            ],
                           ],
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
 
-                    // حالة الحساب والأزرار
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 12,
-                      ),
-                      decoration: BoxDecoration(
-                        color: hasDebt
-                            ? AppColors.DANGER_RED.withValues(alpha: 0.12)
-                            : hasCredit
-                            ? AppColors.WARNING_AMBER.withValues(alpha: 0.12)
-                            : AppColors.SUCCESS_GREEN.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(
-                          AppLayout.BORDER_RADIUS,
-                        ),
-                        border: Border.all(
-                          color: hasDebt
-                              ? AppColors.DANGER_RED
-                              : hasCredit
-                              ? AppColors.WARNING_AMBER
-                              : AppColors.SUCCESS_GREEN,
-                          width: 1.5,
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            hasDebt
-                                ? 'إجمالي الدين المستحق'
-                                : hasCredit
-                                ? 'رصيد مسبق لصالح العميل'
-                                : 'حالة الحساب',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: hasDebt
-                                  ? AppColors.DANGER_RED
-                                  : hasCredit
-                                  ? AppColors.WARNING_AMBER
-                                  : AppColors.SUCCESS_GREEN,
+                    // أزرار الإجراءات للعميل
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.PRIMARY_BLUE,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 18,
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
                             ),
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            hasDebt
-                                ? AppStrings.money(c.balanceDue)
-                                : hasCredit
-                                ? AppStrings.money(-c.balanceDue)
-                                : 'خالص (لا يوجد دين)',
+                          onPressed: _showAddPaymentDialog,
+                          icon: const Icon(Icons.payment, size: 18),
+                          label: const Text(
+                            'تسجيل دفعة سداد',
                             style: TextStyle(
-                              fontSize: 20,
+                              fontSize: 14,
                               fontWeight: FontWeight.bold,
-                              color: hasDebt
-                                  ? AppColors.DANGER_RED
-                                  : hasCredit
-                                  ? AppColors.WARNING_AMBER
-                                  : AppColors.SUCCESS_GREEN,
                             ),
                           ),
-                          if (hasDebt) ...[
-                            const SizedBox(height: 8),
-                            ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.SUCCESS_GREEN,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 6,
-                                ),
-                                minimumSize: const Size(0, 36),
+                        ),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.PRIMARY_BLUE,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            side: BorderSide(
+                              color: AppColors.PRIMARY_BLUE.withValues(alpha: 0.5),
+                            ),
+                          ),
+                          onPressed: _manageDueDate,
+                          icon: const Icon(Icons.event, size: 18),
+                          label: const Text(
+                            'موعد السداد',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        if (hasDebt && c.phone != null && c.phone!.isNotEmpty)
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF25D366),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 12,
                               ),
-                              onPressed: _showAddPaymentDialog,
-                              icon: const Icon(Icons.payment, size: 16),
-                              label: const Text(
-                                'سداد دفعة',
-                                style: TextStyle(fontSize: 13),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              side: const BorderSide(
+                                color: Color(0xFF25D366),
+                                width: 1.2,
                               ),
                             ),
-                            const SizedBox(height: 8),
-                            OutlinedButton.icon(
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: const Color(0xFF25D366),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 6,
-                                ),
-                                minimumSize: const Size(0, 36),
-                                side: BorderSide(
-                                  color: const Color(0xFF25D366),
-                                  width: 1.2,
-                                ),
-                              ),
-                              onPressed: _sendWhatsAppReminder,
-                              icon: const Icon(Icons.chat_outlined, size: 16),
-                              label: const Text(
-                                'تذكير بالواتساب',
-                                style: TextStyle(fontSize: 13),
+                            onPressed: _sendWhatsAppReminder,
+                            icon: const Icon(Icons.chat_outlined, size: 18),
+                            label: const Text(
+                              'تذكير واتساب',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
-                            const SizedBox(height: 8),
-                            OutlinedButton.icon(
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: AppColors.PRIMARY_BLUE,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 6,
-                                ),
-                                minimumSize: const Size(0, 36),
-                                side: BorderSide(
-                                  color: AppColors.PRIMARY_BLUE.withValues(
-                                    alpha: 0.5,
-                                  ),
-                                  width: 1.2,
-                                ),
-                              ),
-                              onPressed: _manageDueDate,
-                              icon: const Icon(Icons.event, size: 16),
-                              label: const Text(
-                                'موعد السداد',
-                                style: TextStyle(fontSize: 13),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
+                          ),
+                      ],
                     ),
                   ],
                 ),
               ),
 
-              // لافتة التأخر عن موعد السداد
+              // لافتة التنبيه عند التأخر عن موعد السداد
               if (c.isOverdue) ...[
                 const SizedBox(height: 16),
                 Container(
-                  padding: const EdgeInsets.all(AppLayout.SPACING_UNIT * 2),
+                  padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
                     color: AppColors.DANGER_RED.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(
-                      AppLayout.BORDER_RADIUS,
-                    ),
+                    borderRadius: BorderRadius.circular(AppLayout.BORDER_RADIUS),
                     border: Border.all(
-                      color: AppColors.DANGER_RED.withValues(alpha: 0.4),
+                      color: AppColors.DANGER_RED.withValues(alpha: 0.35),
                     ),
                   ),
                   child: Row(
                     children: [
                       const Icon(
-                        Icons.notifications_active,
+                        Icons.warning_amber_rounded,
                         color: AppColors.DANGER_RED,
-                        size: 20,
+                        size: 24,
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          'تنبيه: العميل متأخر عن موعد السداد '
-                          '(${DateFormat('d MMMM yyyy', 'ar').format(c.paymentDueDate!)}) '
-                          'والمستحق عليه ${AppStrings.money(c.balanceDue)}.',
+                          'تنبيه: العميل متأخر عن موعد السداد (${DateFormat('d MMMM yyyy', 'ar').format(c.paymentDueDate!)}) والمستحق عليه حالياً: ${AppStrings.money(c.balanceDue)}.',
                           style: const TextStyle(
                             fontSize: 13,
+                            fontWeight: FontWeight.w600,
                             color: AppColors.DANGER_RED,
-                            height: 1.5,
+                            height: 1.4,
                           ),
                         ),
                       ),
@@ -1133,232 +1173,493 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
                   ),
                 ),
               ],
-              const SizedBox(height: 24),
+              const SizedBox(height: 18),
 
-              // كشف الحساب الموحّد برصيد جارٍ
-              const Row(
+              // 2. بطاقات المؤشرات المالية الأربعة (KPIs)
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final isWide = constraints.maxWidth >= 720;
+                  final cards = [
+                    _buildKpiCard(
+                      title: 'إجمالي المبيعات',
+                      value: AppStrings.money(_statement!.totalSales),
+                      icon: Icons.point_of_sale_rounded,
+                      color: AppColors.PRIMARY_BLUE,
+                    ),
+                    _buildKpiCard(
+                      title: 'إجمالي التحصيلات (المسدد)',
+                      value: AppStrings.money(_statement!.totalPayments),
+                      icon: Icons.payments_outlined,
+                      color: AppColors.SUCCESS_GREEN,
+                    ),
+                    _buildKpiCard(
+                      title: 'إجمالي المرتجعات',
+                      value: AppStrings.money(_statement!.totalReturns),
+                      icon: Icons.assignment_return_outlined,
+                      color: AppColors.WARNING_AMBER,
+                    ),
+                    _buildKpiCard(
+                      title: hasDebt
+                          ? 'الرصيد المستحق (المديونية)'
+                          : hasCredit
+                          ? 'رصيد مسبق للعميل'
+                          : 'حالة الحساب',
+                      value: hasDebt
+                          ? AppStrings.money(c.balanceDue)
+                          : hasCredit
+                          ? AppStrings.money(-c.balanceDue)
+                          : 'خالص (0.00)',
+                      icon: Icons.account_balance_wallet_outlined,
+                      color: hasDebt
+                          ? AppColors.DANGER_RED
+                          : hasCredit
+                          ? AppColors.WARNING_AMBER
+                          : AppColors.SUCCESS_GREEN,
+                    ),
+                  ];
+
+                  if (isWide) {
+                    return Row(
+                      children: cards
+                          .map(
+                            (card) => Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 4),
+                                child: card,
+                              ),
+                            ),
+                          )
+                          .toList(),
+                    );
+                  } else {
+                    return Column(
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(child: cards[0]),
+                            const SizedBox(width: 8),
+                            Expanded(child: cards[1]),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(child: cards[2]),
+                            const SizedBox(width: 8),
+                            Expanded(child: cards[3]),
+                          ],
+                        ),
+                      ],
+                    );
+                  }
+                },
+              ),
+              const SizedBox(height: 22),
+
+              // 3. ترويسة سجل كشف الحساب
+              Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'كشف الحساب — كل الحركات',
-                    style: TextStyle(
-                      fontSize: AppTypography.HEADING_3,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.PRIMARY_BLUE_DARK,
-                    ),
-                  ),
-                  Text(
-                    'اضغط على أي حركة لعرض تفاصيلها',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: AppColors.TEXT_SECONDARY,
-                    ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'سجل المعاملات وحركات الحساب (${entries.length})',
+                        style: const TextStyle(
+                          fontSize: AppTypography.HEADING_3,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.PRIMARY_BLUE_DARK,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      const Text(
+                        'كافة الفواتير والتحصيلات والمرتجعات مع الرصيد التراكمي المتبقي بعد كل حركة',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.TEXT_SECONDARY,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
               const SizedBox(height: 12),
-              Container(
-                decoration: BoxDecoration(
-                  color: AppColors.NEUTRAL_SURFACE,
-                  borderRadius: BorderRadius.circular(AppLayout.BORDER_RADIUS),
-                  border: Border.all(color: const Color(0xFFE5E7EB)),
-                ),
-                child: entries.isEmpty
-                    ? const Padding(
-                        padding: EdgeInsets.all(24),
-                        child: Center(
-                          child: Text(
-                            'لا توجد حركات مسجلة لهذا العميل',
-                            style: TextStyle(color: AppColors.TEXT_SECONDARY),
-                          ),
-                        ),
-                      )
-                    : Column(
-                        children: [
-                          ListView.separated(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: entries.length,
-                            separatorBuilder: (_, _) =>
-                                const Divider(height: 1, thickness: 0.5),
-                            itemBuilder: (context, index) {
-                              final e = entries[index];
-                              final balanceAfter = runningBalances[index];
 
-                              // ألوان الحركة: فاتورة (أزرق)، تحصيل (أخضر)، مرتجع (كهرماني).
-                              final color = e.invoice != null
-                                  ? AppColors.PRIMARY_BLUE
-                                  : e.payment != null
-                                  ? AppColors.SUCCESS_GREEN
-                                  : AppColors.WARNING_AMBER;
-                              final icon = e.invoice != null
-                                  ? (e.isHeld
-                                        ? Icons.schedule
-                                        : Icons.receipt_long)
-                                  : e.payment != null
-                                  ? Icons.south_west
-                                  : Icons.undo;
-
-                              return InkWell(
-                                onTap: () => _openEntryDetails(e),
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 14,
-                                    vertical: 10,
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      CircleAvatar(
-                                        radius: 16,
-                                        backgroundColor: color.withValues(
-                                          alpha: 0.12,
-                                        ),
-                                        child: Icon(
-                                          icon,
-                                          size: 18,
-                                          color: color,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Row(
-                                              children: [
-                                                Flexible(
-                                                  child: Text(
-                                                    e.typeLabel,
-                                                    style: TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                      fontSize: 14 * scale,
-                                                    ),
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                  ),
-                                                ),
-                                                if (e.refLabel != null) ...[
-                                                  const SizedBox(width: 6),
-                                                  Container(
-                                                    padding:
-                                                        const EdgeInsets.symmetric(
-                                                          horizontal: 6,
-                                                          vertical: 1,
-                                                        ),
-                                                    decoration: BoxDecoration(
-                                                      color: color.withValues(
-                                                        alpha: 0.1,
-                                                      ),
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            8,
-                                                          ),
-                                                    ),
-                                                    child: Text(
-                                                      e.refLabel!,
-                                                      style: TextStyle(
-                                                        fontSize: 11.5 * scale,
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                        color: color,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ],
-                                            ),
-                                            const SizedBox(height: 3),
-                                            Text(
-                                              '${dateFormat.format(e.date)}'
-                                              '${e.subtitle != null ? ' • ${e.subtitle}' : ''}',
-                                              style: TextStyle(
-                                                fontSize: 12 * scale,
-                                                color: AppColors.TEXT_SECONDARY,
-                                              ),
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.end,
-                                        children: [
-                                          Text(
-                                            AppStrings.money(e.displayAmount),
-                                            style: TextStyle(
-                                              fontSize: 14.5 * scale,
-                                              fontWeight: FontWeight.bold,
-                                              color: e.delta < 0
-                                                  ? (e.invoice != null
-                                                        ? AppColors.PRIMARY_BLUE
-                                                        : color)
-                                                  : color,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 2),
-                                          Text(
-                                            'الرصيد: ${AppStrings.money(balanceAfter)}',
-                                            style: TextStyle(
-                                              fontSize: 11.5 * scale,
-                                              color: balanceAfter > 0.01
-                                                  ? AppColors.DANGER_RED
-                                                  : balanceAfter < -0.01
-                                                  ? AppColors.WARNING_AMBER
-                                                  : AppColors.TEXT_SECONDARY,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                          // الرصيد الختامي
-                          Divider(height: 1, thickness: 1),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 12,
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  'صافي الرصيد (إجمالي المستحق)',
-                                  style: TextStyle(
-                                    fontSize: 14.5 * scale,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.PRIMARY_BLUE_DARK,
-                                  ),
-                                ),
-                                Text(
-                                  AppStrings.money(c.balanceDue),
-                                  style: TextStyle(
-                                    fontSize: 17 * scale,
-                                    fontWeight: FontWeight.bold,
-                                    color: hasDebt
-                                        ? AppColors.DANGER_RED
-                                        : hasCredit
-                                        ? AppColors.WARNING_AMBER
-                                        : AppColors.SUCCESS_GREEN,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
+              // 4. قائمة بطاقات الحركات المنفصلة (بدون أي اقتصاص للكلمات أو الأرقام)
+              if (entries.isEmpty)
+                Container(
+                  padding: const EdgeInsets.all(32),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(AppLayout.BORDER_RADIUS),
+                    border: Border.all(color: const Color(0xFFE5E7EB)),
+                  ),
+                  child: const Center(
+                    child: Text(
+                      'لا توجد حركات مسجلة لهذا العميل بعد',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppColors.TEXT_SECONDARY,
                       ),
-              ),
+                    ),
+                  ),
+                )
+              else
+                ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: entries.length,
+                  itemBuilder: (context, index) {
+                    final e = entries[index];
+                    final balanceAfter = runningBalances[index];
+                    return _buildLedgerCard(e, balanceAfter, dateFormat);
+                  },
+                ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildKpiCard({
+    required String title,
+    required String value,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppLayout.BORDER_RADIUS),
+        border: Border.all(color: color.withValues(alpha: 0.25), width: 1.2),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.04),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 20,
+            backgroundColor: color.withValues(alpha: 0.12),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.TEXT_SECONDARY,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLedgerCard(
+    _StatementEntry e,
+    double balanceAfter,
+    DateFormat dateFormat,
+  ) {
+    final isInvoice = e.invoice != null;
+    final isPayment = e.payment != null;
+    final isReturn = e.ret != null;
+    final isOpening = e.typeOrder == -1;
+    final isAdmin = ref.watch(isAdminProvider);
+
+    Color cardColor;
+    IconData iconData;
+    String typeLabel;
+    Color amountColor;
+    String amountSign;
+
+    if (isOpening) {
+      cardColor = Colors.purple;
+      iconData = Icons.account_balance_outlined;
+      typeLabel = 'رصيد سابق / افتتاحي';
+      amountColor = Colors.purple.shade700;
+      amountSign = e.delta >= 0 ? '+' : '−';
+    } else if (isInvoice) {
+      cardColor = AppColors.PRIMARY_BLUE;
+      iconData = e.isHeld ? Icons.schedule_rounded : Icons.receipt_long_outlined;
+      typeLabel = e.isHeld ? 'فاتورة بيع معلّقة' : 'فاتورة مبيعات';
+      amountColor = AppColors.PRIMARY_BLUE_DARK;
+      amountSign = '+';
+    } else if (isPayment) {
+      cardColor = AppColors.SUCCESS_GREEN;
+      iconData = Icons.payments_outlined;
+      typeLabel = 'تحصيل دفعة سداد';
+      amountColor = AppColors.SUCCESS_GREEN;
+      amountSign = '−';
+    } else if (isReturn) {
+      cardColor = AppColors.WARNING_AMBER;
+      iconData = Icons.assignment_return_outlined;
+      typeLabel = 'مرتجع مبيعات';
+      amountColor = Colors.orange.shade800;
+      amountSign = '−';
+    } else {
+      cardColor = AppColors.TEXT_SECONDARY;
+      iconData = Icons.swap_horiz;
+      typeLabel = e.typeLabel;
+      amountColor = AppColors.TEXT_PRIMARY;
+      amountSign = e.delta >= 0 ? '+' : '−';
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppLayout.BORDER_RADIUS),
+        border: Border.all(
+          color: cardColor.withValues(alpha: 0.22),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // الصف العلوي: شارة نوع الحركة + رقم المرجع + التاريخ + المبلغ كاملاً
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: cardColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(iconData, size: 14, color: cardColor),
+                    const SizedBox(width: 5),
+                    Text(
+                      typeLabel,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: cardColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (e.refLabel != null) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: Text(
+                    '#${e.refLabel}',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey.shade800,
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(width: 10),
+              Text(
+                dateFormat.format(e.date),
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.TEXT_SECONDARY,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '$amountSign ${AppStrings.money(e.displayAmount)}',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: amountColor,
+                ),
+              ),
+            ],
+          ),
+
+          // الوصف والملاحظات بدون اقتصاص
+          if (e.subtitle != null && e.subtitle!.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8, bottom: 8),
+              child: Text(
+                e.subtitle!,
+                style: const TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.TEXT_PRIMARY,
+                ),
+                softWrap: true,
+              ),
+            )
+          else
+            const SizedBox(height: 8),
+
+          const Divider(height: 1, thickness: 0.6),
+          const SizedBox(height: 8),
+
+          // الصف السفلي: الرصيد التراكمي + أزرار الإجراءات
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: balanceAfter > 0.005
+                      ? AppColors.DANGER_RED.withValues(alpha: 0.08)
+                      : balanceAfter < -0.005
+                      ? AppColors.WARNING_AMBER.withValues(alpha: 0.1)
+                      : AppColors.SUCCESS_GREEN.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: balanceAfter > 0.005
+                        ? AppColors.DANGER_RED.withValues(alpha: 0.25)
+                        : balanceAfter < -0.005
+                        ? AppColors.WARNING_AMBER.withValues(alpha: 0.3)
+                        : AppColors.SUCCESS_GREEN.withValues(alpha: 0.3),
+                    width: 0.8,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      balanceAfter > 0.005
+                          ? 'الرصيد بعد الحركة (مديونية): '
+                          : balanceAfter < -0.005
+                          ? 'الرصيد بعد الحركة (دائن): '
+                          : 'الرصيد بعد الحركة: ',
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        color: AppColors.TEXT_SECONDARY,
+                      ),
+                    ),
+                    Text(
+                      AppStrings.money(balanceAfter.abs()),
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.bold,
+                        color: balanceAfter > 0.005
+                            ? AppColors.DANGER_RED
+                            : balanceAfter < -0.005
+                            ? AppColors.WARNING_AMBER
+                            : AppColors.SUCCESS_GREEN,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Spacer(),
+              if (isInvoice && e.invoice != null) ...[
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    minimumSize: const Size(0, 32),
+                  ),
+                  onPressed: () => _showInvoiceDetails(e.invoice!),
+                  icon: const Icon(Icons.receipt_long, size: 15),
+                  label: const Text(
+                    'تفاصيل الفاتورة',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                ),
+                if (isAdmin && e.invoice!.status != 'cancelled') ...[
+                  const SizedBox(width: 6),
+                  IconButton(
+                    icon: const Icon(
+                      Icons.cancel_outlined,
+                      color: AppColors.DANGER_RED,
+                      size: 18,
+                    ),
+                    tooltip: 'إلغاء الفاتورة (للأدمن)',
+                    onPressed: () =>
+                        _confirmCancelSaleFromStatement(e.invoice!),
+                  ),
+                ],
+              ] else if (isPayment && e.payment != null) ...[
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    minimumSize: const Size(0, 32),
+                  ),
+                  onPressed: () => _showPaymentDetails(e.payment!),
+                  icon: const Icon(Icons.info_outline, size: 15),
+                  label: const Text(
+                    'تفاصيل الدفعة',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                ),
+              ] else if (isReturn && e.ret != null) ...[
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    minimumSize: const Size(0, 32),
+                  ),
+                  onPressed: () => _showReturnDetails(e.ret!),
+                  icon: const Icon(Icons.assignment_return_outlined, size: 15),
+                  label: const Text(
+                    'تفاصيل المرتجع',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
       ),
     );
   }

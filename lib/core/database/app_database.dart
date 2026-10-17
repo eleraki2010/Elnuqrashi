@@ -551,21 +551,27 @@ class AppDatabase {
     if (existing.isEmpty) {
       await db.insert('users', {
         'id': 'user_owner_default',
-        'name': 'المالك',
+        'name': 'أدمن',
         'username': '1',
         'password_hash': hashPassword('123'),
-        'role': 'owner',
+        'role': 'admin',
       }, conflictAlgorithm: ConflictAlgorithm.replace);
+    } else {
+      await db.rawUpdate(
+        "UPDATE users SET name = 'أدمن', role = 'admin' WHERE username = '1' AND (role = 'owner' OR name = 'المالك')",
+      );
     }
+    // ترحيل أي مستخدمين مسجلين برتبة owner إلى admin
+    await db.rawUpdate("UPDATE users SET role = 'admin' WHERE role = 'owner'");
   }
 
   static Future<void> _seedDefaultOwner(Database db) async {
     await db.insert('users', {
       'id': 'user_owner_default',
-      'name': 'المالك',
+      'name': 'أدمن',
       'username': '1',
       'password_hash': hashPassword('123'),
-      'role': 'owner',
+      'role': 'admin',
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 }
