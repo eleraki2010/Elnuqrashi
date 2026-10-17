@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import '../../core/constants/app_constants.dart';
 import '../../core/services/backup_service.dart';
 import '../../providers/auth_provider.dart';
+import 'main_layout_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -148,7 +149,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (!mounted) return;
     setState(() => _isLoading = false);
 
-    if (!success) {
+    if (success) {
+      Navigator.of(context).pushAndRemoveUntil(
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) =>
+              const MainLayoutScreen(),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return FadeTransition(opacity: animation, child: child);
+          },
+          transitionDuration: const Duration(milliseconds: 400),
+        ),
+        (route) => false,
+      );
+    } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           backgroundColor: AppColors.DANGER_RED,

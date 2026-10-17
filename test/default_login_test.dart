@@ -37,6 +37,15 @@ void main() {
     expect(user.verifyPassword('123'), true);
   });
 
+  test('Default user 1 with password 123 authenticates with Arabic digits', () async {
+    final repo = UserRepository();
+    final user = await repo.authenticate('١', '١٢٣');
+
+    expect(user, isNotNull);
+    expect(user!.username, '1');
+    expect(user.role, 'owner');
+  });
+
   test('Wrong password fails authentication', () async {
     final repo = UserRepository();
     final user = await repo.authenticate('1', 'wrong_pass');

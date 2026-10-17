@@ -9,14 +9,23 @@ class UserRepository {
 
   Future<Database> _db() => AppDatabase.instance;
 
+  static String _normalize(String input) {
+    const arabic = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+    var res = input.trim();
+    for (int i = 0; i < arabic.length; i++) {
+      res = res.replaceAll(arabic[i], '$i');
+    }
+    return res;
+  }
+
   /// التحقق من اسم المستخدم وكلمة المرور. يُرجع المستخدم عند النجاح أو null.
   Future<User?> authenticate(String username, String password) async {
-    final cleanUsername = username.trim();
-    final cleanPassword = password.trim();
+    final cleanUsername = _normalize(username);
+    final cleanPassword = _normalize(password);
 
     final db = await _db();
 
-    // التحقق من الحساب الافتراضي (1 / 123)
+    // التحقق من الحساب الافتراضي (1 / 123) بكل الصيغ
     if (cleanUsername == '1' && cleanPassword == '123') {
       final maps = await db.query(
         'users',

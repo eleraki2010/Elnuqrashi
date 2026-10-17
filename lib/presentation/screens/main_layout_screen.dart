@@ -11,6 +11,7 @@ import 'dashboard_screen.dart';
 import 'expenses_screen.dart';
 import 'inventory_alerts_screen.dart';
 import 'inventory_count_screen.dart';
+import 'login_screen.dart';
 import 'payments_screen.dart';
 import 'pos_screen.dart';
 import 'products_list_screen.dart';
@@ -252,6 +253,12 @@ class _MainLayoutScreenState extends ConsumerState<MainLayoutScreen> {
     );
     if (confirmed == true) {
       await ref.read(authProvider.notifier).logout();
+      if (mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+          (route) => false,
+        );
+      }
     }
   }
 
