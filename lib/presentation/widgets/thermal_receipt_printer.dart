@@ -114,34 +114,35 @@ class ThermalReceiptPrinter {
     h += 76.0;
 
     // جدول الأصناف
-    h += 24.0; // عنوان الجدول
+    h += 22.0; // عنوان الجدول
     for (final item in invoice.items) {
       final nameLen = (item.productName ?? '').length;
       final maxChars = width80mm ? 20 : 12;
       final extraLines = (nameLen / maxChars).ceil().clamp(1, 4) - 1;
-      h += 20.0 + (extraLines * 12.0);
+      h += 19.0 + (extraLines * 11.0);
     }
-    h += 10.0;
+    h += 18.0; // شريط عدد الأصناف وإجمالي الكمية
+    h += 8.0;
 
     // بطاقة المبالغ المالية
     int extraRows = 0;
     if (invoice.discount > 0) extraRows += 1;
     if (invoice.tax > 0) extraRows += 1;
     if (invoice.discount > 0 || invoice.tax > 0) extraRows += 1; // فاصل داخلي
-    h += 72.0 + (extraRows * 15.0);
-    h += 10.0;
+    h += 68.0 + (extraRows * 14.0);
+    h += 8.0;
 
     // الفاصل وتذييل الشكر وسياسة الاسترجاع
-    h += 12.0; // فاصل
-    h += 16.0; // سياسة الاسترجاع
-    h += 18.0; // الشكر
+    h += 10.0; // فاصل
+    h += 15.0; // سياسة الاسترجاع
+    h += 16.0; // الشكر
     h += 8.0;
 
     // باركود الفاتورة
-    h += (width80mm ? 26.0 : 20.0) + 20.0 + 12.0;
+    h += (width80mm ? 24.0 : 18.0) + 18.0 + 10.0;
 
     // هامش أمان مدروس لمنع قص أي بيانات مع الحفاظ على النسبة المتناسقة للورق
-    h += 20.0;
+    h += 16.0;
 
     return h;
   }
@@ -386,15 +387,15 @@ class ThermalReceiptPrinter {
                     children: [
                       if (logo != null) ...[
                         pw.Container(
-                          width: 48,
-                          height: 48,
+                          width: 36,
+                          height: 36,
                           child: pw.ClipRRect(
                             horizontalRadius: 6,
                             verticalRadius: 6,
                             child: pw.Image(logo, fit: pw.BoxFit.contain),
                           ),
                         ),
-                        pw.SizedBox(width: 12),
+                        pw.SizedBox(width: 10),
                       ],
                       pw.Column(
                         crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -405,17 +406,17 @@ class ThermalReceiptPrinter {
                                 : AppStrings.STORE_NAME,
                             style: pw.TextStyle(
                               font: boldFont,
-                              fontSize: 18,
+                              fontSize: 13.5,
                               color: _colorNavy,
                             ),
                           ),
                           if (storePhone != null && storePhone.trim().isNotEmpty) ...[
-                            pw.SizedBox(height: 3),
+                            pw.SizedBox(height: 2),
                             pw.Text(
                               'هاتف: ${storePhone.trim()}',
                               style: pw.TextStyle(
                                 font: baseFont,
-                                fontSize: 10,
+                                fontSize: 9.5,
                                 color: _colorSecondary,
                               ),
                             ),
@@ -431,7 +432,7 @@ class ThermalReceiptPrinter {
                         'فاتورة مبيعات ضريبية',
                         style: pw.TextStyle(
                           font: boldFont,
-                          fontSize: 16,
+                          fontSize: 13.0,
                           color: _colorPrimaryBlue,
                         ),
                       ),
@@ -546,6 +547,26 @@ class ThermalReceiptPrinter {
                       ),
                     ],
                   ),
+                pw.Container(
+                  padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: pw.BoxDecoration(
+                    color: _colorHeaderBg,
+                    border: pw.Border(top: pw.BorderSide(color: _colorTableBorder, width: 0.8)),
+                  ),
+                  child: pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Text(
+                        'عدد الأصناف: ${invoice.itemsCount} صنف',
+                        style: pw.TextStyle(font: boldFont, fontSize: 9.5, color: _colorNavy),
+                      ),
+                      pw.Text(
+                        'إجمالي الكمية: ${invoice.totalQuantity % 1 == 0 ? invoice.totalQuantity.toInt() : invoice.totalQuantity}',
+                        style: pw.TextStyle(font: boldFont, fontSize: 9.5, color: _colorNavy),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
@@ -725,24 +746,24 @@ class ThermalReceiptPrinter {
     final dateFmt = DateFormat('yyyy/MM/dd - hh:mm a');
 
     // أبعاد وخطوط متناسبة مع الشاشة ومع الورق الحراري
-    final double titleSize = isLargePaper ? 16.0 : (width80mm ? 13.0 : 11.0);
-    final double logoSize = isLargePaper ? 32.0 : (width80mm ? 30.0 : 24.0);
-    final double subSize = isLargePaper ? 10.5 : (width80mm ? 8.0 : 7.0);
-    final double typeSize = isLargePaper ? 11.0 : (width80mm ? 9.0 : 8.0);
-    final double invoiceNumSize = isLargePaper ? 12.0 : (width80mm ? 8.5 : 7.5);
-    final double badgeSize = isLargePaper ? 10.0 : (width80mm ? 7.5 : 6.5);
-    final double dateSize = isLargePaper ? 10.5 : (width80mm ? 8.0 : 7.0);
-    final double customerSize = isLargePaper ? 11.0 : (width80mm ? 8.0 : 7.0);
-    final double tableHeaderSize = isLargePaper ? 11.0 : (width80mm ? 8.0 : 7.0);
-    final double tableDataSize = isLargePaper ? 10.5 : (width80mm ? 7.5 : 6.5);
-    final double totalLabelSize = isLargePaper ? 13.5 : (width80mm ? 9.5 : 8.5);
-    final double totalValSize = isLargePaper ? 15.0 : (width80mm ? 10.0 : 9.0);
-    final double paidSize = isLargePaper ? 11.0 : (width80mm ? 8.0 : 7.0);
-    final double changeSize = isLargePaper ? 11.0 : (width80mm ? 8.0 : 7.0);
-    final double footerSize = isLargePaper ? 9.5 : (width80mm ? 7.0 : 6.0);
-    final double barcodeWidth = isLargePaper ? 120.0 : (width80mm ? 110.0 : 90.0);
-    final double barcodeHeight = isLargePaper ? 24.0 : (width80mm ? 22.0 : 18.0);
-    final double thankYouSize = isLargePaper ? 11.0 : (width80mm ? 8.5 : 7.5);
+    final double titleSize = isLargePaper ? 13.5 : (width80mm ? 10.5 : 9.5);
+    final double logoSize = isLargePaper ? 28.0 : (width80mm ? 24.0 : 20.0);
+    final double subSize = isLargePaper ? 9.5 : (width80mm ? 7.5 : 6.5);
+    final double typeSize = isLargePaper ? 10.0 : (width80mm ? 8.0 : 7.0);
+    final double invoiceNumSize = isLargePaper ? 11.0 : (width80mm ? 8.0 : 7.0);
+    final double badgeSize = isLargePaper ? 9.0 : (width80mm ? 7.0 : 6.0);
+    final double dateSize = isLargePaper ? 9.5 : (width80mm ? 7.5 : 6.5);
+    final double customerSize = isLargePaper ? 10.0 : (width80mm ? 7.5 : 6.5);
+    final double tableHeaderSize = isLargePaper ? 10.0 : (width80mm ? 7.5 : 6.5);
+    final double tableDataSize = isLargePaper ? 9.5 : (width80mm ? 7.0 : 6.0);
+    final double totalLabelSize = isLargePaper ? 12.0 : (width80mm ? 9.0 : 8.0);
+    final double totalValSize = isLargePaper ? 13.5 : (width80mm ? 9.5 : 8.5);
+    final double paidSize = isLargePaper ? 10.0 : (width80mm ? 7.5 : 6.5);
+    final double changeSize = isLargePaper ? 10.0 : (width80mm ? 7.5 : 6.5);
+    final double footerSize = isLargePaper ? 8.5 : (width80mm ? 6.5 : 5.5);
+    final double barcodeWidth = isLargePaper ? 110.0 : (width80mm ? 100.0 : 85.0);
+    final double barcodeHeight = isLargePaper ? 20.0 : (width80mm ? 18.0 : 16.0);
+    final double thankYouSize = isLargePaper ? 10.0 : (width80mm ? 7.5 : 6.5);
 
     final statusBg = invoice.status == 'completed'
         ? _colorGreenBg
@@ -929,10 +950,11 @@ class ThermalReceiptPrinter {
                 baseFont: baseFont,
                 boldFont: boldFont,
                 cells: [
-                  _PdfGridCell('الصنف', flex: 48, align: pw.Alignment.centerRight, bold: true, isProductName: true, fontSize: tableHeaderSize),
+                  _PdfGridCell('#', flex: 7, align: pw.Alignment.center, bold: true, fontSize: tableHeaderSize),
+                  _PdfGridCell('الصنف', flex: 45, align: pw.Alignment.centerRight, bold: true, isProductName: true, fontSize: tableHeaderSize),
                   _PdfGridCell('الكمية', flex: 14, align: pw.Alignment.center, bold: true, fontSize: tableHeaderSize),
-                  _PdfGridCell('السعر', flex: 19, align: pw.Alignment.center, bold: true, fontSize: tableHeaderSize),
-                  _PdfGridCell('الإجمالي', flex: 19, align: pw.Alignment.center, bold: true, fontSize: tableHeaderSize),
+                  _PdfGridCell('السعر', flex: 17, align: pw.Alignment.center, bold: true, fontSize: tableHeaderSize),
+                  _PdfGridCell('الإجمالي', flex: 17, align: pw.Alignment.center, bold: true, fontSize: tableHeaderSize),
                 ],
               ),
               for (var i = 0; i < invoice.items.length; i++)
@@ -941,9 +963,10 @@ class ThermalReceiptPrinter {
                   baseFont: baseFont,
                   boldFont: boldFont,
                   cells: [
+                    _PdfGridCell('${i + 1}', flex: 7, align: pw.Alignment.center, fontSize: tableDataSize),
                     _PdfGridCell(
                       invoice.items[i].productName ?? 'منتج',
-                      flex: 48,
+                      flex: 45,
                       align: pw.Alignment.centerRight,
                       isProductName: true,
                       fontSize: tableDataSize,
@@ -958,7 +981,7 @@ class ThermalReceiptPrinter {
                       invoice.items[i].unitPrice % 1 == 0
                           ? invoice.items[i].unitPrice.toInt().toString()
                           : invoice.items[i].unitPrice.toStringAsFixed(2),
-                      flex: 19,
+                      flex: 17,
                       align: pw.Alignment.center,
                       fontSize: tableDataSize,
                     ),
@@ -966,13 +989,47 @@ class ThermalReceiptPrinter {
                       invoice.items[i].lineTotal % 1 == 0
                           ? invoice.items[i].lineTotal.toInt().toString()
                           : invoice.items[i].lineTotal.toStringAsFixed(2),
-                      flex: 19,
+                      flex: 17,
                       align: pw.Alignment.center,
                       bold: true,
                       fontSize: tableDataSize,
                     ),
                   ],
                 ),
+              // شريط عدد الأصناف وإجمالي الكمية (متبع في البرامج العالمية)
+              pw.Container(
+                padding: pw.EdgeInsets.symmetric(
+                  horizontal: isLargePaper ? 8 : 5,
+                  vertical: isLargePaper ? 5 : 3.5,
+                ),
+                decoration: pw.BoxDecoration(
+                  color: _colorHeaderBg,
+                  border: pw.Border(
+                    top: pw.BorderSide(color: _colorTableBorder, width: 0.6),
+                  ),
+                ),
+                child: pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  children: [
+                    pw.Text(
+                      'عدد الأصناف: ${invoice.itemsCount} صنف',
+                      style: pw.TextStyle(
+                        font: boldFont,
+                        fontSize: tableDataSize,
+                        color: _colorNavy,
+                      ),
+                    ),
+                    pw.Text(
+                      'إجمالي الكمية: ${invoice.totalQuantity % 1 == 0 ? invoice.totalQuantity.toInt() : invoice.totalQuantity}',
+                      style: pw.TextStyle(
+                        font: boldFont,
+                        fontSize: tableDataSize,
+                        color: _colorNavy,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),

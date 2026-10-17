@@ -988,24 +988,24 @@ class _POSScreenState extends ConsumerState<POSScreen> {
                                     children: [
                                       ProductImageView(
                                         imageUrl: product.imageUrl,
-                                        iconSize: 26,
+                                        iconSize: 22,
                                       ),
                                       if (isInCart)
                                         Positioned(
-                                          top: 4,
-                                          right: 4,
+                                          top: 3,
+                                          right: 3,
                                           child: Container(
                                             padding: const EdgeInsets.symmetric(
-                                              horizontal: 5,
-                                              vertical: 2,
+                                              horizontal: 4,
+                                              vertical: 1.5,
                                             ),
                                             decoration: BoxDecoration(
                                               color: AppColors.PRIMARY_BLUE,
-                                              borderRadius: BorderRadius.circular(10),
+                                              borderRadius: BorderRadius.circular(8),
                                               boxShadow: [
                                                 BoxShadow(
                                                   color: Colors.black.withValues(alpha: 0.2),
-                                                  blurRadius: 4,
+                                                  blurRadius: 3,
                                                 ),
                                               ],
                                             ),
@@ -1013,7 +1013,7 @@ class _POSScreenState extends ConsumerState<POSScreen> {
                                               '${cartItem.quantity} في السلة',
                                               style: const TextStyle(
                                                 color: Colors.white,
-                                                fontSize: 9.5,
+                                                fontSize: 8.0,
                                                 fontWeight: FontWeight.bold,
                                               ),
                                             ),
@@ -1026,8 +1026,8 @@ class _POSScreenState extends ConsumerState<POSScreen> {
                                 // Details (Name, Price, Stock)
                                 Padding(
                                   padding: const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                    vertical: 4,
+                                    horizontal: 5,
+                                    vertical: 3,
                                   ),
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1038,12 +1038,12 @@ class _POSScreenState extends ConsumerState<POSScreen> {
                                         maxLines: 2,
                                         overflow: TextOverflow.ellipsis,
                                         style: const TextStyle(
-                                          fontSize: 11.5,
+                                          fontSize: 9.8,
                                           fontWeight: FontWeight.bold,
                                           height: 1.15,
                                         ),
                                       ),
-                                      const SizedBox(height: 3),
+                                      const SizedBox(height: 2),
                                       Row(
                                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                         children: [
@@ -1051,7 +1051,7 @@ class _POSScreenState extends ConsumerState<POSScreen> {
                                             child: Text(
                                               AppStrings.money(product.salePrice),
                                               style: const TextStyle(
-                                                fontSize: 12,
+                                                fontSize: 10.5,
                                                 fontWeight: FontWeight.w800,
                                                 color: AppColors.PRIMARY_BLUE,
                                               ),
@@ -1063,7 +1063,7 @@ class _POSScreenState extends ConsumerState<POSScreen> {
                                           Text(
                                             '${product.quantity} ${product.unit}',
                                             style: TextStyle(
-                                              fontSize: 10,
+                                              fontSize: 8.8,
                                               color: product.isOutOfStock
                                                   ? AppColors.DANGER_RED
                                                   : product.isLowStock
@@ -1358,7 +1358,7 @@ class _POSScreenState extends ConsumerState<POSScreen> {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            fontSize: 13,
+                            fontSize: 11.5,
                             fontWeight: FontWeight.bold,
                             height: 1.25,
                           ),

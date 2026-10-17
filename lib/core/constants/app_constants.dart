@@ -16,15 +16,13 @@ class AppColors {
 class AppTypography {
   static const String FONT_FAMILY = 'Cairo';
 
-  /// القيم بعد سلسلة تخفيضات متتالية (كان BASE 15 / H1 20 وما زالت
-  /// «كبيرة جداً» على التابلت). القاعدة: أحجام مضبوطة على الهاتف
-  /// (390dp) ثابتة على التابلت/الديسكتوب — العرض الواسع يُستغل في
-  /// أعمدة أكثر لا في خط أكبر.
-  static const double BASE_SIZE = 14.0;
-  static const double HEADING_1 = 17.0;
-  static const double HEADING_2 = 15.0;
-  static const double HEADING_3 = 13.5;
-  static const double HEADING_4 = 12.0;
+  /// خطوط مصممة بدقة لتناسب شاشة التابلت وعرض البيانات الكثيف
+  /// دون أن تطغى النصوص أو تكون كبيرة بشكل مفرط.
+  static const double BASE_SIZE = 12.0;
+  static const double HEADING_1 = 14.5;
+  static const double HEADING_2 = 13.0;
+  static const double HEADING_3 = 11.5;
+  static const double HEADING_4 = 10.5;
 }
 
 class AppLayout {

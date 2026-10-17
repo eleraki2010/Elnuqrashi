@@ -988,8 +988,8 @@ class DashboardScreen extends ConsumerWidget {
       ),
       child: Row(
         children: [
-          StoreLogo(size: 56 * scale),
-          SizedBox(width: ResponsiveUtils.scaledSpacing(12.0, contentWidth)),
+          StoreLogo(size: 38 * scale),
+          SizedBox(width: ResponsiveUtils.scaledSpacing(10.0, contentWidth)),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -997,7 +997,7 @@ class DashboardScreen extends ConsumerWidget {
                 Text(
                   storeName.isNotEmpty ? storeName : AppStrings.DEFAULT_STORE_NAME,
                   style: TextStyle(
-                    fontSize: ResponsiveUtils.scaledFont(20.0, contentWidth),
+                    fontSize: ResponsiveUtils.scaledFont(14.5, contentWidth),
                     fontWeight: FontWeight.bold,
                     color: AppColors.TEXT_PRIMARY,
                   ),
@@ -1005,7 +1005,7 @@ class DashboardScreen extends ConsumerWidget {
                 Text(
                   '${AppStrings.APP_NAME} • ${dateFormat.format(DateTime.now())}',
                   style: TextStyle(
-                    fontSize: ResponsiveUtils.scaledFont(13.5, contentWidth),
+                    fontSize: ResponsiveUtils.scaledFont(11.0, contentWidth),
                     color: AppColors.TEXT_SECONDARY,
                   ),
                 ),

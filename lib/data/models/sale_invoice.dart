@@ -42,6 +42,13 @@ class SaleInvoice {
   bool get isChangePositive => changeDue >= 0;
   double get remainingOnCustomer => changeDue < 0 ? (-changeDue) : 0.0;
 
+  /// إجمالي عدد الأصناف المختلفة بالفاتورة
+  int get itemsCount => items.length;
+
+  /// إجمالي عدد القطع/الكميات المباعة في الفاتورة
+  num get totalQuantity =>
+      items.fold<num>(0, (sum, item) => sum + item.quantity);
+
   String get paymentMethodArabic {
     switch (paymentMethod) {
       case 'cash':

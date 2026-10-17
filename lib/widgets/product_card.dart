@@ -48,8 +48,8 @@ class ProductCard extends StatelessWidget {
                       right: 4,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 5,
-                          vertical: 2,
+                          horizontal: 4,
+                          vertical: 1.5,
                         ),
                         decoration: BoxDecoration(
                           color: AppColors.DANGER_RED,
@@ -59,7 +59,7 @@ class ProductCard extends StatelessWidget {
                           'نفد المخزون',
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: 9.5,
+                            fontSize: 8.5,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -71,8 +71,8 @@ class ProductCard extends StatelessWidget {
                       right: 4,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 5,
-                          vertical: 2,
+                          horizontal: 4,
+                          vertical: 1.5,
                         ),
                         decoration: BoxDecoration(
                           color: AppColors.WARNING_AMBER,
@@ -82,7 +82,7 @@ class ProductCard extends StatelessWidget {
                           'مخزون منخفض',
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: 9.5,
+                            fontSize: 8.5,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -99,10 +99,10 @@ class ProductCard extends StatelessWidget {
                         customBorder: const CircleBorder(),
                         onTap: onEdit ?? onTap,
                         child: const Padding(
-                          padding: EdgeInsets.all(5.0),
+                          padding: EdgeInsets.all(4.0),
                           child: Icon(
                             Icons.edit_outlined,
-                            size: 14,
+                            size: 13,
                             color: Colors.white,
                           ),
                         ),
@@ -115,8 +115,8 @@ class ProductCard extends StatelessWidget {
             // بيانات المنتج
             Padding(
               padding: const EdgeInsets.symmetric(
-                horizontal: 6.0,
-                vertical: 4.0,
+                horizontal: 5.0,
+                vertical: 3.0,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -125,14 +125,14 @@ class ProductCard extends StatelessWidget {
                   Text(
                     product.name,
                     style: TextStyle(
-                      fontSize: ResponsiveUtils.scaledFont(11.5, contentWidth),
+                      fontSize: ResponsiveUtils.scaledFont(10.0, contentWidth),
                       fontWeight: FontWeight.bold,
                       height: 1.15,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 2),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -141,7 +141,7 @@ class ProductCard extends StatelessWidget {
                           AppStrings.money(product.salePrice),
                           style: TextStyle(
                             fontSize:
-                                ResponsiveUtils.scaledFont(12.0, contentWidth),
+                                ResponsiveUtils.scaledFont(10.5, contentWidth),
                             fontWeight: FontWeight.bold,
                             color: AppColors.PRIMARY_BLUE,
                           ),
@@ -154,7 +154,7 @@ class ProductCard extends StatelessWidget {
                         '${product.quantity} ${product.unit}',
                         style: TextStyle(
                           fontSize:
-                              ResponsiveUtils.scaledFont(10.0, contentWidth),
+                              ResponsiveUtils.scaledFont(8.8, contentWidth),
                           color: product.isOutOfStock
                               ? AppColors.DANGER_RED
                               : AppColors.TEXT_SECONDARY,

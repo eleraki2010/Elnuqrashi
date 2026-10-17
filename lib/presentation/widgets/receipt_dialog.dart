@@ -93,43 +93,43 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // ترويسة الفاتورة: الشعار بجوار اسم المحل
+            // ترويسة الفاتورة: الشعار بجوار اسم المحل بحجم أنيق ومتناسق
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               mainAxisSize: MainAxisSize.min,
               children: [
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(6),
                   child: (_storeLogoPath != null &&
                           _storeLogoPath!.isNotEmpty &&
                           File(_storeLogoPath!).existsSync())
                       ? Image.file(
                           File(_storeLogoPath!),
-                          width: 36,
-                          height: 36,
+                          width: 30,
+                          height: 30,
                           fit: BoxFit.cover,
                           errorBuilder: (_, _, _) => Image.asset(
                             'assets/images/logo.png',
-                            width: 36,
-                            height: 36,
+                            width: 30,
+                            height: 30,
                             fit: BoxFit.contain,
                           ),
                         )
                       : Image.asset(
                           'assets/images/logo.png',
-                          width: 36,
-                          height: 36,
+                          width: 30,
+                          height: 30,
                           fit: BoxFit.contain,
                         ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
                 Flexible(
                   child: Text(
                     _storeName?.trim().isNotEmpty == true
                         ? _storeName!.trim()
                         : AppStrings.STORE_NAME,
                     style: const TextStyle(
-                      fontSize: 17,
+                      fontSize: 13.5,
                       fontWeight: FontWeight.bold,
                       color: Color(0xFF0F172A),
                     ),
@@ -143,35 +143,35 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
               Text(
                 'هاتف: ${_storePhone!.trim()}',
                 style: const TextStyle(
-                  fontSize: 11.5,
+                  fontSize: 10.5,
                   color: AppColors.TEXT_SECONDARY,
                 ),
               ),
             ],
-            const SizedBox(height: 3),
+            const SizedBox(height: 2),
             Text(
               invoice.status == 'held' ? 'فاتورة معلقة' : 'فاتورة مبيعات',
               style: const TextStyle(
-                fontSize: 12,
+                fontSize: 11,
                 fontWeight: FontWeight.w500,
                 color: Color(0xFF64748B),
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             const Divider(thickness: 0.8, height: 1, color: Color(0xFFE2E8F0)),
 
             // محتوى الفاتورة القابل للتمرير بنسبة متناسقة دون مط
             Flexible(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(vertical: 8),
+                padding: const EdgeInsets.symmetric(vertical: 6),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     // بطاقة بيانات الفاتورة
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 9,
+                        horizontal: 10,
+                        vertical: 7,
                       ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF8FAFC),
@@ -187,15 +187,15 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
                                 'رقم الفاتورة: ${invoice.invoiceNumber}',
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 12.5,
+                                  fontSize: 11.5,
                                   color: Color(0xFF0F172A),
                                 ),
                               ),
                               if (invoice.status != 'completed')
                                 Container(
                                   padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 2,
+                                    horizontal: 6,
+                                    vertical: 1.5,
                                   ),
                                   decoration: BoxDecoration(
                                     color: (invoice.status == 'held'
@@ -207,7 +207,7 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
                                   child: Text(
                                     invoice.statusArabic,
                                     style: TextStyle(
-                                      fontSize: 11,
+                                      fontSize: 10,
                                       fontWeight: FontWeight.bold,
                                       color: invoice.status == 'held'
                                           ? AppColors.WARNING_AMBER
@@ -217,34 +217,34 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
                                 ),
                             ],
                           ),
-                          const SizedBox(height: 5),
+                          const SizedBox(height: 4),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
                                 'التاريخ: ${dateFormat.format(invoice.createdAt)}',
                                 style: const TextStyle(
-                                  fontSize: 11,
+                                  fontSize: 10.5,
                                   color: Color(0xFF64748B),
                                 ),
                               ),
                               Text(
                                 'الدفع: ${invoice.paymentMethodArabic}',
                                 style: const TextStyle(
-                                  fontSize: 11,
+                                  fontSize: 10.5,
                                   color: Color(0xFF64748B),
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 5),
+                          const SizedBox(height: 4),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
                                 'العميل: ${invoice.customerName ?? 'عميل نقدي'}',
                                 style: const TextStyle(
-                                  fontSize: 11.5,
+                                  fontSize: 11,
                                   fontWeight: FontWeight.w500,
                                   color: Color(0xFF334155),
                                 ),
@@ -254,9 +254,9 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 8),
 
-                    // جدول الأصناف المتناسق
+                    // جدول الأصناف المتناسق القياسي
                     Container(
                       width: double.infinity,
                       decoration: BoxDecoration(
@@ -275,8 +275,13 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
                             isHeader: true,
                             cells: const [
                               _GridCell(
+                                '#',
+                                flex: 7,
+                                align: TextAlign.center,
+                              ),
+                              _GridCell(
                                 'الصنف',
-                                flex: 48,
+                                flex: 45,
                                 align: TextAlign.start,
                               ),
                               _GridCell(
@@ -286,12 +291,12 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
                               ),
                               _GridCell(
                                 'السعر',
-                                flex: 19,
+                                flex: 17,
                                 align: TextAlign.center,
                               ),
                               _GridCell(
                                 'الإجمالي',
-                                flex: 19,
+                                flex: 17,
                                 align: TextAlign.center,
                               ),
                             ],
@@ -301,8 +306,13 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
                               zebra: i.isEven,
                               cells: [
                                 _GridCell(
+                                  '${i + 1}',
+                                  flex: 7,
+                                  align: TextAlign.center,
+                                ),
+                                _GridCell(
                                   invoice.items[i].productName ?? 'منتج',
-                                  flex: 48,
+                                  flex: 45,
                                   align: TextAlign.start,
                                 ),
                                 _GridCell(
@@ -314,27 +324,64 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
                                   invoice.items[i].unitPrice % 1 == 0
                                       ? invoice.items[i].unitPrice.toInt().toString()
                                       : invoice.items[i].unitPrice.toStringAsFixed(2),
-                                  flex: 19,
+                                  flex: 17,
                                   align: TextAlign.center,
                                 ),
                                 _GridCell(
                                   invoice.items[i].lineTotal % 1 == 0
                                       ? invoice.items[i].lineTotal.toInt().toString()
                                       : invoice.items[i].lineTotal.toStringAsFixed(2),
-                                  flex: 19,
+                                  flex: 17,
                                   align: TextAlign.center,
                                   bold: true,
                                 ),
                               ],
                             ),
+                          // شريط عدد الأصناف وإجمالي الكميات (متبع في البرامج العالمية)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 5,
+                            ),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFF1F5F9),
+                              border: Border(
+                                top: BorderSide(
+                                  color: Color(0xFFCBD5E1),
+                                  width: 0.8,
+                                ),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'عدد الأصناف: ${invoice.itemsCount} صنف',
+                                  style: const TextStyle(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF1E293B),
+                                  ),
+                                ),
+                                Text(
+                                  'إجمالي الكمية: ${invoice.totalQuantity % 1 == 0 ? invoice.totalQuantity.toInt() : invoice.totalQuantity}',
+                                  style: const TextStyle(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF1E293B),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 8),
 
                     // ملخص المبالغ المالية
                     Container(
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF8FAFC),
                         borderRadius: BorderRadius.circular(8),
@@ -349,18 +396,18 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
                                 const Text(
                                   'الإجمالي الفرعي:',
                                   style: TextStyle(
-                                    fontSize: 12,
+                                    fontSize: 11,
                                     color: Color(0xFF64748B),
                                   ),
                                 ),
                                 Text(
                                   AppStrings.money(invoice.subtotal),
-                                  style: const TextStyle(fontSize: 12),
+                                  style: const TextStyle(fontSize: 11),
                                 ),
                               ],
                             ),
                             if (invoice.discount > 0) ...[
-                              const SizedBox(height: 4),
+                              const SizedBox(height: 3),
                               Row(
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,
@@ -368,14 +415,14 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
                                   const Text(
                                     'الخصم:',
                                     style: TextStyle(
-                                      fontSize: 12,
+                                      fontSize: 11,
                                       color: AppColors.DANGER_RED,
                                     ),
                                   ),
                                   Text(
                                     '- ${AppStrings.money(invoice.discount)}',
                                     style: const TextStyle(
-                                      fontSize: 12,
+                                      fontSize: 11,
                                       fontWeight: FontWeight.bold,
                                       color: AppColors.DANGER_RED,
                                     ),
@@ -384,7 +431,7 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
                               ),
                             ],
                             if (invoice.tax > 0) ...[
-                              const SizedBox(height: 4),
+                              const SizedBox(height: 3),
                               Row(
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,
@@ -392,24 +439,24 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
                                   const Text(
                                     'الضريبة:',
                                     style: TextStyle(
-                                      fontSize: 12,
+                                      fontSize: 11,
                                       color: Color(0xFF64748B),
                                     ),
                                   ),
                                   Text(
                                     AppStrings.money(invoice.tax),
-                                    style: const TextStyle(fontSize: 12),
+                                    style: const TextStyle(fontSize: 11),
                                   ),
                                 ],
                               ),
                             ],
-                            const SizedBox(height: 4),
+                            const SizedBox(height: 3),
                             const Divider(
                               height: 1,
                               thickness: 0.5,
                               color: Color(0xFFCBD5E1),
                             ),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: 3),
                           ],
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -417,7 +464,7 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
                               const Text(
                                 '${AppStrings.LABEL_TOTAL}:',
                                 style: TextStyle(
-                                  fontSize: 14.5,
+                                  fontSize: 13.5,
                                   fontWeight: FontWeight.bold,
                                   color: Color(0xFF0F172A),
                                 ),
@@ -425,29 +472,9 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
                               Text(
                                 AppStrings.money(invoice.total),
                                 style: const TextStyle(
-                                  fontSize: 16,
+                                  fontSize: 15,
                                   fontWeight: FontWeight.bold,
                                   color: AppColors.PRIMARY_BLUE,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text(
-                                '${AppStrings.LABEL_PAID}:',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Color(0xFF64748B),
-                                ),
-                              ),
-                              Text(
-                                AppStrings.money(invoice.paidAmount),
-                                style: const TextStyle(
-                                  fontSize: 12.5,
-                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ],
@@ -456,12 +483,32 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
+                              const Text(
+                                '${AppStrings.LABEL_PAID}:',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Color(0xFF64748B),
+                                ),
+                              ),
+                              Text(
+                                AppStrings.money(invoice.paidAmount),
+                                style: const TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 3),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
                               Text(
                                 invoice.isChangePositive
                                     ? '${AppStrings.LABEL_CHANGE}:'
                                     : '${AppStrings.LABEL_REMAINING_ON_CUSTOMER}:',
                                 style: TextStyle(
-                                  fontSize: 12,
+                                  fontSize: 11,
                                   fontWeight: FontWeight.bold,
                                   color: invoice.isChangePositive
                                       ? AppColors.SUCCESS_GREEN
@@ -475,7 +522,7 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
                                         invoice.remainingOnCustomer,
                                       ),
                                 style: TextStyle(
-                                  fontSize: 13,
+                                  fontSize: 11.5,
                                   fontWeight: FontWeight.bold,
                                   color: invoice.isChangePositive
                                       ? AppColors.SUCCESS_GREEN
@@ -487,55 +534,55 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 8),
 
                     // سياسة الاسترجاع
                     const Text(
                       'البضاعة المباعة ترد وتستبدل خلال 14 يوماً مع أصل الفاتورة',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 10.5,
+                        fontSize: 9.5,
                         color: Color(0xFF64748B),
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 3),
 
                     // تذييل الشكر
                     const Text(
                       'شكراً لتعاملكم معنا • نسعد بخدمتكم دائماً',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: 10,
                         fontWeight: FontWeight.bold,
                         color: Color(0xFF334155),
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 6),
 
                     // باركود الفاتورة المطابق للطباعة
                     Column(
                       children: [
                         CustomPaint(
-                          size: const Size(120, 22),
+                          size: const Size(110, 20),
                           painter: _BarcodePainter(invoice.invoiceNumber),
                         ),
-                        const SizedBox(height: 3),
+                        const SizedBox(height: 2),
                         Text(
                           invoice.invoiceNumber,
                           style: const TextStyle(
-                            fontSize: 9,
+                            fontSize: 8.5,
                             fontFamily: 'monospace',
                             color: Color(0xFF64748B),
-                            letterSpacing: 1.5,
+                            letterSpacing: 1.2,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 3),
                     Text(
                       'تم إصدار الفاتورة عبر نظام ${AppStrings.APP_NAME}',
                       style: const TextStyle(
-                        fontSize: 9.5,
+                        fontSize: 8.5,
                         color: Color(0xFF94A3B8),
                       ),
                     ),
@@ -687,7 +734,7 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
           Expanded(
             flex: c.flex,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
               decoration: BoxDecoration(
                 color: isHeader ? _headerBg : (zebra ? _zebraBg : Colors.white),
                 border: Border.all(color: _gridLine, width: 0.5),
@@ -699,7 +746,7 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: isHeader ? 11.5 : 11,
+                        fontSize: isHeader ? 10.5 : 10.0,
                         fontWeight: isHeader || c.bold ? FontWeight.bold : FontWeight.normal,
                         color: isHeader
                             ? const Color(0xFF1E293B)
@@ -715,7 +762,7 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
                         c.text,
                         textAlign: c.align,
                         style: TextStyle(
-                          fontSize: isHeader ? 11.5 : 11.5,
+                          fontSize: isHeader ? 10.5 : 10.0,
                           fontWeight: isHeader || c.bold
                               ? FontWeight.bold
                               : FontWeight.normal,

@@ -477,8 +477,8 @@ class _CollapsibleSidebar extends ConsumerWidget {
                 padding: const EdgeInsets.fromLTRB(12, 14, 8, 8),
                 child: Row(
                   children: [
-                    StoreLogo(size: 44 * scale),
-                    const SizedBox(width: 10),
+                    StoreLogo(size: 32 * scale),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -488,7 +488,7 @@ class _CollapsibleSidebar extends ConsumerWidget {
                             storeName.isNotEmpty ? storeName : AppStrings.DEFAULT_STORE_NAME,
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              fontSize: 14.5 * scale,
+                              fontSize: 12.5 * scale,
                               color: AppColors.PRIMARY_BLUE_DARK,
                             ),
                             overflow: TextOverflow.ellipsis,
@@ -496,7 +496,7 @@ class _CollapsibleSidebar extends ConsumerWidget {
                           Text(
                             AppStrings.APP_NAME,
                             style: TextStyle(
-                              fontSize: 11 * scale,
+                              fontSize: 9.5 * scale,
                               color: AppColors.TEXT_SECONDARY,
                             ),
                             overflow: TextOverflow.ellipsis,
